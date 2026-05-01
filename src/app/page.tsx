@@ -1,0 +1,2 @@
+import Link from 'next/link';
+export default function Home(){return <main><h1>MuttMind MVP</h1><p>Collaborative intelligence capture and network graph foundation.</p><div style={{display:'grid',gap:12,gridTemplateColumns:'1fr 1fr'}}><Link href='/login' className='card'>Login</Link><Link href='/dashboard' className='card'>Dashboard</Link><Link href='/vault' className='card'>Vault</Link><Link href='/settings' className='card'>Settings</Link></div></main>}

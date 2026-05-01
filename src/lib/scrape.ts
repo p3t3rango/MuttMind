@@ -1,0 +1,2 @@
+import * as cheerio from 'cheerio';
+export async function scrapeUrl(url: string) { const res = await fetch(url, { headers: { 'user-agent': 'MuttMindBot/1.0' } }); const html = await res.text(); const $ = cheerio.load(html); const pick=(s:string,a='content')=>$(s).attr(a)?.trim()??''; return { title: pick('meta[property="og:title"]') || $('title').text().trim(), description: pick('meta[property="og:description"]') || pick('meta[name="description"]'), image: pick('meta[property="og:image"]'), author: pick('meta[name="author"]') }; }

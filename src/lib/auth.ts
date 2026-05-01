@@ -1,0 +1,2 @@
+import { supabaseAdmin } from './supabase';
+export async function requireUserId(req: Request): Promise<string> { const auth = req.headers.get('authorization'); if (!auth?.startsWith('Bearer ')) throw new Error('Missing bearer token'); const token = auth.slice(7); const { data, error } = await supabaseAdmin.auth.getUser(token); if (error || !data.user) throw new Error('Invalid auth token'); return data.user.id; }

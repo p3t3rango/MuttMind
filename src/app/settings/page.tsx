@@ -13,6 +13,7 @@ type Workspace = {
     name: string;
     title?: string;
     created_at: string;
+    member_count?: number;
   };
 };
 
@@ -22,6 +23,30 @@ type Tag = {
   description: string | null;
   created_at: string;
 };
+
+type Member = {
+  role: string;
+  createdAt: string;
+  user: {
+    id: string;
+    email: string | null;
+    displayName: string | null;
+  };
+};
+
+type Invite = {
+  id: string;
+  email: string | null;
+  token: string;
+  role: string;
+  accepted_at: string | null;
+  expires_at: string | null;
+};
+
+function getMindLabel(workspace: Workspace | null) {
+  if (!workspace) return 'Mind';
+  return (workspace.workspaces.member_count ?? 1) > 1 ? 'Shared Mind' : 'Mind';
+}
 
 function SettingsContent() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -33,6 +58,10 @@ function SettingsContent() {
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [editingDescription, setEditingDescription] = useState('');
+  const [members, setMembers] = useState<Member[]>([]);
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [latestInviteLink, setLatestInviteLink] = useState('');
 
   const currentWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.workspaces.id === workspaceId) ?? null,
@@ -45,7 +74,7 @@ function SettingsContent() {
     const nextWorkspaces = d.workspaces ?? [];
     setWorkspaces(nextWorkspaces);
     setWorkspaceId((current) => current || nextWorkspaces[0]?.workspaces.id || '');
-    if (!nextWorkspaces.length) setStatus('Create a workspace before managing tags.');
+    if (!nextWorkspaces.length) setStatus('Create a Mind before managing tags.');
   };
 
   const loadTags = async (nextWorkspaceId = workspaceId) => {
@@ -59,6 +88,23 @@ function SettingsContent() {
     setTags((d.tags ?? []) as Tag[]);
   };
 
+  const loadMembers = async (nextWorkspaceId = workspaceId) => {
+    if (!nextWorkspaceId) {
+      setMembers([]);
+      setInvites([]);
+      return;
+    }
+
+    const [membersResponse, invitesResponse] = await Promise.all([
+      authedFetch(`/api/members?workspaceId=${nextWorkspaceId}`),
+      authedFetch(`/api/invites?workspaceId=${nextWorkspaceId}`),
+    ]);
+    const membersData = await membersResponse.json();
+    const invitesData = await invitesResponse.json();
+    setMembers(membersResponse.ok ? membersData.members ?? [] : []);
+    setInvites(invitesResponse.ok ? invitesData.invites ?? [] : []);
+  };
+
   useEffect(() => {
     (async () => {
       await loadWorkspaces();
@@ -67,6 +113,7 @@ function SettingsContent() {
 
   useEffect(() => {
     loadTags();
+    loadMembers();
   }, [workspaceId]);
 
   const createTag = async () => {
@@ -145,7 +192,7 @@ function SettingsContent() {
     });
     if (!r.ok) {
       const d = await r.json();
-      setStatus(d.error ?? 'Unable to export vault.');
+      setStatus(d.error ?? 'Unable to export archive.');
       return;
     }
     const blob = await r.blob();
@@ -158,16 +205,65 @@ function SettingsContent() {
     setStatus('Export downloaded.');
   };
 
+  const buildInviteLink = (token: string) => `${window.location.origin}/invite/${token}`;
+
+  const inviteByEmail = async () => {
+    if (!workspaceId) return;
+    const email = inviteEmail.trim();
+    if (!email) {
+      setStatus('Enter an email address first.');
+      return;
+    }
+    setStatus('Creating invite...');
+    const response = await authedFetch('/api/members', {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId, email }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.error ?? 'Unable to invite member.');
+      return;
+    }
+    if (data.invite?.token) {
+      setLatestInviteLink(buildInviteLink(data.invite.token));
+      setStatus('Invite link created for that email.');
+    } else {
+      setLatestInviteLink('');
+      setStatus('Member added to this Shared Mind.');
+    }
+    setInviteEmail('');
+    await loadMembers();
+    await loadWorkspaces();
+  };
+
+  const createInviteLink = async () => {
+    if (!workspaceId) return;
+    setStatus('Creating share link...');
+    const response = await authedFetch('/api/invites', {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.error ?? 'Unable to create invite link.');
+      return;
+    }
+    const link = buildInviteLink(data.invite.token);
+    setLatestInviteLink(link);
+    setStatus('Share link created.');
+    await loadMembers();
+  };
+
   return (
     <main className="app-shell">
       <AppNav active="settings" />
 
       <section className="section-header section-header--compact" aria-labelledby="settings-title">
         <div>
-          <p className="eyebrow">§ Settings / Workspace controls</p>
-          <h1 id="settings-title">Tags and export.</h1>
+          <p className="eyebrow">§ Settings / Mind controls</p>
+          <h1 id="settings-title">Mind settings.</h1>
           <p className="lede">
-            Manage the framework tags MuttMind uses for captures, and download a portable workspace archive.
+            Manage collaborators, framework tags, and portable exports for the selected Mind.
           </p>
         </div>
         <Link href="/dashboard" className="button-secondary">
@@ -178,26 +274,26 @@ function SettingsContent() {
       <section className="panel">
         <div className="panel-header">
           <div>
-            <p className="eyebrow">Workspace</p>
+            <p className="eyebrow">{getMindLabel(currentWorkspace)}</p>
             <h2>Settings scope</h2>
           </div>
           <div className="button-row">
             <button className="button-secondary" onClick={exportVault}>
-              Download Obsidian Vault
+              Download Obsidian Archive
             </button>
-            <span className="tag-pill">{currentWorkspace?.workspaces.name ?? 'No workspace selected'}</span>
+            <span className="tag-pill">{currentWorkspace?.workspaces.name ?? 'No Mind selected'}</span>
           </div>
         </div>
 
         <div className="vault-layout">
           <aside className="vault-sidebar">
             <label className="form-row">
-              <span className="field-label">Workspace</span>
+              <span className="field-label">Mind</span>
               <select value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
-                <option value="">Select workspace</option>
+                <option value="">Select Mind</option>
                 {workspaces.map((workspace) => (
                   <option key={workspace.workspaces.id} value={workspace.workspaces.id}>
-                    {workspace.workspaces.name} ({workspace.role})
+                    {workspace.workspaces.name} - {workspace.workspaces.member_count && workspace.workspaces.member_count > 1 ? 'Shared Mind' : 'Mind'} ({workspace.role})
                   </option>
                 ))}
               </select>
@@ -207,8 +303,8 @@ function SettingsContent() {
               <div className="vault-group__header">
                 <p className="kicker">Access</p>
               </div>
-              <p className="vault-group__title">Workspace members</p>
-              <p className="meta vault-group__meta">Signed-in members can capture links and manage workspace material.</p>
+              <p className="vault-group__title">{getMindLabel(currentWorkspace)} members</p>
+              <p className="meta vault-group__meta">Invite people by email or share link. Once a Mind has multiple members, it becomes a Shared Mind.</p>
             </article>
 
             <article className="vault-group">
@@ -216,7 +312,7 @@ function SettingsContent() {
                 <p className="kicker">Telegram</p>
               </div>
               <p className="vault-group__title">Bot capture</p>
-              <p className="meta vault-group__meta">Saved links from Telegram appear in the selected workspace.</p>
+              <p className="meta vault-group__meta">Saved links from Telegram appear in the selected Mind.</p>
             </article>
 
             <article className="vault-group">
@@ -224,11 +320,56 @@ function SettingsContent() {
                 <p className="kicker">Export</p>
               </div>
               <p className="vault-group__title">Portable archive</p>
-              <p className="meta vault-group__meta">Download the workspace as markdown files with tags and source links.</p>
+              <p className="meta vault-group__meta">Download this Mind as markdown files with tags and source links.</p>
             </article>
           </aside>
 
           <div className="vault-main">
+            <section className="settings-list" aria-label="Mind members">
+              <article className="vault-group">
+                <div className="vault-group__header">
+                  <p className="kicker">Invite</p>
+                  <span className="tag-pill">{members.length} member{members.length === 1 ? '' : 's'}</span>
+                </div>
+                <div className="form-grid">
+                  <label className="form-row">
+                    <span className="field-label">Email invite</span>
+                    <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="friend@example.com" />
+                  </label>
+                  <div className="button-row">
+                    <button className="button-secondary" onClick={inviteByEmail}>
+                      Invite by Email
+                    </button>
+                    <button className="button-secondary" onClick={createInviteLink}>
+                      Create Share Link
+                    </button>
+                  </div>
+                  {latestInviteLink ? <p className="url">{latestInviteLink}</p> : null}
+                </div>
+              </article>
+
+              {members.map((member) => (
+                <article key={member.user.id} className="vault-group">
+                  <div className="vault-group__header">
+                    <p className="kicker">{member.role}</p>
+                    <span className="tag-pill">{member.user.displayName || member.user.email || 'Member'}</span>
+                  </div>
+                  <p className="meta vault-group__meta">{member.user.email}</p>
+                </article>
+              ))}
+
+              {invites.filter((invite) => !invite.accepted_at).map((invite) => (
+                <article key={invite.id} className="vault-group">
+                  <div className="vault-group__header">
+                    <p className="kicker">Pending invite</p>
+                    <span className="tag-pill">{invite.role}</span>
+                  </div>
+                  <p className="meta vault-group__meta">{invite.email || 'Share link'}</p>
+                  <p className="url">{buildInviteLink(invite.token)}</p>
+                </article>
+              ))}
+            </section>
+
             <div className="form-grid">
               <label className="form-row">
                 <span className="field-label">New tag</span>

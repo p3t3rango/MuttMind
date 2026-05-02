@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     await assertWorkspaceMember(workspaceId, userId);
     const { data, error } = await getSupabaseAdmin()
       .from('nodes')
-      .select('id,title,original_url,og_image_url,source_description,source_author,raw_text,ai_summary,node_tags(tags(shift_name))')
+      .select('id,title,original_url,og_image_url,source_description,source_author,raw_text,ai_summary,created_by,users(display_name,email),node_tags(tags(shift_name))')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -24,6 +24,8 @@ export async function GET(req: Request) {
       source_author: node.source_author,
       raw_text: node.raw_text,
       ai_summary: node.ai_summary,
+      created_by: node.created_by,
+      created_by_label: node.users?.display_name || node.users?.email || 'teammate',
       tags: Array.isArray(node.node_tags)
         ? node.node_tags
             .map((item: any) => item?.tags?.shift_name)

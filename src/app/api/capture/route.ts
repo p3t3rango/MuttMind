@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     const { workspaceId, url, rawText } = await req.json();
     const result = await captureSignal({ userId, workspaceId, url, rawText });
 
-    return Response.json({ ok: true, nodeId: result.nodeId });
+    return Response.json({ ok: true, nodeId: result.nodeId, warnings: result.warnings ?? [] });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : 'unknown' }, { status: 401 });
   }

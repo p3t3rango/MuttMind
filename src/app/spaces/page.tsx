@@ -4,6 +4,16 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
+import { authedFetch } from '@/lib/client-auth';
+
+type Mind = {
+  role: string;
+  workspaces: {
+    id: string;
+    name: string;
+    member_count?: number;
+  };
+};
 
 type SmartSpace = {
   id: string;
@@ -12,63 +22,93 @@ type SmartSpace = {
   workspaceId: string;
   color: string;
   createdAt: string;
+  createdByLabel?: string;
 };
 
-const SMART_SPACES_KEY = 'muttmind:smart-spaces';
-
-function loadStoredSpaces() {
-  try {
-    return JSON.parse(window.localStorage.getItem(SMART_SPACES_KEY) ?? '[]') as SmartSpace[];
-  } catch {
-    return [];
-  }
+function getMindLabel(mind: Mind | undefined) {
+  if (!mind) return 'No Mind selected';
+  return (mind.workspaces.member_count ?? 1) > 1 ? 'Shared Mind' : 'Mind';
 }
 
 function SpacesContent() {
   const router = useRouter();
+  const [minds, setMinds] = useState<Mind[]>([]);
+  const [mindId, setMindId] = useState('');
   const [spaces, setSpaces] = useState<SmartSpace[]>([]);
   const [queryDraft, setQueryDraft] = useState('');
   const [nameDraft, setNameDraft] = useState('');
   const [status, setStatus] = useState('');
 
-  useEffect(() => {
-    setSpaces(loadStoredSpaces());
-  }, []);
+  const currentMind = minds.find((mind) => mind.workspaces.id === mindId);
 
-  const persistSpaces = (nextSpaces: SmartSpace[]) => {
-    setSpaces(nextSpaces);
-    window.localStorage.setItem(SMART_SPACES_KEY, JSON.stringify(nextSpaces));
+  const loadMinds = async () => {
+    const response = await authedFetch('/api/workspaces');
+    const data = await response.json();
+    const nextMinds = data.workspaces ?? [];
+    setMinds(nextMinds);
+    setMindId((current) => current || nextMinds[0]?.workspaces?.id || '');
   };
 
-  const createSpace = () => {
+  const loadSpaces = async (nextMindId = mindId) => {
+    if (!nextMindId) {
+      setSpaces([]);
+      return;
+    }
+    const response = await authedFetch(`/api/spaces?workspaceId=${nextMindId}`);
+    const data = await response.json();
+    setSpaces(data.spaces ?? []);
+  };
+
+  useEffect(() => {
+    loadMinds();
+  }, []);
+
+  useEffect(() => {
+    loadSpaces();
+  }, [mindId]);
+
+  const createSpace = async () => {
     const query = queryDraft.trim();
     const name = nameDraft.trim() || query;
+    if (!mindId) {
+      setStatus('Choose a Mind first.');
+      return;
+    }
     if (!query || !name) {
-      setStatus('Add a search like #music, type:video, or site:example.com.');
+      setStatus('Add a search like #music, type:video, by:pete, or site:example.com.');
       return;
     }
 
-    const nextSpace: SmartSpace = {
-      id: window.crypto.randomUUID(),
-      name,
-      query,
-      workspaceId: 'all',
-      color: '#7c3aed',
-      createdAt: new Date().toISOString(),
-    };
-    persistSpaces([nextSpace, ...spaces]);
+    const response = await authedFetch('/api/spaces', {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId: mindId, name, query, color: '#7c3aed' }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.error ?? 'Unable to save Smart Space.');
+      return;
+    }
     setQueryDraft('');
     setNameDraft('');
-    setStatus('Smart Space saved.');
+    setStatus('Smart Space saved for this Mind.');
+    await loadSpaces();
   };
 
   const openSpace = (space: SmartSpace) => {
     window.localStorage.setItem('muttmind:active-space-query', space.query);
+    window.localStorage.setItem('muttmind:active-mind-id', space.workspaceId);
     router.push('/dashboard');
   };
 
-  const deleteSpace = (spaceId: string) => {
-    persistSpaces(spaces.filter((space) => space.id !== spaceId));
+  const deleteSpace = async (spaceId: string) => {
+    if (!mindId) return;
+    const response = await authedFetch(`/api/spaces?workspaceId=${mindId}&spaceId=${spaceId}`, { method: 'DELETE' });
+    const data = await response.json();
+    if (!response.ok) {
+      setStatus(data.error ?? 'Unable to delete Smart Space.');
+      return;
+    }
+    await loadSpaces();
   };
 
   return (
@@ -78,10 +118,18 @@ function SpacesContent() {
       <section className="spaces-page" aria-labelledby="spaces-title">
         <div className="spaces-page__header">
           <div>
-            <p className="eyebrow">Saved searches</p>
-            <h1 id="spaces-title">Spaces</h1>
+            <p className="eyebrow">{getMindLabel(currentMind)} / Saved filters</p>
+            <h1 id="spaces-title">Smart Spaces</h1>
           </div>
           <div className="spaces-page__create" aria-label="Create Smart Space">
+            <select value={mindId} onChange={(event) => setMindId(event.target.value)} aria-label="Choose Mind">
+              <option value="">Choose Mind</option>
+              {minds.map((mind) => (
+                <option key={mind.workspaces.id} value={mind.workspaces.id}>
+                  {mind.workspaces.name} - {getMindLabel(mind)}
+                </option>
+              ))}
+            </select>
             <input
               aria-label="Smart Space name"
               placeholder="Name"
@@ -90,7 +138,7 @@ function SpacesContent() {
             />
             <input
               aria-label="Smart Space query"
-              placeholder="#tag, type:image, site:example.com"
+              placeholder="#tag, type:image, by:pete, site:example.com"
               value={queryDraft}
               onChange={(event) => setQueryDraft(event.target.value)}
               onKeyDown={(event) => {
@@ -103,7 +151,7 @@ function SpacesContent() {
           </div>
         </div>
 
-        <p className="status">{status || 'Smart Spaces are live filters. Save a search once, then reopen that view anytime.'}</p>
+        <p className="status">{status || 'Smart Spaces are shared saved searches inside the selected Mind.'}</p>
 
         {spaces.length ? (
           <div className="spaces-grid">
@@ -113,6 +161,7 @@ function SpacesContent() {
                   <span className="space-card__dot" style={{ borderColor: space.color }} />
                   <span className="space-card__name">{space.name}</span>
                   <span className="space-card__query">{space.query}</span>
+                  <span className="space-card__query">Created by {space.createdByLabel ?? 'teammate'}</span>
                 </button>
                 <button className="space-card__delete" onClick={() => deleteSpace(space.id)}>
                   Delete
@@ -122,8 +171,8 @@ function SpacesContent() {
           </div>
         ) : (
           <div className="mind-empty">
-            <h2>No Spaces yet.</h2>
-            <p>Try saving searches like #creative-direction, type:video, or site:peterarango.com.</p>
+            <h2>No Smart Spaces yet.</h2>
+            <p>Save filtered views like #creative-direction, type:video, by:pete, or site:peterarango.com.</p>
           </div>
         )}
       </section>

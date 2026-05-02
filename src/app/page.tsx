@@ -38,12 +38,12 @@ export default function Home() {
       <section className="hero" aria-labelledby="home-title">
         <div className="hero-copy">
           <div className="hero-content">
-            <p className="eyebrow">§ Public index / MuttMind brief</p>
+            <p className="eyebrow">§ MuttMind brief</p>
             <h1 id="home-title" className="display-title">Capture the links your team keeps revisiting.</h1>
             <p className="lede">
-              MuttMind turns links, notes, and source context into a shared workspace
-              vault. Capture from Telegram or the browser, group by workspace, and review
-              the graph when you need the shape of the work.
+              MuttMind turns links, notes, and source context into a shared Mind.
+              Capture from Telegram or the browser, let AI organize it, then save useful
+              searches as Smart Spaces.
             </p>
             <div className="hero-actions">
               <Link href="/login" className="button">
@@ -67,11 +67,11 @@ export default function Home() {
               </div>
               <div className="list-item">
                 <span className="metric-value">ORGANIZE</span>
-                <span className="metric-label">Group signals by workspace and framework tags.</span>
+                <span className="metric-label">Group captures by Mind, uploader, type, and tags.</span>
               </div>
               <div className="list-item">
                 <span className="metric-value">REVIEW</span>
-                <span className="metric-label">Inspect thumbnails, list views, and the vault graph.</span>
+                <span className="metric-label">Inspect thumbnails, Smart Spaces, and the relationship map.</span>
               </div>
             </div>
           </div>
@@ -83,22 +83,22 @@ export default function Home() {
           <p className="eyebrow">01 Capture</p>
           <h3>Send a link, keep the context.</h3>
           <p className="lede">
-            Telegram and the browser feed the same vault, so the signal, the note, and the
+            Telegram and the browser feed the same Mind, so the signal, the note, and the
             source all land together.
           </p>
         </article>
         <article className="panel">
           <p className="eyebrow">02 Organize</p>
-          <h3>Work by workspace.</h3>
+          <h3>Work by Mind.</h3>
           <p className="lede">
-            Each team or project gets its own vault scope, tags, and capture history.
+            Each personal or shared Mind gets its own tags, members, Smart Spaces, and capture history.
           </p>
         </article>
         <article className="panel">
           <p className="eyebrow">03 Review</p>
           <h3>See the shape of the work.</h3>
           <p className="lede">
-            Use the list view for scanning and the graph view for relationships between
+            Use the main Mind view for scanning and the map for relationships between
             captured items.
           </p>
         </article>

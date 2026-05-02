@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     if (command === '/use') {
       const query = trimmedText.replace(/^\/use(@\w+)?\s*/i, '').trim();
       if (!query) {
-        await sendTelegramMessage(chatId, 'Send /use followed by a workspace name or UUID.');
+        await sendTelegramMessage(chatId, 'Send /use followed by a Mind name or UUID.');
         return Response.json({ ok: true, command, missingQuery: true });
       }
 
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       if (!workspace) {
         await sendTelegramMessage(
           chatId,
-          `I could not find that workspace.\n\n${formatWorkspaceList(workspaces)}`,
+          `I could not find that Mind.\n\n${formatWorkspaceList(workspaces)}`,
         );
         return Response.json({ ok: true, command, notFound: true });
       }
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       await setActiveTelegramWorkspace(telegramUserId, user.id, workspace.id);
       await sendTelegramMessage(
         chatId,
-        `Active workspace set to ${workspace.name}.\n\nNow send any URL and I will capture it there.`,
+        `Active Mind set to ${workspace.name}.\n\nNow send any URL and I will capture it there.`,
       );
       return Response.json({ ok: true, command, workspaceId: workspace.id });
     }
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     if (!url) {
       await sendTelegramMessage(
         chatId,
-        'Send a URL to capture, /workspaces to list workspaces, or /use <workspace> to choose one.',
+        'Send a URL to capture, /workspaces to list Minds, or /use <Mind> to choose one.',
       );
       return Response.json({ ok: true, ignored: true, reason: 'no url' });
     }
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     if (!activeWorkspace) {
       await sendTelegramMessage(
         chatId,
-        `Choose a workspace first.\n\n${formatWorkspaceList(workspaces)}`,
+        `Choose a Mind first.\n\n${formatWorkspaceList(workspaces)}`,
       );
       return Response.json({ ok: true, ignored: true, reason: 'no active workspace' });
     }

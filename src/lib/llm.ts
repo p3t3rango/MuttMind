@@ -93,7 +93,8 @@ async function geminiEmbed(input: { text: string }): Promise<number[]> {
         content: {
           parts: [{ text: input.text }],
         },
-        taskType: 'SEMANTIC_SIMILARITY',
+        task_type: 'SEMANTIC_SIMILARITY',
+        output_dimensionality: 768,
       }),
     },
   );

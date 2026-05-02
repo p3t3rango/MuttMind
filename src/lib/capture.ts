@@ -44,17 +44,27 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
     .select('shift_name')
     .eq('workspace_id', workspaceId);
 
+  const warnings: string[] = [];
+  const sourceText = [
+    `Title: ${node.title ?? ''}`,
+    `URL: ${node.original_url ?? ''}`,
+    `Author: ${node.source_author ?? ''}`,
+    `Description: ${node.source_description ?? ''}`,
+    `Text: ${node.raw_text ?? ''}`,
+  ]
+    .join('\n')
+    .trim();
+
   const ai = await aiProcess({
-    text: [
-      `Title: ${node.title ?? ''}`,
-      `URL: ${node.original_url ?? ''}`,
-      `Author: ${node.source_author ?? ''}`,
-      `Description: ${node.source_description ?? ''}`,
-      `Text: ${node.raw_text ?? ''}`,
-    ]
-      .join('\n')
-      .trim(),
+    text: sourceText,
     tags: (tagsData ?? []).map((tag) => tag.shift_name),
+  }).catch((error) => {
+    warnings.push(error instanceof Error ? error.message : 'AI processing failed.');
+    return {
+      summary: node.source_description || node.raw_text || node.title || 'Saved. MuttMind will add details when processing is available.',
+      tags: [] as string[],
+      embedding: [] as number[],
+    };
   });
 
   await getSupabaseAdmin().from('nodes').update({ ai_summary: ai.summary }).eq('id', node.id);
@@ -72,12 +82,16 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
     .trim();
 
   if (embeddingText) {
-    const embedding = await embeddingProcess({ text: embeddingText });
-    if (embedding.length) {
-      await getSupabaseAdmin().from('embeddings').upsert(
-        { node_id: node.id, embedding },
-        { onConflict: 'node_id' },
-      );
+    try {
+      const embedding = await embeddingProcess({ text: embeddingText });
+      if (embedding.length) {
+        await getSupabaseAdmin().from('embeddings').upsert(
+          { node_id: node.id, embedding },
+          { onConflict: 'node_id' },
+        );
+      }
+    } catch (error) {
+      warnings.push(error instanceof Error ? error.message : 'Embedding failed.');
     }
   }
 
@@ -104,5 +118,5 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
     }
   }
 
-  return { nodeId: node.id };
+  return { nodeId: node.id, warnings };
 }

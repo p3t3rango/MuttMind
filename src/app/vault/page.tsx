@@ -634,7 +634,7 @@ function GraphStage({
               >
                 {node.kind === 'core' ? (
                   <span className="graph-node__content graph-node__content--core">
-                    <span className="graph-node__eyebrow">Vault core</span>
+                    <span className="graph-node__eyebrow">Mind core</span>
                     <strong>{node.label}</strong>
                     <span>{node.count} captures</span>
                   </span>
@@ -678,7 +678,7 @@ function VaultContent() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [nodes, setNodes] = useState<NodeItem[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
-  const [status, setStatus] = useState('Loading workspaces...');
+  const [status, setStatus] = useState('Loading Minds...');
   const [view, setView] = useState<'list' | 'graph'>('list');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -699,7 +699,7 @@ function VaultContent() {
       setWorkspaceId((current) => current || nextWorkspaces[0]?.workspaces.id || '');
 
       if (!nextWorkspaces.length) {
-        setStatus('No workspaces found. Create one in Dashboard first.');
+        setStatus('No Minds found. Create one from the Mind view first.');
       }
     })();
   }, []);
@@ -736,12 +736,12 @@ function VaultContent() {
         return;
       }
 
-      setStatus('Loading vault...');
+      setStatus('Loading Mind...');
       const r = await authedFetch(`/api/nodes?workspaceId=${workspaceId}`);
       const d = await r.json();
       const nextNodes: NodeItem[] = d.nodes ?? [];
       setNodes(nextNodes);
-      setStatus(nextNodes.length ? 'Library loaded.' : 'No captures found for this workspace.');
+      setStatus(nextNodes.length ? 'Mind loaded.' : 'No captures found for this Mind.');
       setSelectedId((current) => {
         if (current && nextNodes.some((node: NodeItem) => node.id === current)) return current;
         return nextNodes[0]?.id ?? null;
@@ -751,14 +751,14 @@ function VaultContent() {
 
   const clearVault = async () => {
     if (!workspaceId) return;
-    if (!confirm('Clear all captures in this workspace?')) return;
-    setStatus('Clearing library...');
+    if (!confirm('Clear all captures in this Mind?')) return;
+    setStatus('Clearing Mind...');
     const r = await authedFetch(`/api/nodes?workspaceId=${workspaceId}`, {
       method: 'DELETE',
     });
     const d = await r.json();
     if (!r.ok) {
-      setStatus(d.error ?? 'Unable to clear vault.');
+      setStatus(d.error ?? 'Unable to clear Mind.');
       return;
     }
     setNodes([]);
@@ -843,10 +843,10 @@ function VaultContent() {
 
       <section className="section-header section-header--compact section-header--vault" aria-labelledby="vault-title">
         <div>
-          <p className="eyebrow">§ Library / Saved intelligence</p>
-          <h1 id="vault-title">Your library.</h1>
+          <p className="eyebrow">§ Mind / Saved intelligence</p>
+          <h1 id="vault-title">Mind map.</h1>
           <p className="lede">
-            Search saved links as visual cards or open the map when you want to inspect relationships.
+            Inspect how captures connect by source, tag, and semantic similarity.
           </p>
         </div>
         <Link href="/dashboard" className="button-secondary">
@@ -857,11 +857,11 @@ function VaultContent() {
       <section className="panel vault-controls">
         <div className="panel-header vault-controls__header">
           <div>
-            <p className="eyebrow">Workspace</p>
+            <p className="eyebrow">Mind</p>
             <h2>{view === 'graph' ? 'Relationship map' : 'Signal library'}</h2>
           </div>
           <div className="vault-actions">
-            <div className="vault-mode-tabs" aria-label="Vault view mode">
+            <div className="vault-mode-tabs" aria-label="Mind view mode">
               <button className={view === 'list' ? 'button' : 'button-ghost'} onClick={() => setView('list')}>
                 Cards
               </button>
@@ -878,9 +878,9 @@ function VaultContent() {
 
         <div className="vault-filterbar">
           <label className="form-row">
-              <span className="field-label">Workspace</span>
+              <span className="field-label">Mind</span>
               <select value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
-                <option value="">Select workspace</option>
+                <option value="">Select Mind</option>
                 {workspaces.map((workspace) => (
                   <option key={workspace.workspaces.id} value={workspace.workspaces.id}>
                     {workspace.workspaces.name} ({workspace.role})
@@ -899,7 +899,7 @@ function VaultContent() {
         </div>
 
         <div className="vault-summary-row">
-          <span>{workspaces.length} workspaces</span>
+          <span>{workspaces.length} Minds</span>
           <span>{filteredNodes.length} shown</span>
           <span>{graphGroups.length} groups</span>
           <span>{status}</span>
@@ -919,7 +919,7 @@ function VaultContent() {
               onResetLayout={resetLayout}
             />
           ) : (
-            <div className="empty-state">Choose a workspace with captures to see the map.</div>
+            <div className="empty-state">Choose a Mind with captures to see the map.</div>
           )
         ) : filteredNodes.length > 0 ? (
           <div className="card-grid">
@@ -970,7 +970,7 @@ function VaultContent() {
             ))}
           </div>
         ) : (
-          <div className="empty-state">Saved links will appear here after you choose a workspace.</div>
+          <div className="empty-state">Saved links will appear here after you choose a Mind.</div>
         )}
       </section>
 

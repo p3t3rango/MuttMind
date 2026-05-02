@@ -91,11 +91,11 @@ export async function setActiveTelegramWorkspace(
 
 export function formatWorkspaceList(workspaces: TelegramWorkspace[]) {
   if (!workspaces.length) {
-    return 'No workspaces found. Create one in MuttMind first, then come back here.';
+    return 'No Minds found. Create one in MuttMind first, then come back here.';
   }
 
   return [
-    'Your MuttMind workspaces:',
+    'Your MuttMind Minds:',
     ...workspaces.map(
       (workspace, index) =>
         `${index + 1}. ${workspace.name} (${workspace.role})\n/use ${workspace.id}`,

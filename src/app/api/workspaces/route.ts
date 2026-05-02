@@ -10,7 +10,24 @@ export async function GET(req: Request) {
       .select('role, workspaces(id, name, markdown_content, created_at)')
       .eq('user_id', userId);
     if (error) return Response.json({ error: error.message }, { status: 500 });
-    const workspaces = (data ?? []).map((item: any) => ({
+    const rows = data ?? [];
+    const workspaceIds = rows
+      .map((item: any) => item.workspaces?.id)
+      .filter((id: unknown): id is string => typeof id === 'string');
+    const memberCounts = new Map<string, number>();
+
+    if (workspaceIds.length) {
+      const { data: members } = await getSupabaseAdmin()
+        .from('workspace_members')
+        .select('workspace_id')
+        .in('workspace_id', workspaceIds);
+
+      (members ?? []).forEach((member: any) => {
+        memberCounts.set(member.workspace_id, (memberCounts.get(member.workspace_id) ?? 0) + 1);
+      });
+    }
+
+    const workspaces = rows.map((item: any) => ({
       role: item.role,
       workspaces: {
         id: item.workspaces.id,
@@ -18,6 +35,7 @@ export async function GET(req: Request) {
         name: item.workspaces.name,
         markdown_content: item.workspaces.markdown_content,
         created_at: item.workspaces.created_at,
+        member_count: memberCounts.get(item.workspaces.id) ?? 1,
       },
     }));
     return Response.json({ workspaces });

@@ -48,13 +48,13 @@ export function AppNav({ active = 'home' }: AppNavProps) {
               href="/dashboard"
               className={active === 'dashboard' ? 'nav-link active' : 'nav-link'}
             >
-              <span className="nav-num">01</span> Everything
+              <span className="nav-num">01</span> Mind
             </Link>
             <Link href="/spaces" className={active === 'spaces' ? 'nav-link active' : 'nav-link'}>
-              <span className="nav-num">02</span> Spaces
+              <span className="nav-num">02</span> Smart Spaces
             </Link>
             <Link href="/vault" className={active === 'vault' ? 'nav-link active' : 'nav-link'}>
-              <span className="nav-num">03</span> Serendipity
+              <span className="nav-num">03</span> Map
             </Link>
             <Link
               href="/settings"
@@ -66,7 +66,7 @@ export function AppNav({ active = 'home' }: AppNavProps) {
         ) : (
           <>
             <Link href="/" className={active === 'home' ? 'nav-link active' : 'nav-link'}>
-              <span className="nav-num">01</span> Index
+              <span className="nav-num">01</span> What
             </Link>
             <Link href="/login" className={active === 'login' ? 'nav-link active' : 'nav-link'}>
               <span className="nav-num">02</span> Login
@@ -76,10 +76,6 @@ export function AppNav({ active = 'home' }: AppNavProps) {
       </nav>
 
       <div className="nav-meta" aria-live="polite">
-        <span className="session-state">
-          <span className="dot" />
-          {isLoaded && isAuthed ? 'ACTIVE' : active === 'home' ? 'PUBLIC' : 'LOCKED'}
-        </span>
         {isLoaded && isAuthed ? (
           <button className="nav-signout" onClick={signOut}>
             Sign out

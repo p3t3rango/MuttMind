@@ -42,19 +42,19 @@ export default function LoginPage() {
         <div className="hero-copy">
           <div className="hero-content">
             <p className="eyebrow">§ Secure access / MuttMind entrance</p>
-            <h1 id="login-title" className="auth-title">Sign in to your workspace.</h1>
+            <h1 id="login-title" className="auth-title">Sign in to MuttMind.</h1>
             <p className="lede">
-              Use your account to reach the dashboard, vault, and Telegram capture flow.
+              Use your account to reach your Mind, Smart Spaces, and Telegram capture flow.
             </p>
           </div>
           <div className="login-features" aria-label="Authenticated areas">
             <article className="login-feature">
-              <span className="kicker">Workspace</span>
-              <p>Choose the vault you want to work in.</p>
+              <span className="kicker">Mind</span>
+              <p>Choose the personal or shared Mind you want to work in.</p>
             </article>
             <article className="login-feature">
-              <span className="kicker">Vault</span>
-              <p>Review captures in list or graph view.</p>
+              <span className="kicker">Smart Spaces</span>
+              <p>Save filtered views that stay shared with the Mind.</p>
             </article>
             <article className="login-feature">
               <span className="kicker">Capture</span>

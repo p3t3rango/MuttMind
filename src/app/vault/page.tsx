@@ -473,8 +473,9 @@ function GraphStage({
     const element = stageRef.current;
     if (!element) return;
     const rect = element.getBoundingClientRect();
-    const halfWidth = ((nodes.find((node) => node.id === drag.id)?.width ?? 160) / rect.width) * 50;
-    const halfHeight = ((nodes.find((node) => node.id === drag.id)?.height ?? 80) / rect.height) * 50;
+    const node = nodes.find((item) => item.id === drag.id);
+    const halfWidth = Math.min(((node?.width ?? 160) / rect.width) * 50, 44);
+    const halfHeight = Math.min(((node?.height ?? 80) / rect.height) * 50, 44);
     const nextX = clamp(drag.originX + (dx / rect.width) * 100 / transform.scale, halfWidth + 2, 98 - halfWidth);
     const nextY = clamp(drag.originY + (dy / rect.height) * 100 / transform.scale, halfHeight + 2, 98 - halfHeight);
     onMoveNode(drag.id, nextX, nextY);
@@ -772,18 +773,21 @@ function VaultContent() {
     ? graphNodes.filter((node) => node.kind === 'capture' && node.connectedIds.includes(selectedGraphNode.id))
     : [];
 
+  const selectedGraphNodeId = selectedGraphNode?.id;
+  const selectedGraphNodeKind = selectedGraphNode?.kind;
+
   useEffect(() => {
     (async () => {
-      if (!workspaceId || !selectedGraphNode || selectedGraphNode.kind !== 'capture') {
+      if (!workspaceId || !selectedGraphNodeId || selectedGraphNodeKind !== 'capture') {
         setRelatedNodes([]);
         return;
       }
 
-      const r = await authedFetch(`/api/nodes/${selectedGraphNode.id}/related?workspaceId=${workspaceId}`);
+      const r = await authedFetch(`/api/nodes/${selectedGraphNodeId}/related?workspaceId=${workspaceId}`);
       const d = await r.json();
       setRelatedNodes((d.related ?? []) as RelatedNode[]);
     })();
-  }, [workspaceId, selectedGraphNode?.id]);
+  }, [workspaceId, selectedGraphNodeId, selectedGraphNodeKind]);
 
   return (
     <main className="app-shell">

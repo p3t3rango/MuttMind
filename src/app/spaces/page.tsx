@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
@@ -41,15 +41,15 @@ function SpacesContent() {
 
   const currentMind = minds.find((mind) => mind.workspaces.id === mindId);
 
-  const loadMinds = async () => {
+  const loadMinds = useCallback(async () => {
     const response = await authedFetch('/api/workspaces');
     const data = await response.json();
     const nextMinds = data.workspaces ?? [];
     setMinds(nextMinds);
     setMindId((current) => current || nextMinds[0]?.workspaces?.id || '');
-  };
+  }, []);
 
-  const loadSpaces = async (nextMindId = mindId) => {
+  const loadSpaces = useCallback(async (nextMindId = mindId) => {
     if (!nextMindId) {
       setSpaces([]);
       return;
@@ -57,15 +57,15 @@ function SpacesContent() {
     const response = await authedFetch(`/api/spaces?workspaceId=${nextMindId}`);
     const data = await response.json();
     setSpaces(data.spaces ?? []);
-  };
+  }, [mindId]);
 
   useEffect(() => {
     loadMinds();
-  }, []);
+  }, [loadMinds]);
 
   useEffect(() => {
     loadSpaces();
-  }, [mindId]);
+  }, [loadSpaces]);
 
   const createSpace = async () => {
     const query = queryDraft.trim();

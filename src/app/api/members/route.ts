@@ -2,6 +2,16 @@ import { requireUserId } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { assertWorkspaceAdmin, assertWorkspaceMember } from '@/lib/workspace';
 
+type MemberRow = {
+  role: string;
+  created_at: string;
+  users?: {
+    id?: string | null;
+    email?: string | null;
+    display_name?: string | null;
+  } | null;
+};
+
 export async function GET(req: Request) {
   try {
     const userId = await requireUserId(req);
@@ -17,7 +27,7 @@ export async function GET(req: Request) {
 
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
-    const members = (data ?? []).map((member: any) => ({
+    const members = ((data ?? []) as unknown as MemberRow[]).map((member) => ({
       role: member.role,
       createdAt: member.created_at,
       user: {

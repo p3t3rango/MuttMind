@@ -2,6 +2,20 @@ import { requireUserId } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { assertWorkspaceMember } from '@/lib/workspace';
 
+type SmartSpaceRow = {
+  id: string;
+  name: string;
+  query: string;
+  color: string;
+  workspace_id: string;
+  created_at: string;
+  created_by: string;
+  users?: {
+    display_name?: string | null;
+    email?: string | null;
+  } | null;
+};
+
 export async function GET(req: Request) {
   try {
     const userId = await requireUserId(req);
@@ -17,7 +31,7 @@ export async function GET(req: Request) {
 
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
-    const spaces = (data ?? []).map((space: any) => ({
+    const spaces = ((data ?? []) as unknown as SmartSpaceRow[]).map((space) => ({
       id: space.id,
       name: space.name,
       query: space.query,

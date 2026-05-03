@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env } from './env';
 
-let adminClient: SupabaseClient<any> | null = null;
+let adminClient: SupabaseClient | null = null;
 
 export function getSupabaseAdmin() {
   if (!adminClient) {

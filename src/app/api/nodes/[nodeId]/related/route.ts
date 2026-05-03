@@ -11,6 +11,21 @@ type NodeRow = {
   tags: string[];
 };
 
+type NodeTagRow = {
+  tags?: {
+    shift_name?: string | null;
+  } | null;
+};
+
+type NodeQueryRow = Omit<NodeRow, 'tags'> & {
+  node_tags?: NodeTagRow[] | null;
+};
+
+type EmbeddingRow = {
+  node_id: string;
+  embedding: unknown;
+};
+
 function cosineSimilarity(a: number[], b: number[]) {
   if (!a.length || !b.length || a.length !== b.length) return 0;
   let dot = 0;
@@ -39,14 +54,15 @@ export async function GET(req: Request, context: { params: Promise<{ nodeId: str
       .eq('workspace_id', workspaceId);
     if (nodesError) return Response.json({ error: nodesError.message }, { status: 500 });
 
-    const nodeIds = (nodesData ?? []).map((node: { id: string }) => node.id);
+    const rawNodes = (nodesData ?? []) as unknown as NodeQueryRow[];
+    const nodeIds = rawNodes.map((node) => node.id);
     const { data: embeddingsData, error: embeddingsError } = nodeIds.length
       ? await getSupabaseAdmin().from('embeddings').select('node_id,embedding').in('node_id', nodeIds)
       : { data: [], error: null };
 
     if (embeddingsError) return Response.json({ error: embeddingsError.message }, { status: 500 });
 
-    const nodes = (nodesData ?? []).map((node: any) => ({
+    const nodes = rawNodes.map((node) => ({
       id: node.id,
       title: node.title,
       original_url: node.original_url,
@@ -54,13 +70,13 @@ export async function GET(req: Request, context: { params: Promise<{ nodeId: str
       source_description: node.source_description,
       tags: Array.isArray(node.node_tags)
         ? node.node_tags
-            .map((item: any) => item?.tags?.shift_name)
+            .map((item) => item?.tags?.shift_name)
             .filter((tag: unknown): tag is string => typeof tag === 'string' && tag.length > 0)
         : [],
     })) as NodeRow[];
 
     const embeddingMap = new Map<string, number[]>(
-      (embeddingsData ?? []).map((row: any) => [
+      ((embeddingsData ?? []) as unknown as EmbeddingRow[]).map((row) => [
         row.node_id,
         Array.isArray(row.embedding)
           ? row.embedding.map((value: unknown) => Number(value)).filter((value: number) => Number.isFinite(value))

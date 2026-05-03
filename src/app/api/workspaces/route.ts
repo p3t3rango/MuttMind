@@ -2,6 +2,20 @@ import { requireUserId } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { assertWorkspaceMember } from '@/lib/workspace';
 
+type WorkspaceMemberRow = {
+  role: string;
+  workspaces: {
+    id: string;
+    name: string;
+    markdown_content: string | null;
+    created_at: string;
+  };
+};
+
+type MemberCountRow = {
+  workspace_id: string;
+};
+
 export async function GET(req: Request) {
   try {
     const userId = await requireUserId(req);
@@ -10,9 +24,9 @@ export async function GET(req: Request) {
       .select('role, workspaces(id, name, markdown_content, created_at)')
       .eq('user_id', userId);
     if (error) return Response.json({ error: error.message }, { status: 500 });
-    const rows = data ?? [];
+    const rows = (data ?? []) as unknown as WorkspaceMemberRow[];
     const workspaceIds = rows
-      .map((item: any) => item.workspaces?.id)
+      .map((item) => item.workspaces?.id)
       .filter((id: unknown): id is string => typeof id === 'string');
     const memberCounts = new Map<string, number>();
 
@@ -22,12 +36,12 @@ export async function GET(req: Request) {
         .select('workspace_id')
         .in('workspace_id', workspaceIds);
 
-      (members ?? []).forEach((member: any) => {
+      ((members ?? []) as unknown as MemberCountRow[]).forEach((member) => {
         memberCounts.set(member.workspace_id, (memberCounts.get(member.workspace_id) ?? 0) + 1);
       });
     }
 
-    const workspaces = rows.map((item: any) => ({
+    const workspaces = rows.map((item) => ({
       role: item.role,
       workspaces: {
         id: item.workspaces.id,

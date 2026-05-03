@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { authedFetch, getAccessToken } from '@/lib/client-auth';
@@ -68,16 +68,16 @@ function SettingsContent() {
     [workspaces, workspaceId],
   );
 
-  const loadWorkspaces = async () => {
+  const loadWorkspaces = useCallback(async () => {
     const r = await authedFetch('/api/workspaces');
     const d = await r.json();
     const nextWorkspaces = d.workspaces ?? [];
     setWorkspaces(nextWorkspaces);
     setWorkspaceId((current) => current || nextWorkspaces[0]?.workspaces.id || '');
     if (!nextWorkspaces.length) setStatus('Create a Mind before managing tags.');
-  };
+  }, []);
 
-  const loadTags = async (nextWorkspaceId = workspaceId) => {
+  const loadTags = useCallback(async (nextWorkspaceId = workspaceId) => {
     if (!nextWorkspaceId) {
       setTags([]);
       return;
@@ -86,9 +86,9 @@ function SettingsContent() {
     const r = await authedFetch(`/api/tags?workspaceId=${nextWorkspaceId}`);
     const d = await r.json();
     setTags((d.tags ?? []) as Tag[]);
-  };
+  }, [workspaceId]);
 
-  const loadMembers = async (nextWorkspaceId = workspaceId) => {
+  const loadMembers = useCallback(async (nextWorkspaceId = workspaceId) => {
     if (!nextWorkspaceId) {
       setMembers([]);
       setInvites([]);
@@ -103,18 +103,18 @@ function SettingsContent() {
     const invitesData = await invitesResponse.json();
     setMembers(membersResponse.ok ? membersData.members ?? [] : []);
     setInvites(invitesResponse.ok ? invitesData.invites ?? [] : []);
-  };
+  }, [workspaceId]);
 
   useEffect(() => {
     (async () => {
       await loadWorkspaces();
     })();
-  }, []);
+  }, [loadWorkspaces]);
 
   useEffect(() => {
     loadTags();
     loadMembers();
-  }, [workspaceId]);
+  }, [loadMembers, loadTags]);
 
   const createTag = async () => {
     if (!workspaceId) return;

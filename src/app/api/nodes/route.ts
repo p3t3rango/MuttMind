@@ -2,6 +2,29 @@ import { requireUserId } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { assertWorkspaceMember } from '@/lib/workspace';
 
+type NodeTagRow = {
+  tags?: {
+    shift_name?: string | null;
+  } | null;
+};
+
+type NodeListRow = {
+  id: string;
+  title: string | null;
+  original_url: string | null;
+  og_image_url: string | null;
+  source_description: string | null;
+  source_author: string | null;
+  raw_text: string | null;
+  ai_summary: string | null;
+  created_by: string | null;
+  users?: {
+    display_name?: string | null;
+    email?: string | null;
+  } | null;
+  node_tags?: NodeTagRow[] | null;
+};
+
 export async function GET(req: Request) {
   try {
     const userId = await requireUserId(req);
@@ -15,7 +38,8 @@ export async function GET(req: Request) {
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) return Response.json({ error: error.message }, { status: 500 });
-    const nodes = (data ?? []).map((node: any) => ({
+    const rows = (data ?? []) as unknown as NodeListRow[];
+    const nodes = rows.map((node) => ({
       id: node.id,
       title: node.title,
       original_url: node.original_url,
@@ -28,7 +52,7 @@ export async function GET(req: Request) {
       created_by_label: node.users?.display_name || node.users?.email || 'teammate',
       tags: Array.isArray(node.node_tags)
         ? node.node_tags
-            .map((item: any) => item?.tags?.shift_name)
+            .map((item) => item?.tags?.shift_name)
             .filter((tag: unknown): tag is string => typeof tag === 'string' && tag.length > 0)
         : [],
     }));

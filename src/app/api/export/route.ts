@@ -17,6 +17,21 @@ type ExportNode = {
   tags: string[];
 };
 
+type NodeTagRow = {
+  tags?: {
+    shift_name?: string | null;
+  } | null;
+};
+
+type ExportNodeRow = Omit<ExportNode, 'tags'> & {
+  node_tags?: NodeTagRow[] | null;
+};
+
+type EmbeddingRow = {
+  node_id: string;
+  embedding: unknown;
+};
+
 function slugify(input: string) {
   return input
     .toLowerCase()
@@ -84,7 +99,7 @@ export async function GET(req: Request) {
 
     if (nodesError) return Response.json({ error: nodesError.message }, { status: 500 });
 
-    const nodes = (nodesData ?? []).map((node: any) => ({
+    const nodes = ((nodesData ?? []) as unknown as ExportNodeRow[]).map((node) => ({
       id: node.id,
       title: node.title,
       original_url: node.original_url,
@@ -95,7 +110,7 @@ export async function GET(req: Request) {
       created_at: node.created_at,
       tags: Array.isArray(node.node_tags)
         ? node.node_tags
-            .map((item: any) => item?.tags?.shift_name)
+            .map((item) => item?.tags?.shift_name)
             .filter((tag: unknown): tag is string => typeof tag === 'string' && tag.length > 0)
         : [],
     })) as ExportNode[];
@@ -108,7 +123,7 @@ export async function GET(req: Request) {
         .select('node_id,embedding')
         .in('node_id', nodeIds);
       if (embeddingsError) return Response.json({ error: embeddingsError.message }, { status: 500 });
-      (embeddingsData ?? []).forEach((row: any) => {
+      ((embeddingsData ?? []) as unknown as EmbeddingRow[]).forEach((row) => {
         embeddingMap.set(
           row.node_id,
           Array.isArray(row.embedding)

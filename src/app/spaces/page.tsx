@@ -120,6 +120,9 @@ function SpacesContent() {
           <div>
             <p className="eyebrow">{getMindLabel(currentMind)} / Saved filters</p>
             <h1 id="spaces-title">Smart Spaces</h1>
+            <p className="lede">
+              Save searches like tags, source domains, media types, or contributors as shared views for this Mind.
+            </p>
           </div>
           <div className="spaces-page__create" aria-label="Create Smart Space">
             <select value={mindId} onChange={(event) => setMindId(event.target.value)} aria-label="Choose Mind">

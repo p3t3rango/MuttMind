@@ -2470,6 +2470,18 @@ select:focus {
     border-right: 0;
   }
 
+  .capture-drawer__close {
+    position: sticky;
+    top: 12px;
+    z-index: 3;
+    justify-self: end;
+    width: auto;
+    min-height: 40px;
+    margin: 12px 12px -4px;
+    border-radius: 999px;
+    background: rgba(17, 18, 24, 0.9);
+  }
+
   .capture-drawer__body {
     padding: 0 18px 24px;
   }
@@ -2482,5 +2494,34 @@ select:focus {
   .login-panel,
   .hero-copy {
     padding: 26px 16px;
+  }
+
+  .spaces-page__header {
+    gap: 18px;
+    padding-bottom: 18px;
+  }
+
+  .spaces-page h1 {
+    font-size: clamp(42px, 14vw, 58px);
+  }
+
+  .spaces-page .lede {
+    font-size: 17px;
+    line-height: 1.45;
+  }
+
+  .spaces-page__create {
+    padding: 14px;
+    border: 1px solid rgba(247, 247, 242, 0.1);
+    border-radius: 14px;
+    background: rgba(247, 247, 242, 0.035);
+  }
+
+  .space-card {
+    padding: 16px;
+  }
+
+  .space-card__main {
+    min-height: 92px;
   }
 }

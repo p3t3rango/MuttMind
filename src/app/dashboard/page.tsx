@@ -149,12 +149,14 @@ function DashboardContent() {
   const loadRecentCaptures = useCallback(async () => {
     if (!workspaceId) {
       setRecentCaptures([]);
-      return;
+      return [] as CaptureItem[];
     }
 
     const r = await authedFetch(`/api/nodes?workspaceId=${workspaceId}`);
     const d = await r.json();
-    setRecentCaptures((d.nodes ?? []) as CaptureItem[]);
+    const nodes = (d.nodes ?? []) as CaptureItem[];
+    setRecentCaptures(nodes);
+    return nodes;
   }, [workspaceId]);
 
   const saveCapture = useCallback(
@@ -187,6 +189,7 @@ function DashboardContent() {
       };
 
       setRecentCaptures((current) => [optimisticCapture, ...current]);
+      setSelectedCapture(optimisticCapture);
       setIsSaving(true);
       setStatus(url ? 'Saving link and organizing it...' : 'Saving note and organizing it...');
       const r = await authedFetch('/api/capture', {
@@ -208,7 +211,9 @@ function DashboardContent() {
       setSearchQuery('');
       setStatus(d.warnings?.length ? 'Saved. Some relationship features are still catching up.' : 'Saved. Summary, tags, and relationships are being built.');
       await loadTags();
-      await loadRecentCaptures();
+      const nodes = await loadRecentCaptures();
+      const savedNode = nodes.find((captureItem) => captureItem.id === d.nodeId);
+      if (savedNode) setSelectedCapture(savedNode);
     },
     [loadRecentCaptures, loadTags, workspaceId],
   );

@@ -87,15 +87,6 @@ function getHostLabel(url: string | null) {
   }
 }
 
-function hashString(input: string) {
-  let hash = 0;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash << 5) - hash + input.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -195,17 +186,11 @@ function buildSemanticLinkPairs(items: NodeItem[]) {
 }
 
 function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
-  const captureGroups = new Map<string, NodeItem[]>();
   const hostGroups = new Map<string, NodeItem[]>();
   const tagGroups = new Map<string, NodeItem[]>();
   const captureLookup = new Map<string, GraphNode>();
 
   items.forEach((node) => {
-    const groupLabel = node.tags[0] || getHostLabel(node.original_url);
-    const captureGroup = captureGroups.get(groupLabel) ?? [];
-    captureGroup.push(node);
-    captureGroups.set(groupLabel, captureGroup);
-
     const hostLabel = getHostLabel(node.original_url);
     const hostGroup = hostGroups.get(hostLabel) ?? [];
     hostGroup.push(node);
@@ -218,90 +203,95 @@ function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
     });
   });
 
-  const groupEntries = Array.from(captureGroups.entries());
-  const graphGroups: GraphGroup[] = groupEntries.map(([label, groupItems], index) => {
-    const angle = groupEntries.length ? (index / groupEntries.length) * Math.PI * 2 - Math.PI / 2 : 0;
-    return {
-      label,
-      items: groupItems,
-      x: 50 + Math.cos(angle) * 28,
-      y: 50 + Math.sin(angle) * 22,
-    };
-  });
+  const graphGroups: GraphGroup[] = Array.from(tagGroups.entries())
+    .filter(([, groupItems]) => groupItems.length > 1)
+    .map(([label, groupItems], index, list) => {
+      const angle = list.length ? (index / list.length) * Math.PI * 2 - Math.PI / 2 : 0;
+      return {
+        label,
+        items: groupItems,
+        x: 50 + Math.cos(angle) * 34,
+        y: 50 + Math.sin(angle) * 28,
+      };
+    });
 
+  const sortedItems = [...items].sort((left, right) => {
+    const leftKey = `${left.tags[0] ?? ''}:${left.title ?? ''}:${left.id}`;
+    const rightKey = `${right.tags[0] ?? ''}:${right.title ?? ''}:${right.id}`;
+    return leftKey.localeCompare(rightKey);
+  });
   const graphNodes: GraphNode[] = [];
   const graphEdges: GraphEdge[] = [];
   const semanticPairs = buildSemanticLinkPairs(items);
+  const coreId = 'core:muttmind';
 
-  groupEntries.forEach(([groupLabel, groupItems], groupIndex) => {
-    const center = graphGroups[groupIndex];
-    groupItems.forEach((node, index) => {
-      const seed = hashString(`${node.id}:${groupLabel}`);
-      const theta = ((seed % 360) / 360) * Math.PI * 2;
-      const orbit = groupItems.length === 1 ? 8 : 10 + (index % 3) * 5;
-      const baseX = center.x + Math.cos(theta) * orbit;
-      const baseY = center.y + Math.sin(theta) * orbit;
-      const hostLabel = getHostLabel(node.original_url);
-      const title = node.title?.trim() || hostLabel || 'Untitled';
-      const subtitle = node.ai_summary || node.source_description || node.original_url || 'No summary available.';
-      const width = clamp(150 + title.length * 1.6, 156, 220);
-      const height = node.og_image_url ? 88 : 76;
-      const resolvedX = overrides[node.id]?.x ?? baseX;
-      const resolvedY = overrides[node.id]?.y ?? baseY;
-
-      const graphNode: GraphNode = {
-        id: node.id,
-        label: title,
-        subtitle,
-        x: resolvedX,
-        y: resolvedY,
-        width,
-        height,
-        kind: 'capture',
-        groupLabel,
-        node,
-        count: node.tags.length,
-        connectedIds: [],
-        previewUrl: node.og_image_url,
-      };
-
-      graphNodes.push(graphNode);
-      captureLookup.set(node.id, graphNode);
-    });
+  graphNodes.push({
+    id: coreId,
+    label: 'MuttMind',
+    subtitle: `${items.length} capture${items.length === 1 ? '' : 's'}`,
+    x: overrides[coreId]?.x ?? 50,
+    y: overrides[coreId]?.y ?? 50,
+    width: 176,
+    height: 82,
+    kind: 'core',
+    groupLabel: 'core',
+    count: items.length,
+    connectedIds: sortedItems.map((item) => item.id),
   });
 
+  sortedItems.forEach((node, index) => {
+    const count = Math.max(sortedItems.length, 1);
+    const angle = (index / count) * Math.PI * 2 - Math.PI / 2;
+    const ring = count <= 5 ? 1 : 1 + Math.floor(index / 8) * 0.18;
+    const baseX = 50 + Math.cos(angle) * 31 * ring;
+    const baseY = 50 + Math.sin(angle) * 27 * ring;
+    const hostLabel = getHostLabel(node.original_url);
+    const title = node.title?.trim() || hostLabel || 'Untitled';
+    const subtitle = node.ai_summary || node.source_description || node.original_url || 'No summary available.';
+    const width = node.og_image_url ? 250 : 220;
+    const height = node.og_image_url ? 132 : 96;
+    const resolvedX = overrides[node.id]?.x ?? clamp(baseX, 14, 86);
+    const resolvedY = overrides[node.id]?.y ?? clamp(baseY, 15, 85);
+
+    const graphNode: GraphNode = {
+      id: node.id,
+      label: title,
+      subtitle,
+      x: resolvedX,
+      y: resolvedY,
+      width,
+      height,
+      kind: 'capture',
+      groupLabel: node.tags[0] || hostLabel,
+      node,
+      count: node.tags.length,
+      connectedIds: [coreId],
+      previewUrl: node.og_image_url,
+    };
+
+    graphNodes.push(graphNode);
+    captureLookup.set(node.id, graphNode);
+    graphEdges.push({ id: `${coreId}-${node.id}`, from: coreId, to: node.id, kind: 'core' });
+  });
+
+  const sharedHosts = Array.from(hostGroups.entries()).filter(([, hostItems]) => hostItems.length > 1);
   const hostNodeIds = new Map<string, string>();
-  Array.from(hostGroups.entries()).forEach(([hostLabel, hostItems], index) => {
+  sharedHosts.forEach(([hostLabel, hostItems], index) => {
     const id = `host:${hostLabel}`;
-    const centroid = hostItems
-      .map((item) => captureLookup.get(item.id))
-      .filter(Boolean)
-      .reduce(
-        (acc, item, _, list) => {
-          if (!item) return acc;
-          return {
-            x: acc.x + item.x / list.length,
-            y: acc.y + item.y / list.length,
-          };
-        },
-        { x: 0, y: 0 },
-      );
-    const hasCentroid = hostItems.every((item) => captureLookup.get(item.id));
-    const seed = hashString(id);
-    const fallbackAngle = ((seed % 360) / 360) * Math.PI * 2;
-    const baseX = hasCentroid ? centroid.x + Math.cos(fallbackAngle) * 12 : 50 + Math.cos(fallbackAngle) * 40;
-    const baseY = hasCentroid ? centroid.y + Math.sin(fallbackAngle) * 10 : 50 + Math.sin(fallbackAngle) * 30;
-    const resolvedX = overrides[id]?.x ?? baseX;
-    const resolvedY = overrides[id]?.y ?? baseY;
+    const angle = (index / Math.max(sharedHosts.length, 1)) * Math.PI * 2 + Math.PI / 5;
+    const baseX = 50 + Math.cos(angle) * 42;
+    const baseY = 50 + Math.sin(angle) * 35;
+    const resolvedX = overrides[id]?.x ?? clamp(baseX, 9, 91);
+    const resolvedY = overrides[id]?.y ?? clamp(baseY, 10, 90);
 
     graphNodes.push({
       id,
       label: hostLabel,
-      subtitle: `${hostItems.length} saved item${hostItems.length === 1 ? '' : 's'}`,
+      subtitle: `${hostItems.length} captures`,
       x: resolvedX,
       y: resolvedY,
-      width: clamp(108 + hostLabel.length * 2, 118, 180),
-      height: 42,
+      width: clamp(116 + hostLabel.length * 3, 150, 230),
+      height: 48,
       kind: 'meta',
       metaKind: 'host',
       groupLabel: hostLabel,
@@ -312,36 +302,24 @@ function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
     hostNodeIds.set(hostLabel, id);
   });
 
+  const sharedTags = Array.from(tagGroups.entries()).filter(([, tagItems]) => tagItems.length > 1);
   const tagNodeIds = new Map<string, string>();
-  Array.from(tagGroups.entries()).forEach(([tagLabel, tagItems], index) => {
+  sharedTags.forEach(([tagLabel, tagItems], index) => {
     const id = `tag:${tagLabel}`;
-    const tagNodes = tagItems.map((item) => captureLookup.get(item.id)).filter(Boolean);
-    const centroid = tagNodes.reduce(
-      (acc, item, _, list) => {
-        if (!item) return acc;
-        return {
-          x: acc.x + item.x / list.length,
-          y: acc.y + item.y / list.length,
-        };
-      },
-      { x: 0, y: 0 },
-    );
-    const hasCentroid = tagNodes.length > 0;
-    const seed = hashString(id);
-    const fallbackAngle = ((seed % 360) / 360) * Math.PI * 2;
-    const baseX = hasCentroid ? centroid.x + Math.cos(fallbackAngle) * 8 : 50 + Math.cos(fallbackAngle) * 36;
-    const baseY = hasCentroid ? centroid.y + Math.sin(fallbackAngle) * 8 : 50 + Math.sin(fallbackAngle) * 26;
-    const resolvedX = overrides[id]?.x ?? baseX;
-    const resolvedY = overrides[id]?.y ?? baseY;
+    const angle = (index / Math.max(sharedTags.length, 1)) * Math.PI * 2 - Math.PI / 4;
+    const baseX = 50 + Math.cos(angle) * 39;
+    const baseY = 50 + Math.sin(angle) * 32;
+    const resolvedX = overrides[id]?.x ?? clamp(baseX, 10, 90);
+    const resolvedY = overrides[id]?.y ?? clamp(baseY, 11, 89);
 
     graphNodes.push({
       id,
       label: tagLabel,
-      subtitle: `${tagItems.length} saved item${tagItems.length === 1 ? '' : 's'}`,
+      subtitle: `${tagItems.length} captures`,
       x: resolvedX,
       y: resolvedY,
-      width: clamp(100 + tagLabel.length * 2.4, 112, 190),
-      height: 40,
+      width: clamp(112 + tagLabel.length * 3.2, 146, 240),
+      height: 46,
       kind: 'meta',
       metaKind: 'tag',
       groupLabel: tagLabel,
@@ -385,7 +363,6 @@ function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
 }
 
 function GraphStage({
-  groups,
   nodes,
   edges,
   selectedId,
@@ -393,7 +370,6 @@ function GraphStage({
   onMoveNode,
   onResetLayout,
 }: {
-  groups: GraphGroup[];
   nodes: GraphNode[];
   edges: GraphEdge[];
   selectedId: string | null;
@@ -403,7 +379,6 @@ function GraphStage({
 }) {
   const [transform, setTransform] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const stageSizeRef = useRef({ width: 0, height: 0 });
   const dragState = useRef<
     | {
         mode: 'pan';
@@ -427,35 +402,6 @@ function GraphStage({
   const suppressClickRef = useRef(false);
 
   const selectedNode = nodes.find((node) => node.id === selectedId) ?? null;
-
-  useEffect(() => {
-    const element = stageRef.current;
-    if (!element) return;
-
-    const update = () => {
-      stageSizeRef.current = {
-        width: element.clientWidth,
-        height: element.clientHeight,
-      };
-    };
-
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedNode) return;
-    const { width, height } = stageSizeRef.current;
-    if (!width || !height) return;
-
-    setTransform((current) => ({
-      ...current,
-      x: width / 2 - (selectedNode.x / 100) * width * current.scale,
-      y: height / 2 - (selectedNode.y / 100) * height * current.scale,
-    }));
-  }, [selectedNode?.id]);
 
   const onWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -687,7 +633,7 @@ function VaultContent() {
 
   const layoutKey = useMemo(() => {
     if (!workspaceId) return '';
-    return `muttmind:vault-layout:v2:${workspaceId}`;
+    return `muttmind:vault-layout:v3:${workspaceId}`;
   }, [workspaceId]);
 
   useEffect(() => {
@@ -744,7 +690,7 @@ function VaultContent() {
       setStatus(nextNodes.length ? 'Mind loaded.' : 'No captures found for this Mind.');
       setSelectedId((current) => {
         if (current && nextNodes.some((node: NodeItem) => node.id === current)) return current;
-        return nextNodes[0]?.id ?? null;
+        return null;
       });
     })();
   }, [workspaceId]);
@@ -780,7 +726,7 @@ function VaultContent() {
     }
     const nextNodes = nodes.filter((node) => node.id !== nodeId);
     setNodes(nextNodes);
-    setSelectedId((current) => (current === nodeId ? nextNodes[0]?.id ?? null : current));
+    setSelectedId((current) => (current === nodeId ? null : current));
     setStatus('Capture deleted.');
   };
 
@@ -858,7 +804,7 @@ function VaultContent() {
         <div className="panel-header vault-controls__header">
           <div>
             <p className="eyebrow">Mind</p>
-            <h2>{view === 'graph' ? 'Relationship map' : 'Signal library'}</h2>
+            <h2>{view === 'graph' ? 'Relationship map' : 'Capture library'}</h2>
           </div>
           <div className="vault-actions">
             <div className="vault-mode-tabs" aria-label="Mind view mode">
@@ -906,11 +852,10 @@ function VaultContent() {
         </div>
       </section>
 
-      <section className={`vault-view vault-view--${view}`} aria-label={view === 'graph' ? 'Relationship map' : 'Saved signals'}>
+      <section className={`vault-view vault-view--${view}`} aria-label={view === 'graph' ? 'Relationship map' : 'Saved captures'}>
         {view === 'graph' ? (
           filteredNodes.length > 0 ? (
             <GraphStage
-              groups={graphGroups}
               nodes={graphNodes}
               edges={graphEdges}
               selectedId={selectedGraphNode?.id ?? null}
@@ -978,7 +923,7 @@ function VaultContent() {
         <div className="panel-header">
           <div>
             <p className="eyebrow">Selected capture</p>
-            <h2>Signal details</h2>
+            <h2>Capture details</h2>
           </div>
           {selectedCapture?.original_url ? (
             <a className="button-secondary" href={selectedCapture.original_url} target="_blank" rel="noreferrer">
@@ -990,7 +935,15 @@ function VaultContent() {
         {selectedGraphNode ? (
           <div className="detail-grid">
             <div className="detail-card detail-card--main">
-              <p className="kicker">{selectedCapture ? getHostLabel(selectedCapture.original_url) : selectedGraphNode.metaKind === 'tag' ? 'Tag' : 'Source'}</p>
+              <p className="kicker">
+                {selectedCapture
+                  ? getHostLabel(selectedCapture.original_url)
+                  : selectedGraphNode.kind === 'core'
+                    ? 'Mind'
+                    : selectedGraphNode.metaKind === 'tag'
+                      ? 'Tag'
+                      : 'Source'}
+              </p>
               <h3>{selectedGraphNode.label}</h3>
               <p className="meta">{selectedGraphNode.subtitle}</p>
               <div className="detail-stats">
@@ -1032,7 +985,7 @@ function VaultContent() {
                   ))}
                 </div>
               ) : (
-                <p className="meta">Pick a signal, source, or tag to see related captures here.</p>
+                <p className="meta">Pick a capture, source, or tag to see related captures here.</p>
               )}
               {selectedCapture ? (
                 <div className="button-row">
@@ -1068,7 +1021,7 @@ function VaultContent() {
             </div>
           </div>
         ) : (
-          <div className="empty-state">Select a signal, source, or tag to inspect it here.</div>
+          <div className="empty-state">Select a capture, source, or tag to inspect it here.</div>
         )}
       </section>
     </main>

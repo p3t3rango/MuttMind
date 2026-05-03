@@ -203,6 +203,14 @@ main {
   color: var(--paper);
 }
 
+.nav-label-short {
+  display: none;
+}
+
+.mobile-menu-button {
+  display: none;
+}
+
 .dot {
   width: 10px;
   height: 10px;
@@ -2033,56 +2041,188 @@ select:focus {
   }
 
   .topbar {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    padding: 16px;
-    overflow: hidden;
+    position: relative;
+    z-index: 80;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 14px 16px;
+    overflow: visible;
   }
 
   .brand {
-    font-size: 30px;
+    width: 100%;
+    font-size: clamp(28px, 9vw, 38px);
   }
 
   .brand-word {
     max-width: 100%;
   }
 
-  .nav {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 16px;
+  .mobile-menu-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border: 1.5px solid rgba(247, 247, 242, 0.72);
+    border-radius: 50%;
+    background: #111218;
+    color: rgba(247, 247, 242, 0.92);
+    padding: 0;
+    box-shadow: 0 0 0 5px rgba(247, 247, 242, 0.03);
+  }
+
+  .mobile-menu-button__bars {
+    position: relative;
+    width: 20px;
+    height: 14px;
+    border-top: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transition:
+      border-color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .mobile-menu-button__bars::before,
+  .mobile-menu-button__bars::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 5.5px;
     width: 100%;
-    justify-content: stretch;
+    border-top: 1.5px solid currentColor;
+    transition: transform 180ms ease;
+  }
+
+  .mobile-menu-button__bars::after {
+    transform: scaleX(0);
+  }
+
+  .topbar--menu-open .mobile-menu-button__bars {
+    border-color: transparent;
+  }
+
+  .topbar--menu-open .mobile-menu-button__bars::before {
+    transform: rotate(45deg);
+  }
+
+  .topbar--menu-open .mobile-menu-button__bars::after {
+    transform: rotate(-45deg) scaleX(1);
+  }
+
+  .topbar--menu-open .mobile-menu-button {
+    position: fixed;
+    top: max(18px, env(safe-area-inset-top));
+    right: 18px;
+    z-index: 90;
+    background: rgba(17, 18, 24, 0.96);
+    box-shadow:
+      0 0 0 1px rgba(247, 247, 242, 0.08),
+      0 18px 48px rgba(0, 0, 0, 0.36);
+  }
+
+  .nav {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-content: center;
+    gap: 18px;
+    width: 100%;
+    min-height: 100dvh;
+    padding: 96px 28px 120px;
+    background:
+      linear-gradient(rgba(17, 18, 24, 0.94), rgba(17, 18, 24, 0.98)),
+      var(--hatch);
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.985);
+    visibility: hidden;
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease,
+      visibility 180ms ease;
+  }
+
+  .topbar--menu-open .nav {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+    visibility: visible;
   }
 
   .nav-link,
   .nav-button {
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-columns: 46px minmax(0, 1fr);
     align-items: baseline;
     min-width: 0;
-    font-size: clamp(15px, 5vw, 18px);
+    width: 100%;
+    max-width: 100%;
+    min-height: 58px;
+    border-bottom: 1.5px solid rgba(247, 247, 242, 0.28);
+    color: rgba(247, 247, 242, 0.88);
+    font-size: clamp(30px, 10vw, 46px);
+    line-height: 1;
     white-space: normal;
   }
 
+  .nav-link:not(.active) {
+    color: rgba(247, 247, 242, 0.58);
+  }
+
+  .nav-num {
+    font-size: 0.42em;
+  }
+
+  .nav-label-full {
+    display: none;
+  }
+
+  .nav-label-short {
+    display: inline;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .nav-meta {
+    display: none;
+    position: fixed;
+    left: 28px;
+    right: 28px;
+    bottom: max(28px, env(safe-area-inset-bottom));
+    z-index: 70;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: 10px;
   }
 
+  .topbar--menu-open .nav-meta {
+    display: inline-flex;
+  }
+
   .nav-signout {
-    width: auto;
-    min-height: 44px;
-    padding: 0 16px;
+    width: 100%;
+    min-height: 50px;
+    border-radius: 999px;
+    background: rgba(247, 247, 242, 0.08);
+    padding: 0 18px;
   }
 
   .section-header,
   .section-header--compact,
-  .spaces-page,
-  .mind-home,
-  .mind-board {
+  .spaces-page {
     padding: 24px 16px;
+  }
+
+  .mind-home {
+    padding: 22px 16px 14px;
+  }
+
+  .mind-board {
+    padding: 12px 16px 28px;
   }
 
   .section-header h1,
@@ -2145,7 +2285,8 @@ select:focus {
   .mind-home__bar {
     grid-template-columns: 1fr;
     align-items: stretch;
-    gap: 14px;
+    gap: 12px;
+    padding-bottom: 14px;
   }
 
   .mind-search {
@@ -2157,8 +2298,9 @@ select:focus {
   .mind-search input {
     width: 100%;
     min-width: 0;
-    font-size: clamp(38px, 13vw, 54px);
-    line-height: 1.04;
+    max-width: 100%;
+    font-size: clamp(34px, 11vw, 44px);
+    line-height: 1;
     text-overflow: ellipsis;
   }
 
@@ -2172,6 +2314,7 @@ select:focus {
   .mind-home__tools {
     display: grid;
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .mind-select--quiet select {
@@ -2181,10 +2324,24 @@ select:focus {
 
   .mind-status-row {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     font-size: 10px;
     line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .mind-status-message--hint {
+    display: none;
+  }
+
+  .mind-status-message:not(.mind-status-message--hint) {
+    grid-column: 1 / -1;
+  }
+
+  .mind-status-row > * {
+    min-width: 0;
+    max-width: 100%;
     overflow-wrap: anywhere;
   }
 
@@ -2198,7 +2355,8 @@ select:focus {
   }
 
   .mind-card__button {
-    min-height: 200px;
+    min-height: 190px;
+    max-width: 100%;
   }
 
   .mind-card__fallback {
@@ -2215,12 +2373,14 @@ select:focus {
   .mind-card--tall .mind-card__button img,
   .mind-card--wide .mind-card__button img,
   .mind-card__button img {
-    min-height: 220px;
+    min-height: 190px;
+    max-height: 360px;
   }
 
   .mind-card__title,
   .mind-card__creator {
     padding: 0 6px;
+    overflow-wrap: anywhere;
   }
 
   .mind-card__tags {

@@ -120,6 +120,7 @@ function DashboardContent() {
   const [status, setStatus] = useState('');
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const filteredCaptures = useMemo(
     () => recentCaptures.filter((captureItem) => matchesQuery(captureItem, searchQuery)),
@@ -270,6 +271,14 @@ function DashboardContent() {
   }, [loadWorkspaces]);
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 700px)');
+    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
+    updateViewport();
+    mediaQuery.addEventListener('change', updateViewport);
+    return () => mediaQuery.removeEventListener('change', updateViewport);
+  }, []);
+
+  useEffect(() => {
     loadTags();
     loadRecentCaptures();
   }, [loadRecentCaptures, loadTags]);
@@ -319,7 +328,7 @@ function DashboardContent() {
             <span className="sr-only">Search or paste into MuttMind</span>
             <input
               value={searchQuery}
-              placeholder="Search MuttMind..."
+              placeholder={isMobileViewport ? 'Search...' : 'Search MuttMind...'}
               onChange={(e) => setSearchQuery(e.target.value)}
               onPaste={(event) => {
                 const text = event.clipboardData.getData('text').trim();
@@ -355,7 +364,9 @@ function DashboardContent() {
         </div>
 
         <div className="mind-status-row">
-          <span>{status || 'Paste a link anywhere. Type #tag, type:video, site:domain, or by:name to search.'}</span>
+          <span className={status ? 'mind-status-message' : 'mind-status-message mind-status-message--hint'}>
+            {status || 'Paste a link anywhere. Type #tag, type:video, site:domain, or by:name to search.'}
+          </span>
           <span>{isSaving ? 'Saving...' : `${filteredCaptures.length} visible`}</span>
           <span>{tags.length ? `${tags.length} tags` : 'Auto-tagging on'}</span>
           <span>{currentWorkspace ? `${formatMindName(currentWorkspace.workspaces.name)} / ${getMindLabel(currentWorkspace)}` : 'No Mind selected'}</span>

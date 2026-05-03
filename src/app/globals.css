@@ -1601,7 +1601,7 @@ select:focus {
   font-family: "Arial Black", Impact, var(--font-replica-regular), sans-serif;
   font-size: 16px;
   font-weight: 900;
-  line-height: 0.98;
+  line-height: 1;
   letter-spacing: 0;
   text-overflow: ellipsis;
   overflow-wrap: anywhere;
@@ -1671,15 +1671,18 @@ select:focus {
 }
 
 .graph-node--meta {
-  border-color: rgba(247, 247, 242, 0.4);
-  border-radius: 8px;
-  background: rgba(247, 247, 242, 0.08);
+  border-color: rgba(247, 247, 242, 0.62);
+  border-radius: 999px;
+  background: rgba(247, 247, 242, 0.12);
   color: var(--ink);
 }
 
 .graph-node--meta .graph-node__content {
-  gap: 3px;
-  padding: 8px 10px;
+  align-content: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
   text-align: left;
 }
 
@@ -1687,6 +1690,24 @@ select:focus {
 .graph-node--meta .graph-node__content span,
 .graph-node--meta .graph-node__eyebrow {
   color: var(--ink);
+}
+
+.graph-node--meta .graph-node__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.graph-node--meta .graph-node__content strong {
+  white-space: nowrap;
+  font-size: 18px;
+  line-height: 1.1;
+  text-transform: lowercase;
+}
+
+.graph-node--meta .graph-node__content span:last-child {
+  justify-self: end;
+  white-space: nowrap;
+  font-size: 10px;
 }
 
 .graph-node--tag {

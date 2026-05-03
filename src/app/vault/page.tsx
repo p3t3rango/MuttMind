@@ -243,15 +243,15 @@ function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
     const count = Math.max(sortedItems.length, 1);
     const angle = (index / count) * Math.PI * 2 - Math.PI / 2;
     const ring = count <= 5 ? 1 : 1 + Math.floor(index / 8) * 0.18;
-    const baseX = 50 + Math.cos(angle) * 31 * ring;
-    const baseY = 50 + Math.sin(angle) * 27 * ring;
+    const baseX = 50 + Math.cos(angle) * 27 * ring;
+    const baseY = 50 + Math.sin(angle) * 24 * ring;
     const hostLabel = getHostLabel(node.original_url);
     const title = node.title?.trim() || hostLabel || 'Untitled';
     const subtitle = node.ai_summary || node.source_description || node.original_url || 'No summary available.';
     const width = node.og_image_url ? 250 : 220;
     const height = node.og_image_url ? 132 : 96;
-    const resolvedX = overrides[node.id]?.x ?? clamp(baseX, 14, 86);
-    const resolvedY = overrides[node.id]?.y ?? clamp(baseY, 15, 85);
+    const resolvedX = overrides[node.id]?.x ?? clamp(baseX, 24, 76);
+    const resolvedY = overrides[node.id]?.y ?? clamp(baseY, 22, 78);
 
     const graphNode: GraphNode = {
       id: node.id,
@@ -279,10 +279,10 @@ function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
   sharedHosts.forEach(([hostLabel, hostItems], index) => {
     const id = `host:${hostLabel}`;
     const angle = (index / Math.max(sharedHosts.length, 1)) * Math.PI * 2 + Math.PI / 5;
-    const baseX = 50 + Math.cos(angle) * 42;
-    const baseY = 50 + Math.sin(angle) * 35;
-    const resolvedX = overrides[id]?.x ?? clamp(baseX, 9, 91);
-    const resolvedY = overrides[id]?.y ?? clamp(baseY, 10, 90);
+    const baseX = 50 + Math.cos(angle) * 33;
+    const baseY = 50 + Math.sin(angle) * 29;
+    const resolvedX = overrides[id]?.x ?? clamp(baseX, 22, 78);
+    const resolvedY = overrides[id]?.y ?? clamp(baseY, 18, 82);
 
     graphNodes.push({
       id,
@@ -290,8 +290,8 @@ function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
       subtitle: `${hostItems.length} captures`,
       x: resolvedX,
       y: resolvedY,
-      width: clamp(116 + hostLabel.length * 3, 150, 230),
-      height: 48,
+      width: clamp(136 + hostLabel.length * 4, 190, 270),
+      height: 62,
       kind: 'meta',
       metaKind: 'host',
       groupLabel: hostLabel,
@@ -307,10 +307,10 @@ function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
   sharedTags.forEach(([tagLabel, tagItems], index) => {
     const id = `tag:${tagLabel}`;
     const angle = (index / Math.max(sharedTags.length, 1)) * Math.PI * 2 - Math.PI / 4;
-    const baseX = 50 + Math.cos(angle) * 39;
-    const baseY = 50 + Math.sin(angle) * 32;
-    const resolvedX = overrides[id]?.x ?? clamp(baseX, 10, 90);
-    const resolvedY = overrides[id]?.y ?? clamp(baseY, 11, 89);
+    const baseX = 50 + Math.cos(angle) * 31;
+    const baseY = 50 + Math.sin(angle) * 27;
+    const resolvedX = overrides[id]?.x ?? clamp(baseX, 22, 78);
+    const resolvedY = overrides[id]?.y ?? clamp(baseY, 18, 82);
 
     graphNodes.push({
       id,
@@ -318,8 +318,8 @@ function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
       subtitle: `${tagItems.length} captures`,
       x: resolvedX,
       y: resolvedY,
-      width: clamp(112 + tagLabel.length * 3.2, 146, 240),
-      height: 46,
+      width: clamp(136 + tagLabel.length * 4, 190, 270),
+      height: 62,
       kind: 'meta',
       metaKind: 'tag',
       groupLabel: tagLabel,
@@ -473,8 +473,10 @@ function GraphStage({
     const element = stageRef.current;
     if (!element) return;
     const rect = element.getBoundingClientRect();
-    const nextX = clamp(drag.originX + (dx / rect.width) * 100 / transform.scale, 6, 94);
-    const nextY = clamp(drag.originY + (dy / rect.height) * 100 / transform.scale, 6, 94);
+    const halfWidth = ((nodes.find((node) => node.id === drag.id)?.width ?? 160) / rect.width) * 50;
+    const halfHeight = ((nodes.find((node) => node.id === drag.id)?.height ?? 80) / rect.height) * 50;
+    const nextX = clamp(drag.originX + (dx / rect.width) * 100 / transform.scale, halfWidth + 2, 98 - halfWidth);
+    const nextY = clamp(drag.originY + (dy / rect.height) * 100 / transform.scale, halfHeight + 2, 98 - halfHeight);
     onMoveNode(drag.id, nextX, nextY);
     drag.moved = movedEnough;
   };
@@ -633,7 +635,7 @@ function VaultContent() {
 
   const layoutKey = useMemo(() => {
     if (!workspaceId) return '';
-    return `muttmind:vault-layout:v3:${workspaceId}`;
+    return `muttmind:vault-layout:v4:${workspaceId}`;
   }, [workspaceId]);
 
   useEffect(() => {

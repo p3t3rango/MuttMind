@@ -290,8 +290,8 @@ function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
       subtitle: `${hostItems.length} captures`,
       x: resolvedX,
       y: resolvedY,
-      width: clamp(136 + hostLabel.length * 4, 190, 270),
-      height: 62,
+      width: clamp(170 + hostLabel.length * 6, 230, 390),
+      height: hostLabel.length > 24 ? 92 : 78,
       kind: 'meta',
       metaKind: 'host',
       groupLabel: hostLabel,
@@ -318,8 +318,8 @@ function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
       subtitle: `${tagItems.length} captures`,
       x: resolvedX,
       y: resolvedY,
-      width: clamp(136 + tagLabel.length * 4, 190, 270),
-      height: 62,
+      width: clamp(170 + tagLabel.length * 6, 230, 390),
+      height: tagLabel.length > 24 ? 92 : 78,
       kind: 'meta',
       metaKind: 'tag',
       groupLabel: tagLabel,
@@ -635,7 +635,7 @@ function VaultContent() {
 
   const layoutKey = useMemo(() => {
     if (!workspaceId) return '';
-    return `muttmind:vault-layout:v4:${workspaceId}`;
+    return `muttmind:vault-layout:v5:${workspaceId}`;
   }, [workspaceId]);
 
   useEffect(() => {

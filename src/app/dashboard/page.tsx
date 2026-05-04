@@ -119,6 +119,7 @@ function DashboardContent() {
   const [selectedCapture, setSelectedCapture] = useState<CaptureItem | null>(null);
   const [status, setStatus] = useState('');
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState('');
+  const [captureDraft, setCaptureDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
 
@@ -127,6 +128,7 @@ function DashboardContent() {
     [recentCaptures, searchQuery],
   );
   const currentWorkspace = workspaces.find((workspace) => workspace.workspaces.id === workspaceId);
+  const telegramBotUrl = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL ?? '';
 
   const loadWorkspaces = useCallback(async () => {
     const r = await authedFetch('/api/workspaces');
@@ -163,13 +165,13 @@ function DashboardContent() {
     async (text: string) => {
       if (!workspaceId) {
         setStatus('Create or choose a Mind first.');
-        return;
+        return false;
       }
 
       const draft = text.trim();
       if (!draft) {
         setStatus('Paste a link or write a note first.');
-        return;
+        return false;
       }
 
       const url = draft.match(URL_PATTERN)?.[0];
@@ -205,15 +207,20 @@ function DashboardContent() {
       if (!r.ok) {
         setRecentCaptures((current) => current.filter((captureItem) => captureItem.id !== optimisticId));
         setStatus(d.error ?? 'Unable to save that.');
-        return;
+        return false;
       }
 
       setSearchQuery('');
-      setStatus(d.warnings?.length ? 'Saved. Some relationship features are still catching up.' : 'Saved. Summary, tags, and relationships are being built.');
+      setStatus(
+        d.warnings?.length
+          ? `Saved, but processing needs attention: ${d.warnings[0]}`
+          : 'Saved. Summary, tags, and relationships are being built.',
+      );
       await loadTags();
       const nodes = await loadRecentCaptures();
       const savedNode = nodes.find((captureItem) => captureItem.id === d.nodeId);
       if (savedNode) setSelectedCapture(savedNode);
+      return true;
     },
     [loadRecentCaptures, loadTags, workspaceId],
   );
@@ -269,6 +276,24 @@ function DashboardContent() {
     setWorkspaceId(d.workspace?.id ?? '');
     setStatus('Mind created.');
     await loadWorkspaces();
+  };
+
+  const deleteCapture = async (nodeId: string) => {
+    if (!workspaceId || nodeId.startsWith('pending-')) return;
+    if (!window.confirm('Delete this capture from the Mind?')) return;
+
+    const r = await authedFetch(`/api/nodes?workspaceId=${workspaceId}&nodeId=${nodeId}`, {
+      method: 'DELETE',
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      setStatus(d.error ?? 'Unable to delete capture.');
+      return;
+    }
+
+    setRecentCaptures((current) => current.filter((captureItem) => captureItem.id !== nodeId));
+    setSelectedCapture((current) => (current?.id === nodeId ? null : current));
+    setStatus('Capture deleted.');
   };
 
   useEffect(() => {
@@ -377,6 +402,40 @@ function DashboardContent() {
           <span>{currentWorkspace ? `${formatMindName(currentWorkspace.workspaces.name)} / ${getMindLabel(currentWorkspace)}` : 'No Mind selected'}</span>
           <Link href="/vault">Relationship map</Link>
         </div>
+
+        <form
+          className="quick-capture"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const saved = await saveCapture(captureDraft);
+            if (saved) setCaptureDraft('');
+          }}
+        >
+          <label className="quick-capture__field">
+            <span className="field-label">Add to Mind</span>
+            <textarea
+              value={captureDraft}
+              placeholder="Paste a link or write a note..."
+              onChange={(event) => setCaptureDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+            />
+          </label>
+          <div className="quick-capture__actions">
+            {telegramBotUrl ? (
+              <a className="quick-capture__bot" href={telegramBotUrl} target="_blank" rel="noreferrer">
+                Telegram bot
+              </a>
+            ) : null}
+            <button className="quick-capture__submit" disabled={isSaving}>
+              {isSaving ? 'Saving' : 'Save'}
+            </button>
+          </div>
+        </form>
 
         {!workspaces.length ? (
           <div className="mind-empty-setup">
@@ -500,6 +559,11 @@ function DashboardContent() {
                 <Link href="/vault" className="button-secondary">
                   View Map
                 </Link>
+                {!selectedCapture.is_processing ? (
+                  <button className="button-ghost" onClick={() => deleteCapture(selectedCapture.id)}>
+                    Delete
+                  </button>
+                ) : null}
               </div>
             </div>
           </aside>

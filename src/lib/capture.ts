@@ -67,7 +67,8 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
     };
   });
 
-  await getSupabaseAdmin().from('nodes').update({ ai_summary: ai.summary }).eq('id', node.id);
+  const { error: summaryError } = await getSupabaseAdmin().from('nodes').update({ ai_summary: ai.summary }).eq('id', node.id);
+  if (summaryError) warnings.push(summaryError.message);
 
   const embeddingText = [
     node.title,
@@ -85,10 +86,8 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
     try {
       const embedding = await embeddingProcess({ text: embeddingText });
       if (embedding.length) {
-        await getSupabaseAdmin().from('embeddings').upsert(
-          { node_id: node.id, embedding },
-          { onConflict: 'node_id' },
-        );
+        const { error } = await getSupabaseAdmin().from('nodes').update({ embedding }).eq('id', node.id);
+        if (error) warnings.push(error.message);
       }
     } catch (error) {
       warnings.push(error instanceof Error ? error.message : 'Embedding failed.');
@@ -96,25 +95,28 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
   }
 
   if (ai.tags.length) {
-    await getSupabaseAdmin().from('tags').upsert(
+    const { error: tagsError } = await getSupabaseAdmin().from('tags').upsert(
       ai.tags.map((shiftName) => ({
         workspace_id: workspaceId,
         shift_name: shiftName,
       })),
       { onConflict: 'workspace_id,shift_name' },
     );
+    if (tagsError) warnings.push(tagsError.message);
 
-    const { data: tagRows } = await getSupabaseAdmin()
+    const { data: tagRows, error: tagRowsError } = await getSupabaseAdmin()
       .from('tags')
       .select('id,shift_name')
       .eq('workspace_id', workspaceId)
       .in('shift_name', ai.tags);
+    if (tagRowsError) warnings.push(tagRowsError.message);
 
     if (tagRows?.length) {
-      await getSupabaseAdmin().from('node_tags').upsert(
+      const { error: nodeTagsError } = await getSupabaseAdmin().from('node_tags').upsert(
         tagRows.map((tag) => ({ node_id: node.id, tag_id: tag.id })),
         { onConflict: 'node_id,tag_id' },
       );
+      if (nodeTagsError) warnings.push(nodeTagsError.message);
     }
   }
 

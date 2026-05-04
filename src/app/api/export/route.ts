@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { requireUserId } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { parseEmbedding } from '@/lib/vector';
 import { assertWorkspaceMember } from '@/lib/workspace';
 
 export const runtime = 'nodejs';
@@ -13,6 +14,7 @@ type ExportNode = {
   source_description: string | null;
   source_author: string | null;
   ai_summary: string | null;
+  embedding: number[];
   created_at: string;
   tags: string[];
 };
@@ -24,12 +26,8 @@ type NodeTagRow = {
 };
 
 type ExportNodeRow = Omit<ExportNode, 'tags'> & {
-  node_tags?: NodeTagRow[] | null;
-};
-
-type EmbeddingRow = {
-  node_id: string;
   embedding: unknown;
+  node_tags?: NodeTagRow[] | null;
 };
 
 function slugify(input: string) {
@@ -93,7 +91,7 @@ export async function GET(req: Request) {
 
     const { data: nodesData, error: nodesError } = await getSupabaseAdmin()
       .from('nodes')
-      .select('id,title,original_url,raw_text,source_description,source_author,ai_summary,created_at,node_tags(tags(shift_name))')
+      .select('id,title,original_url,raw_text,source_description,source_author,ai_summary,embedding,created_at,node_tags(tags(shift_name))')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: true });
 
@@ -107,6 +105,7 @@ export async function GET(req: Request) {
       source_description: node.source_description,
       source_author: node.source_author,
       ai_summary: node.ai_summary,
+      embedding: parseEmbedding(node.embedding),
       created_at: node.created_at,
       tags: Array.isArray(node.node_tags)
         ? node.node_tags
@@ -114,24 +113,6 @@ export async function GET(req: Request) {
             .filter((tag: unknown): tag is string => typeof tag === 'string' && tag.length > 0)
         : [],
     })) as ExportNode[];
-
-    const nodeIds = nodes.map((node) => node.id);
-    const embeddingMap = new Map<string, number[]>();
-    if (nodeIds.length) {
-      const { data: embeddingsData, error: embeddingsError } = await getSupabaseAdmin()
-        .from('embeddings')
-        .select('node_id,embedding')
-        .in('node_id', nodeIds);
-      if (embeddingsError) return Response.json({ error: embeddingsError.message }, { status: 500 });
-      ((embeddingsData ?? []) as unknown as EmbeddingRow[]).forEach((row) => {
-        embeddingMap.set(
-          row.node_id,
-          Array.isArray(row.embedding)
-            ? row.embedding.map((value: unknown) => Number(value)).filter((value: number) => Number.isFinite(value))
-            : [],
-        );
-      });
-    }
 
     const relatedById = new Map<string, string[]>();
     nodes.forEach((node) => relatedById.set(node.id, []));
@@ -141,9 +122,7 @@ export async function GET(req: Request) {
         const left = nodes[i];
         const right = nodes[j];
         const sharedTags = left.tags.filter((tag) => right.tags.includes(tag));
-        const leftEmbedding = embeddingMap.get(left.id) ?? [];
-        const rightEmbedding = embeddingMap.get(right.id) ?? [];
-        const similarity = cosineSimilarity(leftEmbedding, rightEmbedding);
+        const similarity = cosineSimilarity(left.embedding, right.embedding);
 
         if (sharedTags.length > 0 || similarity >= 0.82) {
           relatedById.get(left.id)?.push(right.id);

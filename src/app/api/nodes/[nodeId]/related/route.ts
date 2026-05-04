@@ -1,5 +1,6 @@
 import { requireUserId } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { parseEmbedding } from '@/lib/vector';
 import { assertWorkspaceMember } from '@/lib/workspace';
 
 type NodeRow = {
@@ -8,6 +9,7 @@ type NodeRow = {
   original_url: string | null;
   ai_summary: string | null;
   source_description: string | null;
+  embedding: number[];
   tags: string[];
 };
 
@@ -18,12 +20,8 @@ type NodeTagRow = {
 };
 
 type NodeQueryRow = Omit<NodeRow, 'tags'> & {
-  node_tags?: NodeTagRow[] | null;
-};
-
-type EmbeddingRow = {
-  node_id: string;
   embedding: unknown;
+  node_tags?: NodeTagRow[] | null;
 };
 
 function cosineSimilarity(a: number[], b: number[]) {
@@ -50,24 +48,18 @@ export async function GET(req: Request, context: { params: Promise<{ nodeId: str
 
     const { data: nodesData, error: nodesError } = await getSupabaseAdmin()
       .from('nodes')
-      .select('id,title,original_url,ai_summary,source_description,node_tags(tags(shift_name))')
+      .select('id,title,original_url,ai_summary,source_description,embedding,node_tags(tags(shift_name))')
       .eq('workspace_id', workspaceId);
     if (nodesError) return Response.json({ error: nodesError.message }, { status: 500 });
 
     const rawNodes = (nodesData ?? []) as unknown as NodeQueryRow[];
-    const nodeIds = rawNodes.map((node) => node.id);
-    const { data: embeddingsData, error: embeddingsError } = nodeIds.length
-      ? await getSupabaseAdmin().from('embeddings').select('node_id,embedding').in('node_id', nodeIds)
-      : { data: [], error: null };
-
-    if (embeddingsError) return Response.json({ error: embeddingsError.message }, { status: 500 });
-
     const nodes = rawNodes.map((node) => ({
       id: node.id,
       title: node.title,
       original_url: node.original_url,
       ai_summary: node.ai_summary,
       source_description: node.source_description,
+      embedding: parseEmbedding(node.embedding),
       tags: Array.isArray(node.node_tags)
         ? node.node_tags
             .map((item) => item?.tags?.shift_name)
@@ -75,27 +67,17 @@ export async function GET(req: Request, context: { params: Promise<{ nodeId: str
         : [],
     })) as NodeRow[];
 
-    const embeddingMap = new Map<string, number[]>(
-      ((embeddingsData ?? []) as unknown as EmbeddingRow[]).map((row) => [
-        row.node_id,
-        Array.isArray(row.embedding)
-          ? row.embedding.map((value: unknown) => Number(value)).filter((value: number) => Number.isFinite(value))
-          : [],
-      ]),
-    );
-
-    const targetEmbedding = embeddingMap.get(nodeId);
+    const targetEmbedding = nodes.find((node) => node.id === nodeId)?.embedding;
     if (!targetEmbedding?.length) return Response.json({ related: [] });
 
     const targetNode = nodes.find((node) => node.id === nodeId);
     const related = nodes
       .filter((node) => node.id !== nodeId)
       .map((node) => {
-        const embedding = embeddingMap.get(node.id) ?? [];
         const sharedTags = targetNode ? targetNode.tags.filter((tag) => node.tags.includes(tag)) : [];
         return {
           ...node,
-          similarity: cosineSimilarity(targetEmbedding, embedding),
+          similarity: cosineSimilarity(targetEmbedding, node.embedding),
           sharedTags,
         };
       })

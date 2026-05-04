@@ -12,7 +12,7 @@
     "@supabase/supabase-js": "^2.49.8",
     "cheerio": "^1.0.0",
     "jszip": "^3.10.1",
-    "next": "15.3.2",
+    "next": "15.5.15",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
@@ -21,7 +21,7 @@
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.4",
     "eslint": "^9.26.0",
-    "eslint-config-next": "15.3.2",
+    "eslint-config-next": "15.5.15",
     "typescript": "^5.8.3"
   }
 }

@@ -25,17 +25,24 @@ function parseJsonObject(text: string) {
 async function geminiProcess(input: { text: string; tags: string[] }): Promise<AiResult> {
   if (!env.geminiApiKey) throw new Error('GEMINI_API_KEY is required');
 
+  const approvedTags = input.tags.map((tag) => tag.trim()).filter(Boolean);
   const prompt = [
     'You are MuttMind, an intelligence capture assistant for a creative research team.',
-    'Read the source metadata and extracted text. Write a concrete, useful 2 sentence summary that says what the saved item is and why it might matter.',
-    'Do not write generic marketing language. Do not speculate beyond the provided text. If the source text is thin, say what is known from the title, URL, and metadata.',
-    input.tags.length
-      ? `Pick tags only from this list: ${input.tags.join(', ')}.`
+    'Read the source metadata and extracted text like a sharp creative researcher, not a bookmark parser.',
+    'Write a concrete, useful 3 sentence summary: what the saved item is, the specific themes or methods it contains, and why it could matter to a futurist or creative team.',
+    'Do not write generic marketing language. Do not summarize only the domain name. Do not speculate beyond the provided text. If the source text is thin, say what is known from the title, URL, and metadata.',
+    approvedTags.length
+      ? [
+          `Existing Mind tags: ${approvedTags.join(', ')}.`,
+          'Use any existing tags that genuinely fit, but do not force them.',
+          'Also invent additional specific tags when the source has richer concepts, practices, communities, media formats, aesthetics, technologies, or cultural signals not covered by the existing list.',
+        ].join(' ')
       : [
           'No approved tags are available.',
-          'Invent 3 to 5 concise, specific tags based only on the source content and metadata.',
-          'Prefer conceptual tags over domain words. Use lowercase kebab-case or short phrases.',
+          'Invent concise, specific tags based only on the source content and metadata.',
         ].join(' '),
+    'Return 5 to 10 tags unless the source is genuinely too thin. Prefer conceptual tags over domain words. Use lowercase kebab-case.',
+    'Avoid vague catch-all tags when a more specific tag is available. Avoid tagging only the profession or style if the source has deeper subject matter.',
     'Return only JSON with this shape: {"summary":"...","tags":["..."]}.',
     `Source content:\n${input.text}`,
   ].join('\n');
@@ -69,14 +76,13 @@ async function geminiProcess(input: { text: string; tags: string[] }): Promise<A
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '');
 
-  const allowedTags = new Set(input.tags.map(cleanTag).filter(Boolean));
-  const tags = Array.isArray(parsed.tags)
+  const parsedTags: string[] = Array.isArray(parsed.tags)
     ? parsed.tags
         .filter((tag: unknown): tag is string => typeof tag === 'string')
         .map(cleanTag)
         .filter((tag: string) => tag.length > 0)
-        .filter((tag: string) => (allowedTags.size ? allowedTags.has(tag) : true))
     : [];
+  const tags = Array.from(new Set(parsedTags)).slice(0, 10);
 
   return { summary: typeof parsed.summary === 'string' ? parsed.summary : '', tags, embedding: [] };
 }

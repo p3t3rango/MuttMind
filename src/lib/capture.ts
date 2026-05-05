@@ -20,6 +20,12 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
   const scrape = url
     ? await scrapeUrl(url)
     : { title: '', description: '', image: '', author: '', text: '' };
+  const normalizedRawText = rawText?.trim() ?? '';
+  const normalizedUrl = url?.trim() ?? '';
+  const userNote = normalizedRawText && normalizedRawText !== normalizedUrl ? normalizedRawText : '';
+  const capturedText = url
+    ? [userNote ? `User note: ${userNote}` : '', scrape.text].filter(Boolean).join('\n\n').trim()
+    : normalizedRawText;
 
   const { data: node, error: nodeError } = await getSupabaseAdmin()
     .from('nodes')
@@ -27,7 +33,7 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
       workspace_id: workspaceId,
       created_by: userId,
       original_url: url,
-      raw_text: rawText ?? scrape.text,
+      raw_text: capturedText || normalizedRawText || scrape.text,
       content_type: url ? 'link' : 'text',
       title: scrape.title,
       og_image_url: scrape.image,

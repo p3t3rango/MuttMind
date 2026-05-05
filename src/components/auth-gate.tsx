@@ -14,7 +14,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     getSupabaseBrowser().auth.getSession().then(({ data }) => {
       if (!isMounted) return;
       if (!data.session) {
-        router.replace('/login');
+        const nextPath = `${window.location.pathname}${window.location.search}`;
+        router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
         return;
       }
       setIsAllowed(true);
@@ -25,7 +26,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     } = getSupabaseBrowser().auth.onAuthStateChange((_event, session) => {
       if (!session) {
         setIsAllowed(false);
-        router.replace('/login');
+        const nextPath = `${window.location.pathname}${window.location.search}`;
+        router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
       } else {
         setIsAllowed(true);
       }

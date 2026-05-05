@@ -1355,6 +1355,34 @@ h3 {
   gap: 16px;
 }
 
+.auth-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 4px;
+  border: 1px solid rgba(247, 247, 242, 0.14);
+  border-radius: 999px;
+  background: rgba(247, 247, 242, 0.04);
+}
+
+.auth-mode-tab {
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(247, 247, 242, 0.68);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.auth-mode-tab.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
 .form-row {
   display: grid;
   gap: 8px;

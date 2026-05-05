@@ -1,37 +1,99 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { getSupabaseBrowser } from '@/lib/client-auth';
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [nextPath, setNextPath] = useState('/dashboard');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedNext = params.get('next');
+    if (requestedNext?.startsWith('/')) {
+      setNextPath(requestedNext);
+      if (requestedNext.startsWith('/invite/')) setMode('signup');
+    }
+
     getSupabaseBrowser().auth.getSession().then(({ data }) => {
-      if (data.session) router.replace('/dashboard');
+      if (data.session) router.replace(requestedNext?.startsWith('/') ? requestedNext : '/dashboard');
     });
   }, [router]);
 
-  async function signUp() {
-    const { error } = await getSupabaseBrowser().auth.signUp({ email, password });
-    setMessage(error ? error.message : 'Signup successful. Check your email if confirmation is enabled.');
-  }
+  async function signUp(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setMessage('');
+    const normalizedEmail = email.trim().toLowerCase();
+    const cleanDisplayName = displayName.trim();
 
-  async function signIn() {
-    const { error } = await getSupabaseBrowser().auth.signInWithPassword({
-      email,
+    if (!normalizedEmail || !password) {
+      setMessage('Email and password are required.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setMessage('Use at least 8 characters for your password.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setMessage('Passwords do not match.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const redirectTo = `${window.location.origin}${nextPath}`;
+    const { data, error } = await getSupabaseBrowser().auth.signUp({
+      email: normalizedEmail,
       password,
+      options: {
+        emailRedirectTo: redirectTo,
+        data: cleanDisplayName ? { display_name: cleanDisplayName, name: cleanDisplayName } : undefined,
+      },
     });
+    setIsSubmitting(false);
+
     if (error) {
       setMessage(error.message);
       return;
     }
-    router.replace('/dashboard');
+
+    if (data.session) {
+      router.replace(nextPath);
+      return;
+    }
+
+    setMessage(
+      nextPath.startsWith('/invite/')
+        ? 'Account created. Check your email, then return to this invite link to join the Shared Mind.'
+        : 'Account created. Check your email to confirm your login.',
+    );
+  }
+
+  async function signIn(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    setMessage('');
+    setIsSubmitting(true);
+    const { error } = await getSupabaseBrowser().auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    setIsSubmitting(false);
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    router.replace(nextPath);
   }
 
   return (
@@ -67,15 +129,51 @@ export default function LoginPage() {
           <div className="panel-header">
             <div>
               <p className="eyebrow">Account</p>
-              <h2>Sign in</h2>
+              <h2>{mode === 'signin' ? 'Sign in' : 'Create account'}</h2>
             </div>
           </div>
 
-          <div className="form-grid">
+          <div className="auth-mode-tabs" role="tablist" aria-label="Authentication mode">
+            <button
+              type="button"
+              className={mode === 'signin' ? 'auth-mode-tab active' : 'auth-mode-tab'}
+              onClick={() => {
+                setMode('signin');
+                setMessage('');
+              }}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              className={mode === 'signup' ? 'auth-mode-tab active' : 'auth-mode-tab'}
+              onClick={() => {
+                setMode('signup');
+                setMessage('');
+              }}
+            >
+              Sign up
+            </button>
+          </div>
+
+          <form className="form-grid" onSubmit={mode === 'signin' ? signIn : signUp}>
+            {mode === 'signup' ? (
+              <label className="form-row">
+                <span className="field-label">Name</span>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Your name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                />
+              </label>
+            ) : null}
             <label className="form-row">
               <span className="field-label">Email</span>
               <input
                 type="email"
+                autoComplete="email"
                 placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -85,21 +183,43 @@ export default function LoginPage() {
               <span className="field-label">Password</span>
               <input
                 type="password"
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 placeholder="Your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </label>
+            {mode === 'signup' ? (
+              <label className="form-row">
+                <span className="field-label">Confirm password</span>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Repeat password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </label>
+            ) : null}
             <div className="button-row">
-              <button className="button" onClick={signIn}>
-                Sign In
+              <button className="button" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Working' : mode === 'signin' ? 'Sign In' : 'Create Account'}
               </button>
-              <button className="button-secondary" onClick={signUp}>
-                Sign Up
-              </button>
+              {mode === 'signin' ? (
+                <button className="button-secondary" type="button" onClick={() => setMode('signup')}>
+                  Need an account?
+                </button>
+              ) : (
+                <button className="button-secondary" type="button" onClick={() => setMode('signin')}>
+                  Already have one?
+                </button>
+              )}
             </div>
+            {nextPath.startsWith('/invite/') ? (
+              <p className="meta">After signing in, this invite will open again so you can join the Shared Mind.</p>
+            ) : null}
             <p className="status">{message}</p>
-          </div>
+          </form>
         </div>
       </section>
     </main>

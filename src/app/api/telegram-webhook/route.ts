@@ -1,6 +1,7 @@
 import { captureSignal } from '@/lib/capture';
 import { parseTelegramStartPayload } from '@/lib/telegram-link';
 import {
+  createTelegramWorkspace,
   findTelegramWorkspace,
   formatTelegramHelp,
   formatWorkspaceList,
@@ -75,6 +76,22 @@ export async function POST(req: Request) {
       return Response.json({ ok: true, command });
     }
 
+    if (commandName === '/new' || commandName === '/newmind') {
+      const name = trimmedText.replace(/^\/(?:new|newmind)(@\w+)?\s*/i, '').trim();
+      if (!name) {
+        await sendTelegramMessage(chatId, 'Send /new followed by a Mind name.\n\nExample: /new Research Inbox');
+        return Response.json({ ok: true, command, missingName: true });
+      }
+
+      const workspace = await createTelegramWorkspace(user.id, name);
+      await setActiveTelegramWorkspace(telegramUserId, user.id, workspace.id);
+      await sendTelegramMessage(
+        chatId,
+        `Created ${workspace.name} and made it your active Mind.\n\nNow send any URL and I will capture it there.`,
+      );
+      return Response.json({ ok: true, command, workspaceId: workspace.id });
+    }
+
     if (commandName === '/current') {
       const activeWorkspace = await getActiveTelegramWorkspace(telegramUserId, user.id);
       await sendTelegramMessage(
@@ -117,7 +134,7 @@ export async function POST(req: Request) {
     if (!url) {
       await sendTelegramMessage(
         chatId,
-        'Send a URL to capture, /workspaces to list Minds, or /use <Mind> to choose one.',
+        'Send a URL to capture, /minds to list Minds, /new <Mind name> to create one, or /use <Mind> to choose one.',
       );
       return Response.json({ ok: true, ignored: true, reason: 'no url' });
     }

@@ -79,6 +79,29 @@ export async function listTelegramWorkspaces(userId: string): Promise<TelegramWo
     .filter((workspace): workspace is TelegramWorkspace => Boolean(workspace));
 }
 
+export async function createTelegramWorkspace(userId: string, name: string): Promise<TelegramWorkspace> {
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error('Mind name required.');
+  }
+
+  const { data: workspace, error } = await getSupabaseAdmin()
+    .from('workspaces')
+    .insert({ name: trimmedName, created_by: userId })
+    .select('id,name')
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  const { error: memberError } = await getSupabaseAdmin()
+    .from('workspace_members')
+    .insert({ workspace_id: workspace.id, user_id: userId, role: 'owner' });
+
+  if (memberError) throw new Error(memberError.message);
+
+  return { id: workspace.id, name: workspace.name, role: 'owner' };
+}
+
 export async function getActiveTelegramWorkspace(telegramUserId: number, userId: string) {
   const { data, error } = await getSupabaseAdmin()
     .from('telegram_sessions')
@@ -109,7 +132,7 @@ export async function setActiveTelegramWorkspace(
 
 export function formatWorkspaceList(workspaces: TelegramWorkspace[]) {
   if (!workspaces.length) {
-    return 'No Minds found. Create one in MuttMind first, then come back here.';
+    return 'No Minds found. Create one with /new <Mind name>.';
   }
 
   return [
@@ -134,10 +157,11 @@ export function formatTelegramHelp(workspaces: TelegramWorkspace[], activeWorksp
     'Commands:',
     '/help - show these instructions',
     '/minds - list your Minds',
+    '/new <Mind name> - create a new Mind',
     '/use <name or number> - choose where links save',
     '/current - show the active Mind',
     '',
-    workspaces.length ? formatWorkspaceList(workspaces) : 'Create a Mind in MuttMind first, then come back here.',
+    workspaces.length ? formatWorkspaceList(workspaces) : 'Create a Mind with /new <Mind name>.',
   ].join('\n');
 }
 

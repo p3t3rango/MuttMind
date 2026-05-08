@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [confirmationEmail, setConfirmationEmail] = useState('');
   const [nextPath, setNextPath] = useState('/dashboard');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -73,6 +74,11 @@ export default function LoginPage() {
       return;
     }
 
+    setConfirmationEmail(normalizedEmail);
+    setDisplayName('');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
     setMessage(
       nextPath.startsWith('/invite/')
         ? 'Account created. Check your email, then return to this invite link to join the Shared Mind.'
@@ -129,97 +135,120 @@ export default function LoginPage() {
           <div className="panel-header">
             <div>
               <p className="eyebrow">Account</p>
-              <h2>{mode === 'signin' ? 'Sign in' : 'Create account'}</h2>
+              <h2>{confirmationEmail ? 'Check your email' : mode === 'signin' ? 'Sign in' : 'Create account'}</h2>
             </div>
           </div>
 
-          <div className="auth-mode-tabs" role="tablist" aria-label="Authentication mode">
-            <button
-              type="button"
-              className={mode === 'signin' ? 'auth-mode-tab active' : 'auth-mode-tab'}
-              onClick={() => {
-                setMode('signin');
-                setMessage('');
-              }}
-            >
-              Sign in
-            </button>
-            <button
-              type="button"
-              className={mode === 'signup' ? 'auth-mode-tab active' : 'auth-mode-tab'}
-              onClick={() => {
-                setMode('signup');
-                setMessage('');
-              }}
-            >
-              Sign up
-            </button>
-          </div>
-
-          <form className="form-grid" onSubmit={mode === 'signin' ? signIn : signUp}>
-            {mode === 'signup' ? (
-              <label className="form-row">
-                <span className="field-label">Name</span>
-                <input
-                  type="text"
-                  autoComplete="name"
-                  placeholder="Your name"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                />
-              </label>
-            ) : null}
-            <label className="form-row">
-              <span className="field-label">Email</span>
-              <input
-                type="email"
-                autoComplete="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </label>
-            <label className="form-row">
-              <span className="field-label">Password</span>
-              <input
-                type="password"
-                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                placeholder="Your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </label>
-            {mode === 'signup' ? (
-              <label className="form-row">
-                <span className="field-label">Confirm password</span>
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Repeat password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-              </label>
-            ) : null}
-            <div className="button-row">
-              <button className="button" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Working' : mode === 'signin' ? 'Sign In' : 'Create Account'}
+          {confirmationEmail ? (
+            <div className="auth-confirmation" role="status">
+              <p className="kicker">Confirmation sent</p>
+              <p className="lede">
+                We sent a confirmation link to <span>{confirmationEmail}</span>.
+              </p>
+              <p className="meta">{message}</p>
+              <button
+                className="button-secondary"
+                type="button"
+                onClick={() => {
+                  setConfirmationEmail('');
+                  setMode('signin');
+                  setMessage('');
+                }}
+              >
+                Back to Sign In
               </button>
-              {mode === 'signin' ? (
-                <button className="button-secondary" type="button" onClick={() => setMode('signup')}>
-                  Need an account?
-                </button>
-              ) : (
-                <button className="button-secondary" type="button" onClick={() => setMode('signin')}>
-                  Already have one?
-                </button>
-              )}
             </div>
-            {nextPath.startsWith('/invite/') ? (
-              <p className="meta">After signing in, this invite will open again so you can join the Shared Mind.</p>
-            ) : null}
-            <p className="status">{message}</p>
-          </form>
+          ) : (
+            <>
+              <div className="auth-mode-tabs" role="tablist" aria-label="Authentication mode">
+                <button
+                  type="button"
+                  className={mode === 'signin' ? 'auth-mode-tab active' : 'auth-mode-tab'}
+                  onClick={() => {
+                    setMode('signin');
+                    setMessage('');
+                  }}
+                >
+                  Sign in
+                </button>
+                <button
+                  type="button"
+                  className={mode === 'signup' ? 'auth-mode-tab active' : 'auth-mode-tab'}
+                  onClick={() => {
+                    setMode('signup');
+                    setMessage('');
+                  }}
+                >
+                  Sign up
+                </button>
+              </div>
+
+              <form className="form-grid" onSubmit={mode === 'signin' ? signIn : signUp}>
+                {mode === 'signup' ? (
+                  <label className="form-row">
+                    <span className="field-label">Name</span>
+                    <input
+                      type="text"
+                      autoComplete="name"
+                      placeholder="Your name"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                    />
+                  </label>
+                ) : null}
+                <label className="form-row">
+                  <span className="field-label">Email</span>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </label>
+                <label className="form-row">
+                  <span className="field-label">Password</span>
+                  <input
+                    type="password"
+                    autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                    placeholder="Your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </label>
+                {mode === 'signup' ? (
+                  <label className="form-row">
+                    <span className="field-label">Confirm password</span>
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="Repeat password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                  </label>
+                ) : null}
+                <div className="button-row">
+                  <button className="button" type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Working' : mode === 'signin' ? 'Sign In' : 'Create Account'}
+                  </button>
+                  {mode === 'signin' ? (
+                    <button className="button-secondary" type="button" onClick={() => setMode('signup')}>
+                      Need an account?
+                    </button>
+                  ) : (
+                    <button className="button-secondary" type="button" onClick={() => setMode('signin')}>
+                      Already have one?
+                    </button>
+                  )}
+                </div>
+                {nextPath.startsWith('/invite/') ? (
+                  <p className="meta">After signing in, this invite will open again so you can join the Shared Mind.</p>
+                ) : null}
+                <p className="status">{message}</p>
+              </form>
+            </>
+          )}
         </div>
       </section>
     </main>

@@ -34,11 +34,29 @@ export async function sendTelegramMessage(chatId: number, text: string) {
 export async function getTelegramUser(telegramUserId: number) {
   const { data, error } = await getSupabaseAdmin()
     .from('users')
-    .select('id,email')
+    .select('id,email,display_name')
     .eq('telegram_user_id', telegramUserId)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function linkTelegramUser(telegramUserId: number, userId: string) {
+  const { data, error } = await getSupabaseAdmin()
+    .from('users')
+    .update({ telegram_user_id: telegramUserId })
+    .eq('id', userId)
+    .select('id,email,display_name')
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('This Telegram account is already linked to another MuttMind account.');
+    }
+    throw new Error(error.message);
+  }
+
   return data;
 }
 
@@ -98,11 +116,48 @@ export function formatWorkspaceList(workspaces: TelegramWorkspace[]) {
     'Your MuttMind Minds:',
     ...workspaces.map(
       (workspace, index) =>
-        `${index + 1}. ${workspace.name} (${workspace.role})\n/use ${workspace.id}`,
+        `${index + 1}. ${workspace.name} (${workspace.role})\n/use ${index + 1} or /use ${workspace.name}`,
     ),
     '',
     'After selecting one, send any URL and I will capture it there.',
   ].join('\n');
+}
+
+export function formatTelegramHelp(workspaces: TelegramWorkspace[], activeWorkspace?: TelegramWorkspace | null) {
+  return [
+    'Welcome to MuttMind.',
+    '',
+    'Send me a link and I will save it to your active Mind, then generate a summary, tags, and map connections.',
+    '',
+    activeWorkspace ? `Active Mind: ${activeWorkspace.name}` : 'No active Mind selected yet.',
+    '',
+    'Commands:',
+    '/help - show these instructions',
+    '/minds - list your Minds',
+    '/use <name or number> - choose where links save',
+    '/current - show the active Mind',
+    '',
+    workspaces.length ? formatWorkspaceList(workspaces) : 'Create a Mind in MuttMind first, then come back here.',
+  ].join('\n');
+}
+
+export function findTelegramWorkspace(query: string, workspaces: TelegramWorkspace[]) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return null;
+
+  const numericIndex = Number.parseInt(normalizedQuery, 10);
+  if (Number.isInteger(numericIndex) && numericIndex >= 1 && numericIndex <= workspaces.length) {
+    return workspaces[numericIndex - 1];
+  }
+
+  return (
+    workspaces.find((item) => item.id.toLowerCase() === normalizedQuery) ??
+    workspaces.find((item) => item.name.toLowerCase() === normalizedQuery) ??
+    (() => {
+      const matches = workspaces.filter((item) => item.name.toLowerCase().includes(normalizedQuery));
+      return matches.length === 1 ? matches[0] : null;
+    })()
+  );
 }
 
 export function isTelegramSecretValid(secret: string | null) {

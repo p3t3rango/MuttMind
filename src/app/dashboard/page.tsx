@@ -130,6 +130,34 @@ function DashboardContent() {
   const currentWorkspace = workspaces.find((workspace) => workspace.workspaces.id === workspaceId);
   const telegramBotUrl = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL ?? '';
 
+  const openTelegramBot = useCallback(async () => {
+    const popup = window.open('', '_blank');
+    if (popup) popup.opener = null;
+
+    setStatus('Opening Telegram bot...');
+    const response = await authedFetch('/api/telegram-link', { method: 'POST' });
+    const data = await response.json();
+    const targetUrl = response.ok && data.url ? data.url : telegramBotUrl;
+
+    if (!targetUrl) {
+      popup?.close();
+      setStatus(data.error ?? 'Telegram bot URL is not configured.');
+      return;
+    }
+
+    if (popup) {
+      popup.location.href = targetUrl;
+    } else {
+      window.location.href = targetUrl;
+    }
+
+    setStatus(
+      response.ok
+        ? 'Telegram opened. Press Start in the bot to link this account.'
+        : `Telegram opened, but account linking needs attention: ${data.error ?? 'missing link token'}`,
+    );
+  }, [telegramBotUrl]);
+
   const loadWorkspaces = useCallback(async () => {
     const r = await authedFetch('/api/workspaces');
     const d = await r.json();
@@ -387,6 +415,9 @@ function DashboardContent() {
                 ))}
               </select>
             </label>
+            <button className="mind-action" type="button" onClick={openTelegramBot}>
+              Open Bot
+            </button>
             <button className="mind-action" onClick={saveSmartSpace}>
               Save as Space
             </button>
@@ -426,11 +457,9 @@ function DashboardContent() {
             />
           </label>
           <div className="quick-capture__actions">
-            {telegramBotUrl ? (
-              <a className="quick-capture__bot" href={telegramBotUrl} target="_blank" rel="noreferrer">
-                Telegram bot
-              </a>
-            ) : null}
+            <button className="quick-capture__bot" type="button" onClick={openTelegramBot}>
+              Open Telegram Bot
+            </button>
             <button className="quick-capture__submit" disabled={isSaving}>
               {isSaving ? 'Saving' : 'Save'}
             </button>

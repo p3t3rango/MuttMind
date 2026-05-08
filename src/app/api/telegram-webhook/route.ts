@@ -1,9 +1,13 @@
 import { captureSignal } from '@/lib/capture';
+import { parseTelegramStartPayload } from '@/lib/telegram-link';
 import {
+  findTelegramWorkspace,
+  formatTelegramHelp,
   formatWorkspaceList,
   getActiveTelegramWorkspace,
   getTelegramUser,
   isTelegramSecretValid,
+  linkTelegramUser,
   listTelegramWorkspaces,
   sendTelegramMessage,
   setActiveTelegramWorkspace,
@@ -24,40 +28,77 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, ignored: true });
   }
 
-  const user = await getTelegramUser(telegramUserId);
+  const trimmedText = text.trim();
+  const command = trimmedText.split(/\s+/)[0].toLowerCase();
+  const commandName = command.replace(/@\w+$/, '');
+  let user = await getTelegramUser(telegramUserId);
+
+  if (!user && commandName === '/start') {
+    const payload = trimmedText.replace(/^\/start(@\w+)?\s*/i, '').trim();
+    const parsedPayload = payload ? parseTelegramStartPayload(payload) : null;
+
+    if (parsedPayload) {
+      try {
+        user = await linkTelegramUser(telegramUserId, parsedPayload.userId);
+      } catch (e) {
+        await sendTelegramMessage(chatId, e instanceof Error ? e.message : 'Unable to link this Telegram account.');
+        return Response.json({ ok: true, ignored: true, reason: 'telegram link failed' });
+      }
+    }
+  }
+
   if (!user) {
     await sendTelegramMessage(
       chatId,
-      `This Telegram account is not linked to MuttMind yet.\n\nYour Telegram ID is ${telegramUserId}. Add it to your MuttMind user profile to continue.`,
+      [
+        'This Telegram account is not linked to MuttMind yet.',
+        '',
+        'Open MuttMind in your browser, sign in, then click Open Bot from the Mind screen or Settings. That link will connect this chat automatically.',
+        '',
+        `Fallback Telegram ID: ${telegramUserId}`,
+      ].join('\n'),
     );
     return Response.json({ ok: true, ignored: true, reason: 'telegram user not linked' });
   }
 
-  const trimmedText = text.trim();
-  const command = trimmedText.split(/\s+/)[0].toLowerCase();
   const workspaces = await listTelegramWorkspaces(user.id);
 
   try {
-    if (command === '/start' || command === '/workspaces') {
+    if (commandName === '/start' || commandName === '/help') {
+      const activeWorkspace = await getActiveTelegramWorkspace(telegramUserId, user.id);
+      await sendTelegramMessage(chatId, formatTelegramHelp(workspaces, activeWorkspace));
+      return Response.json({ ok: true, command });
+    }
+
+    if (commandName === '/workspaces' || commandName === '/minds') {
       await sendTelegramMessage(chatId, formatWorkspaceList(workspaces));
       return Response.json({ ok: true, command });
     }
 
-    if (command === '/use') {
+    if (commandName === '/current') {
+      const activeWorkspace = await getActiveTelegramWorkspace(telegramUserId, user.id);
+      await sendTelegramMessage(
+        chatId,
+        activeWorkspace
+          ? `Active Mind: ${activeWorkspace.name}\n\nSend any URL and I will capture it there.`
+          : `No active Mind selected yet.\n\n${formatWorkspaceList(workspaces)}`,
+      );
+      return Response.json({ ok: true, command });
+    }
+
+    if (commandName === '/use') {
       const query = trimmedText.replace(/^\/use(@\w+)?\s*/i, '').trim();
       if (!query) {
-        await sendTelegramMessage(chatId, 'Send /use followed by a Mind name or UUID.');
+        await sendTelegramMessage(chatId, `Send /use followed by a Mind name or number.\n\n${formatWorkspaceList(workspaces)}`);
         return Response.json({ ok: true, command, missingQuery: true });
       }
 
-      const workspace =
-        workspaces.find((item) => item.id.toLowerCase() === query.toLowerCase()) ??
-        workspaces.find((item) => item.name.toLowerCase() === query.toLowerCase());
+      const workspace = findTelegramWorkspace(query, workspaces);
 
       if (!workspace) {
         await sendTelegramMessage(
           chatId,
-          `I could not find that Mind.\n\n${formatWorkspaceList(workspaces)}`,
+          `I could not find that Mind. Use the number or the name.\n\n${formatWorkspaceList(workspaces)}`,
         );
         return Response.json({ ok: true, command, notFound: true });
       }
@@ -81,14 +122,19 @@ export async function POST(req: Request) {
       return Response.json({ ok: true, ignored: true, reason: 'no url' });
     }
 
-    const activeWorkspace = explicitWorkspaceId
+    let activeWorkspace = explicitWorkspaceId
       ? workspaces.find((workspace) => workspace.id === explicitWorkspaceId)
       : await getActiveTelegramWorkspace(telegramUserId, user.id);
+
+    if (!activeWorkspace && workspaces.length === 1) {
+      activeWorkspace = workspaces[0];
+      await setActiveTelegramWorkspace(telegramUserId, user.id, activeWorkspace.id);
+    }
 
     if (!activeWorkspace) {
       await sendTelegramMessage(
         chatId,
-        `Choose a Mind first.\n\n${formatWorkspaceList(workspaces)}`,
+        `Choose a Mind first with /use <name or number>.\n\n${formatWorkspaceList(workspaces)}`,
       );
       return Response.json({ ok: true, ignored: true, reason: 'no active workspace' });
     }
@@ -102,7 +148,7 @@ export async function POST(req: Request) {
 
     await sendTelegramMessage(
       chatId,
-      `Saved to ${activeWorkspace.name}.\nI added a summary, tags, and map links when available.`,
+      `Saved to ${activeWorkspace.name}.\nI am adding the summary, tags, and relationship map links now.`,
     );
 
     return Response.json({ ok: true, nodeId: result.nodeId });

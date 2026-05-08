@@ -62,6 +62,7 @@ function SettingsContent() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [latestInviteLink, setLatestInviteLink] = useState('');
+  const telegramBotUrl = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL ?? '';
 
   const currentWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.workspaces.id === workspaceId) ?? null,
@@ -254,6 +255,34 @@ function SettingsContent() {
     await loadMembers();
   };
 
+  const openTelegramBot = useCallback(async () => {
+    const popup = window.open('', '_blank');
+    if (popup) popup.opener = null;
+
+    setStatus('Opening Telegram bot...');
+    const response = await authedFetch('/api/telegram-link', { method: 'POST' });
+    const data = await response.json();
+    const targetUrl = response.ok && data.url ? data.url : telegramBotUrl;
+
+    if (!targetUrl) {
+      popup?.close();
+      setStatus(data.error ?? 'Telegram bot URL is not configured.');
+      return;
+    }
+
+    if (popup) {
+      popup.location.href = targetUrl;
+    } else {
+      window.location.href = targetUrl;
+    }
+
+    setStatus(
+      response.ok
+        ? 'Telegram opened. Press Start in the bot to link this account.'
+        : `Telegram opened, but account linking needs attention: ${data.error ?? 'missing link token'}`,
+    );
+  }, [telegramBotUrl]);
+
   return (
     <main className="app-shell">
       <AppNav active="settings" />
@@ -278,6 +307,9 @@ function SettingsContent() {
             <h2>Settings scope</h2>
           </div>
           <div className="button-row">
+            <button className="button-secondary" type="button" onClick={openTelegramBot}>
+              Open Telegram Bot
+            </button>
             <button className="button-secondary" onClick={exportVault}>
               Download Obsidian Archive
             </button>
@@ -313,6 +345,9 @@ function SettingsContent() {
               </div>
               <p className="vault-group__title">Bot capture</p>
               <p className="meta vault-group__meta">Saved links from Telegram appear in the selected Mind.</p>
+              <button className="button-secondary" type="button" onClick={openTelegramBot}>
+                Open Telegram Bot
+              </button>
             </article>
 
             <article className="vault-group">

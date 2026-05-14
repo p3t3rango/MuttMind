@@ -17,4 +17,5 @@ export const env = {
   geminiModel: normalizeGeminiModel(process.env.GEMINI_MODEL, 'gemini-2.5-flash'),
   geminiEmbeddingModel: normalizeGeminiEmbeddingModel(process.env.GEMINI_EMBEDDING_MODEL ?? process.env.EMBEDDING_MODEL),
   telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? '',
+  xBearerToken: process.env.X_BEARER_TOKEN ?? '',
 };

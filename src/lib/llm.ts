@@ -29,8 +29,9 @@ async function geminiProcess(input: { text: string; tags: string[] }): Promise<A
   const prompt = [
     'You are MuttMind, an intelligence capture assistant for a creative research team.',
     'Read the source metadata and extracted text like a sharp creative researcher, not a bookmark parser.',
-    'Write a concrete, useful 3 sentence summary: what the saved item is, the specific themes or methods it contains, and why it could matter to a futurist or creative team.',
-    'Do not write generic marketing language. Do not summarize only the domain name. Do not speculate beyond the provided text. If the source text is thin, say what is known from the title, URL, and metadata.',
+    'If user notes are present, treat them as the reason the item was saved and use them to focus the summary and tags.',
+    'Write a concrete, useful 3 sentence summary: what the saved item is, the specific themes, people, artifacts, methods, or cultural signals it contains, and why it could matter to a futurist or creative team.',
+    'Do not write generic marketing language. Do not summarize only the domain name. Do not speculate beyond the provided text. If the source text is thin, explicitly say what is known and what is missing from the available metadata.',
     approvedTags.length
       ? [
           `Existing Mind tags: ${approvedTags.join(', ')}.`,
@@ -41,7 +42,7 @@ async function geminiProcess(input: { text: string; tags: string[] }): Promise<A
           'No approved tags are available.',
           'Invent concise, specific tags based only on the source content and metadata.',
         ].join(' '),
-    'Return 5 to 10 tags unless the source is genuinely too thin. Prefer conceptual tags over domain words. Use lowercase kebab-case.',
+    'Return 5 to 10 tags unless the source is genuinely too thin. Prefer conceptual tags over domain words, but include format tags such as tweet, video, pdf, image, portfolio, tool, event, product, or article when they fit. Use lowercase kebab-case.',
     'Avoid vague catch-all tags when a more specific tag is available. Avoid tagging only the profession or style if the source has deeper subject matter.',
     'Return only JSON with this shape: {"summary":"...","tags":["..."]}.',
     `Source content:\n${input.text}`,

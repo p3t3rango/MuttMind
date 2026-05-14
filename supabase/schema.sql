@@ -49,12 +49,16 @@ create table if not exists public.nodes (
   og_image_url text,
   source_description text,
   source_author text,
+  user_notes text,
   ai_summary text,
   embedding vector(768),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (original_url is not null or raw_text is not null)
 );
+
+alter table public.nodes
+add column if not exists user_notes text;
 
 create table if not exists public.tags (
   id uuid primary key default gen_random_uuid(),
@@ -71,6 +75,14 @@ create table if not exists public.node_tags (
   tag_id uuid not null references public.tags(id) on delete cascade,
   created_at timestamptz not null default now(),
   primary key (node_id, tag_id)
+);
+
+create table if not exists public.node_notes (
+  id uuid primary key default gen_random_uuid(),
+  node_id uuid not null references public.nodes(id) on delete cascade,
+  created_by uuid not null references public.users(id) on delete cascade,
+  body text not null check (char_length(trim(body)) > 0),
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.smart_spaces (
@@ -110,6 +122,7 @@ create index if not exists workspace_members_user_id_idx on public.workspace_mem
 create index if not exists nodes_workspace_created_at_idx on public.nodes(workspace_id, created_at desc);
 create index if not exists tags_workspace_shift_name_idx on public.tags(workspace_id, shift_name);
 create index if not exists node_tags_tag_id_idx on public.node_tags(tag_id);
+create index if not exists node_notes_node_created_at_idx on public.node_notes(node_id, created_at desc);
 create index if not exists smart_spaces_workspace_created_at_idx on public.smart_spaces(workspace_id, created_at desc);
 create index if not exists workspace_invites_workspace_created_at_idx on public.workspace_invites(workspace_id, created_at desc);
 create index if not exists workspace_invites_email_idx on public.workspace_invites(lower(email));
@@ -231,6 +244,7 @@ alter table public.workspace_members enable row level security;
 alter table public.nodes enable row level security;
 alter table public.tags enable row level security;
 alter table public.node_tags enable row level security;
+alter table public.node_notes enable row level security;
 alter table public.smart_spaces enable row level security;
 alter table public.workspace_invites enable row level security;
 alter table public.telegram_sessions enable row level security;
@@ -380,6 +394,47 @@ using (
     from public.nodes n
     where n.id = node_tags.node_id
       and private.is_workspace_member(n.workspace_id)
+  )
+);
+
+drop policy if exists "Workspace members can read node notes" on public.node_notes;
+create policy "Workspace members can read node notes"
+on public.node_notes for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.nodes n
+    where n.id = node_notes.node_id
+      and private.is_workspace_member(n.workspace_id)
+  )
+);
+
+drop policy if exists "Workspace members can create node notes" on public.node_notes;
+create policy "Workspace members can create node notes"
+on public.node_notes for insert
+to authenticated
+with check (
+  (select auth.uid()) = created_by
+  and exists (
+    select 1
+    from public.nodes n
+    where n.id = node_notes.node_id
+      and private.is_workspace_member(n.workspace_id)
+  )
+);
+
+drop policy if exists "Note authors can delete node notes" on public.node_notes;
+create policy "Note authors can delete node notes"
+on public.node_notes for delete
+to authenticated
+using (
+  (select auth.uid()) = created_by
+  or exists (
+    select 1
+    from public.nodes n
+    where n.id = node_notes.node_id
+      and private.is_workspace_admin(n.workspace_id)
   )
 );
 

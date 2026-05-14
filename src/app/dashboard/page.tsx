@@ -27,8 +27,20 @@ type CaptureItem = {
   source_description: string | null;
   source_author: string | null;
   raw_text: string | null;
+  user_notes: string | null;
   ai_summary: string | null;
   tags: string[];
+};
+
+type NodeNote = {
+  id: string;
+  body: string;
+  created_at: string;
+  created_by: string | null;
+  users?: {
+    display_name?: string | null;
+    email?: string | null;
+  } | null;
 };
 
 const URL_PATTERN = /https?:\/\/\S+/i;
@@ -110,6 +122,10 @@ function formatMindName(name: string) {
   return name.replace(/\s+workspace$/i, '');
 }
 
+function getNoteAuthorLabel(note: NodeNote) {
+  return note.users?.display_name || note.users?.email || 'teammate';
+}
+
 function DashboardContent() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
@@ -117,12 +133,17 @@ function DashboardContent() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [recentCaptures, setRecentCaptures] = useState<CaptureItem[]>([]);
   const [selectedCapture, setSelectedCapture] = useState<CaptureItem | null>(null);
+  const [nodeNotes, setNodeNotes] = useState<NodeNote[]>([]);
   const [status, setStatus] = useState('');
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState('');
   const [captureDraft, setCaptureDraft] = useState('');
   const [tagDraft, setTagDraft] = useState('');
+  const [noteDraft, setNoteDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isTagSaving, setIsTagSaving] = useState(false);
+  const [isNoteSaving, setIsNoteSaving] = useState(false);
+  const [isNotesLoading, setIsNotesLoading] = useState(false);
+  const [isImproving, setIsImproving] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const filteredCaptures = useMemo(
@@ -215,6 +236,7 @@ function DashboardContent() {
         source_description: 'MuttMind is reading this source now.',
         source_author: null,
         raw_text: draft,
+        user_notes: null,
         ai_summary: null,
         created_by_label: 'you',
         tags: [],
@@ -252,12 +274,112 @@ function DashboardContent() {
     [loadRecentCaptures, loadTags, workspaceId],
   );
 
-  const updateCaptureTags = useCallback((nodeId: string, nextTags: string[]) => {
+  const updateCapture = useCallback((nodeId: string, patch: Partial<CaptureItem>) => {
     setRecentCaptures((current) =>
-      current.map((captureItem) => (captureItem.id === nodeId ? { ...captureItem, tags: nextTags } : captureItem)),
+      current.map((captureItem) => (captureItem.id === nodeId ? { ...captureItem, ...patch } : captureItem)),
     );
-    setSelectedCapture((current) => (current?.id === nodeId ? { ...current, tags: nextTags } : current));
+    setSelectedCapture((current) => (current?.id === nodeId ? { ...current, ...patch } : current));
   }, []);
+
+  const updateCaptureTags = useCallback((nodeId: string, nextTags: string[]) => {
+    updateCapture(nodeId, { tags: nextTags });
+  }, [updateCapture]);
+
+  const loadSelectedNotes = useCallback(async () => {
+    if (!workspaceId || !selectedCapture || selectedCapture.id.startsWith('pending-')) {
+      setNodeNotes([]);
+      return;
+    }
+
+    setIsNotesLoading(true);
+    const response = await authedFetch(
+      `/api/nodes/${selectedCapture.id}/notes?workspaceId=${encodeURIComponent(workspaceId)}`,
+    );
+    const data = await response.json();
+    setIsNotesLoading(false);
+
+    if (!response.ok) {
+      setStatus(data.error ?? 'Unable to load notes.');
+      return;
+    }
+
+    setNodeNotes((data.notes ?? []) as NodeNote[]);
+  }, [selectedCapture, workspaceId]);
+
+  const saveSelectedNotes = useCallback(async () => {
+    if (!workspaceId || !selectedCapture || selectedCapture.id.startsWith('pending-')) return false;
+    const body = noteDraft.trim();
+    if (!body) return false;
+
+    setIsNoteSaving(true);
+    setStatus('Saving note...');
+    const response = await authedFetch(`/api/nodes/${selectedCapture.id}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId, body }),
+    });
+    const data = await response.json();
+    setIsNoteSaving(false);
+
+    if (!response.ok) {
+      setStatus(data.error ?? 'Unable to save note.');
+      return false;
+    }
+
+    setNodeNotes((current) => [data.note as NodeNote, ...current]);
+    setNoteDraft('');
+    setStatus('Note added. Summary unchanged.');
+    return true;
+  }, [noteDraft, selectedCapture, workspaceId]);
+
+  const deleteSelectedNote = useCallback(async (noteId: string) => {
+    if (!workspaceId || !selectedCapture || selectedCapture.id.startsWith('pending-')) return;
+
+    const previousNotes = nodeNotes;
+    setNodeNotes((current) => current.filter((note) => note.id !== noteId));
+    const response = await authedFetch(
+      `/api/nodes/${selectedCapture.id}/notes?workspaceId=${encodeURIComponent(workspaceId)}&noteId=${encodeURIComponent(noteId)}`,
+      { method: 'DELETE' },
+    );
+    const data = await response.json();
+
+    if (!response.ok) {
+      setNodeNotes(previousNotes);
+      setStatus(data.error ?? 'Unable to delete note.');
+      return;
+    }
+
+    setStatus('Note deleted. Summary unchanged.');
+  }, [nodeNotes, selectedCapture, workspaceId]);
+
+  const improveSelectedSummary = useCallback(async () => {
+    if (!workspaceId || !selectedCapture || selectedCapture.id.startsWith('pending-')) return;
+
+    setIsImproving(true);
+    setStatus('Using saved notes to improve summary and tags...');
+    const response = await authedFetch(`/api/nodes/${selectedCapture.id}/improve`, {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId }),
+    });
+    const data = await response.json();
+    setIsImproving(false);
+
+    if (!response.ok) {
+      setStatus(data.error ?? 'Unable to improve summary.');
+      return;
+    }
+
+    const nextTags = Array.from(new Set([...(selectedCapture.tags ?? []), ...((data.tags ?? []) as string[])])).sort();
+    updateCapture(selectedCapture.id, {
+      ai_summary: data.summary ?? selectedCapture.ai_summary,
+      tags: nextTags,
+    });
+    await loadTags();
+    setStatus(
+      data.warnings?.length
+        ? `Improved, but one step needs attention: ${data.warnings[0]}`
+        : 'Summary and tags improved.',
+    );
+  }, [loadTags, selectedCapture, updateCapture, workspaceId]);
 
   const addTagToSelectedCapture = useCallback(async () => {
     const tag = tagDraft.trim();
@@ -394,6 +516,11 @@ function DashboardContent() {
     loadTags();
     loadRecentCaptures();
   }, [loadRecentCaptures, loadTags]);
+
+  useEffect(() => {
+    setNoteDraft('');
+    void loadSelectedNotes();
+  }, [loadSelectedNotes, selectedCapture?.id]);
 
   useEffect(() => {
     const storedQuery = window.localStorage.getItem('muttmind:active-space-query');
@@ -659,7 +786,56 @@ function DashboardContent() {
               </div>
               <div>
                 <p className="kicker">Notes</p>
-                <textarea className="mind-note-input" placeholder="Type here to add a note..." />
+                {selectedCapture.user_notes ? (
+                  <div className="saved-notes">
+                    <article className="saved-note saved-note--initial">
+                      <p>{selectedCapture.user_notes}</p>
+                      <span>Initial capture note</span>
+                    </article>
+                  </div>
+                ) : null}
+                {isNotesLoading ? <p className="meta">Loading notes...</p> : null}
+                {nodeNotes.length ? (
+                  <div className="saved-notes">
+                    {nodeNotes.map((note) => (
+                      <article key={note.id} className="saved-note">
+                        <p>{note.body}</p>
+                        <span>{getNoteAuthorLabel(note)}</span>
+                        <button type="button" onClick={() => deleteSelectedNote(note.id)} aria-label="Delete note">
+                          Delete
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                ) : !selectedCapture.user_notes && !isNotesLoading ? (
+                  <p className="meta">No notes yet.</p>
+                ) : null}
+                <textarea
+                  className="mind-note-input"
+                  value={noteDraft}
+                  onChange={(event) => setNoteDraft(event.target.value)}
+                  placeholder="Add context, why you saved this, or what MuttMind missed. This will not change the summary until you choose Improve Summary."
+                />
+                {!selectedCapture.id.startsWith('pending-') ? (
+                  <div className="note-actions">
+                    <button
+                      className="button-secondary"
+                      type="button"
+                      onClick={saveSelectedNotes}
+                      disabled={isNoteSaving || !noteDraft.trim()}
+                    >
+                      {isNoteSaving ? 'Saving' : 'Add Note'}
+                    </button>
+                    <button
+                      className="button"
+                      type="button"
+                      onClick={improveSelectedSummary}
+                      disabled={isImproving}
+                    >
+                      {isImproving ? 'Improving' : 'Improve Summary'}
+                    </button>
+                  </div>
+                ) : null}
               </div>
               <div className="button-row">
                 {selectedCapture.original_url ? (

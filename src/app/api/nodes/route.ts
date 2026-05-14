@@ -17,6 +17,7 @@ type NodeListRow = {
   source_author: string | null;
   raw_text: string | null;
   ai_summary: string | null;
+  user_notes: string | null;
   created_by: string | null;
   users?: {
     display_name?: string | null;
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
     await assertWorkspaceMember(workspaceId, userId);
     const { data, error } = await getSupabaseAdmin()
       .from('nodes')
-      .select('id,title,original_url,og_image_url,source_description,source_author,raw_text,ai_summary,created_by,users(display_name,email),node_tags(tags(shift_name))')
+      .select('id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,created_by,users(display_name,email),node_tags(tags(shift_name))')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -47,6 +48,7 @@ export async function GET(req: Request) {
       source_description: node.source_description,
       source_author: node.source_author,
       raw_text: node.raw_text,
+      user_notes: node.user_notes,
       ai_summary: node.ai_summary,
       created_by: node.created_by,
       created_by_label: node.users?.display_name || node.users?.email || 'teammate',

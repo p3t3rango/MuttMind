@@ -39,8 +39,9 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
       og_image_url: scrape.image,
       source_description: scrape.description,
       source_author: scrape.author,
+      user_notes: userNote || null,
     })
-    .select('id, title, original_url, raw_text, source_description, source_author')
+    .select('id, title, original_url, raw_text, source_description, source_author, user_notes')
     .single();
 
   if (nodeError) throw new Error(nodeError.message);
@@ -56,6 +57,7 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
     `URL: ${node.original_url ?? ''}`,
     `Author: ${node.source_author ?? ''}`,
     `Description: ${node.source_description ?? ''}`,
+    `User notes: ${node.user_notes ?? ''}`,
     `Text: ${node.raw_text ?? ''}`,
   ]
     .join('\n')
@@ -80,6 +82,7 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
     node.title,
     node.original_url,
     node.source_description,
+    node.user_notes,
     node.raw_text,
     ai.summary,
     ai.tags.join(' '),

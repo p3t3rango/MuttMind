@@ -1281,12 +1281,74 @@ h3 {
 }
 
 .mind-note-input {
+  width: 100%;
   min-height: 68px;
   border: 0;
   border-radius: 6px;
   background: rgba(247, 247, 242, 0.05);
   color: var(--ink);
   resize: vertical;
+}
+
+.saved-notes {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.saved-note {
+  display: grid;
+  gap: 7px;
+  border-radius: 6px;
+  background: rgba(247, 247, 242, 0.045);
+  padding: 12px;
+}
+
+.saved-note p {
+  margin: 0;
+  color: rgba(247, 247, 242, 0.86);
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.saved-note span,
+.saved-note button {
+  color: rgba(152, 160, 184, 0.72);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.saved-note button {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.saved-note button:hover {
+  color: rgba(247, 247, 242, 0.9);
+}
+
+.saved-note--initial {
+  border: 1px solid rgba(247, 247, 242, 0.1);
+}
+
+.note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.note-actions .button,
+.note-actions .button-secondary {
+  min-height: 42px;
+  padding: 0 18px;
+  font-size: 15px;
 }
 
 .spaces-page {

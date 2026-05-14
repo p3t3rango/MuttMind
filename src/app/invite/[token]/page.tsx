@@ -24,6 +24,9 @@ function InviteContent() {
       return;
     }
     setStatus('Invite accepted.');
+    if (data.workspaceId) {
+      window.localStorage.setItem('muttmind:active-mind-id', data.workspaceId);
+    }
     router.push('/dashboard');
   };
 

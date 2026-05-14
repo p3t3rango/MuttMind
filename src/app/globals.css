@@ -678,6 +678,7 @@ h3 {
 .soft-pill {
   display: inline-flex;
   align-items: center;
+  gap: 7px;
   min-height: 30px;
   border-radius: 999px;
   background: rgba(247, 247, 242, 0.1);
@@ -688,6 +689,61 @@ h3 {
   letter-spacing: 0.04em;
   line-height: 1;
   text-transform: none;
+}
+
+.soft-pill--editable {
+  padding-right: 6px;
+}
+
+.soft-pill--editable button {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(247, 247, 242, 0.13);
+  color: rgba(247, 247, 242, 0.78);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.soft-pill--editable button:hover {
+  background: rgba(247, 247, 242, 0.22);
+  color: var(--paper);
+}
+
+.tag-editor {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.tag-editor input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid rgba(247, 247, 242, 0.16);
+  border-radius: 999px;
+  background: rgba(247, 247, 242, 0.06);
+  color: var(--ink);
+  padding: 11px 14px;
+}
+
+.tag-editor button {
+  border: 0;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--black);
+  padding: 0 18px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.tag-editor button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .capture-drawer {
@@ -1246,6 +1302,31 @@ h3 {
   align-items: start;
   border-bottom: 1px solid rgba(160, 168, 188, 0.24);
   padding-bottom: 28px;
+}
+
+.telegram-connect {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 520px);
+  gap: clamp(24px, 6vw, 72px);
+  align-items: start;
+  padding: clamp(28px, 6vw, 88px);
+}
+
+.telegram-connect h1 {
+  max-width: 8ch;
+  margin-top: 12px;
+}
+
+.telegram-connect__panel {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  min-height: 360px;
+}
+
+.telegram-connect__panel .button,
+.telegram-connect__panel .button-secondary {
+  width: 100%;
 }
 
 .spaces-page h1 {

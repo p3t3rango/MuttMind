@@ -120,7 +120,9 @@ function DashboardContent() {
   const [status, setStatus] = useState('');
   const [workspaceNameDraft, setWorkspaceNameDraft] = useState('');
   const [captureDraft, setCaptureDraft] = useState('');
+  const [tagDraft, setTagDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isTagSaving, setIsTagSaving] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const filteredCaptures = useMemo(
@@ -219,7 +221,6 @@ function DashboardContent() {
       };
 
       setRecentCaptures((current) => [optimisticCapture, ...current]);
-      setSelectedCapture(optimisticCapture);
       setIsSaving(true);
       setStatus(url ? 'Saving link and organizing it...' : 'Saving note and organizing it...');
       const r = await authedFetch('/api/capture', {
@@ -245,12 +246,65 @@ function DashboardContent() {
           : 'Saved. Summary, tags, and relationships are being built.',
       );
       await loadTags();
-      const nodes = await loadRecentCaptures();
-      const savedNode = nodes.find((captureItem) => captureItem.id === d.nodeId);
-      if (savedNode) setSelectedCapture(savedNode);
+      await loadRecentCaptures();
       return true;
     },
     [loadRecentCaptures, loadTags, workspaceId],
+  );
+
+  const updateCaptureTags = useCallback((nodeId: string, nextTags: string[]) => {
+    setRecentCaptures((current) =>
+      current.map((captureItem) => (captureItem.id === nodeId ? { ...captureItem, tags: nextTags } : captureItem)),
+    );
+    setSelectedCapture((current) => (current?.id === nodeId ? { ...current, tags: nextTags } : current));
+  }, []);
+
+  const addTagToSelectedCapture = useCallback(async () => {
+    const tag = tagDraft.trim();
+    if (!workspaceId || !selectedCapture || !tag || selectedCapture.id.startsWith('pending-')) return;
+
+    setIsTagSaving(true);
+    const response = await authedFetch(`/api/nodes/${selectedCapture.id}/tags`, {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId, tag }),
+    });
+    const data = await response.json();
+    setIsTagSaving(false);
+
+    if (!response.ok) {
+      setStatus(data.error ?? 'Unable to add tag.');
+      return;
+    }
+
+    const nextTag = data.tag as string;
+    const nextTags = Array.from(new Set([...(selectedCapture.tags ?? []), nextTag])).sort();
+    updateCaptureTags(selectedCapture.id, nextTags);
+    setTagDraft('');
+    setStatus(`Added #${nextTag}.`);
+    await loadTags();
+  }, [loadTags, selectedCapture, tagDraft, updateCaptureTags, workspaceId]);
+
+  const removeTagFromSelectedCapture = useCallback(
+    async (tag: string) => {
+      if (!workspaceId || !selectedCapture || selectedCapture.id.startsWith('pending-')) return;
+
+      const nextTags = (selectedCapture.tags ?? []).filter((item) => item !== tag);
+      updateCaptureTags(selectedCapture.id, nextTags);
+      const response = await authedFetch(
+        `/api/nodes/${selectedCapture.id}/tags?workspaceId=${encodeURIComponent(workspaceId)}&tag=${encodeURIComponent(tag)}`,
+        { method: 'DELETE' },
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        updateCaptureTags(selectedCapture.id, selectedCapture.tags ?? []);
+        setStatus(data.error ?? 'Unable to remove tag.');
+        return;
+      }
+
+      setStatus(`Removed #${tag}.`);
+    },
+    [selectedCapture, updateCaptureTags, workspaceId],
   );
 
   const saveSmartSpace = () => {
@@ -566,14 +620,42 @@ function DashboardContent() {
                 {selectedCapture.is_processing ? (
                   <p className="meta">Tags are generating now.</p>
                 ) : selectedCapture.tags?.length ? (
-                  <div className="tag-cloud">
+                  <div className="tag-cloud tag-cloud--editable">
                     {selectedCapture.tags.map((tag) => (
-                      <span key={tag} className="soft-pill">{tag}</span>
+                      <span key={tag} className="soft-pill soft-pill--editable">
+                        {tag}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${tag}`}
+                          onClick={() => removeTagFromSelectedCapture(tag)}
+                        >
+                          x
+                        </button>
+                      </span>
                     ))}
                   </div>
                 ) : (
                   <p className="meta">Tags will appear after MuttMind processes this capture.</p>
                 )}
+                {!selectedCapture.id.startsWith('pending-') ? (
+                  <form
+                    className="tag-editor"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      addTagToSelectedCapture();
+                    }}
+                  >
+                    <input
+                      value={tagDraft}
+                      onChange={(event) => setTagDraft(event.target.value)}
+                      placeholder="Add a tag"
+                      aria-label="Add a tag"
+                    />
+                    <button type="submit" disabled={isTagSaving || !tagDraft.trim()}>
+                      Add Tag
+                    </button>
+                  </form>
+                ) : null}
               </div>
               <div>
                 <p className="kicker">Notes</p>

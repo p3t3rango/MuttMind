@@ -43,6 +43,33 @@ export async function getTelegramUser(telegramUserId: number) {
 }
 
 export async function linkTelegramUser(telegramUserId: number, userId: string) {
+  const supabase = getSupabaseAdmin();
+
+  const { data: targetUser, error: targetError } = await supabase
+    .from('users')
+    .select('id,email,display_name,telegram_user_id')
+    .eq('id', userId)
+    .single();
+
+  if (targetError) throw new Error(targetError.message);
+
+  if (targetUser.telegram_user_id && targetUser.telegram_user_id !== telegramUserId) {
+    const { error: oldSessionError } = await supabase
+      .from('telegram_sessions')
+      .delete()
+      .eq('telegram_user_id', targetUser.telegram_user_id);
+
+    if (oldSessionError) throw new Error(oldSessionError.message);
+  }
+
+  const { error: clearError } = await supabase
+    .from('users')
+    .update({ telegram_user_id: null })
+    .eq('telegram_user_id', telegramUserId)
+    .neq('id', userId);
+
+  if (clearError) throw new Error(clearError.message);
+
   const { data, error } = await getSupabaseAdmin()
     .from('users')
     .update({ telegram_user_id: telegramUserId })
@@ -51,13 +78,36 @@ export async function linkTelegramUser(telegramUserId: number, userId: string) {
     .single();
 
   if (error) {
-    if (error.code === '23505') {
-      throw new Error('This Telegram account is already linked to another MuttMind account.');
-    }
     throw new Error(error.message);
   }
 
+  const { error: sessionError } = await supabase.from('telegram_sessions').upsert({
+    telegram_user_id: telegramUserId,
+    user_id: userId,
+    active_workspace_id: null,
+  });
+
+  if (sessionError) throw new Error(sessionError.message);
+
   return data;
+}
+
+export async function unlinkTelegramUser(telegramUserId: number) {
+  const supabase = getSupabaseAdmin();
+
+  const { error: userError } = await supabase
+    .from('users')
+    .update({ telegram_user_id: null })
+    .eq('telegram_user_id', telegramUserId);
+
+  if (userError) throw new Error(userError.message);
+
+  const { error: sessionError } = await supabase
+    .from('telegram_sessions')
+    .delete()
+    .eq('telegram_user_id', telegramUserId);
+
+  if (sessionError) throw new Error(sessionError.message);
 }
 
 export async function listTelegramWorkspaces(userId: string): Promise<TelegramWorkspace[]> {
@@ -160,6 +210,7 @@ export function formatTelegramHelp(workspaces: TelegramWorkspace[], activeWorksp
     '/new <Mind name> - create a new Mind',
     '/use <name or number> - choose where links save',
     '/current - show the active Mind',
+    '/unlink - disconnect this Telegram chat',
     '',
     workspaces.length ? formatWorkspaceList(workspaces) : 'Create a Mind with /new <Mind name>.',
   ].join('\n');

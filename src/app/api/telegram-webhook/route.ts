@@ -1,5 +1,5 @@
 import { captureSignal } from '@/lib/capture';
-import { parseTelegramStartPayload } from '@/lib/telegram-link';
+import { createTelegramConnectUrl, parseTelegramStartPayload } from '@/lib/telegram-link';
 import {
   createTelegramWorkspace,
   findTelegramWorkspace,
@@ -12,6 +12,7 @@ import {
   listTelegramWorkspaces,
   sendTelegramMessage,
   setActiveTelegramWorkspace,
+  unlinkTelegramUser,
 } from '@/lib/telegram';
 
 export async function POST(req: Request) {
@@ -34,13 +35,18 @@ export async function POST(req: Request) {
   const commandName = command.replace(/@\w+$/, '');
   let user = await getTelegramUser(telegramUserId);
 
-  if (!user && commandName === '/start') {
+  if (commandName === '/start') {
     const payload = trimmedText.replace(/^\/start(@\w+)?\s*/i, '').trim();
     const parsedPayload = payload ? parseTelegramStartPayload(payload) : null;
 
     if (parsedPayload) {
       try {
         user = await linkTelegramUser(telegramUserId, parsedPayload.userId);
+        await sendTelegramMessage(
+          chatId,
+          `Telegram connected to ${user.display_name || user.email || 'your MuttMind account'}.\n\nSend /minds to choose a Mind, or paste a link to capture.`,
+        );
+        return Response.json({ ok: true, command, linked: true });
       } catch (e) {
         await sendTelegramMessage(chatId, e instanceof Error ? e.message : 'Unable to link this Telegram account.');
         return Response.json({ ok: true, ignored: true, reason: 'telegram link failed' });
@@ -49,14 +55,16 @@ export async function POST(req: Request) {
   }
 
   if (!user) {
+    const connectUrl = createTelegramConnectUrl(new URL(req.url).origin, telegramUserId, chatId);
     await sendTelegramMessage(
       chatId,
       [
         'This Telegram account is not linked to MuttMind yet.',
         '',
-        'Open MuttMind in your browser, sign in, then click Open Bot from the Mind screen or Settings. That link will connect this chat automatically.',
+        'Open this link, sign in, and I will connect this Telegram chat to that account:',
+        connectUrl,
         '',
-        `Fallback Telegram ID: ${telegramUserId}`,
+        'The link expires in 15 minutes. You can also sign in to MuttMind and click Open Bot from the Mind screen or Settings.',
       ].join('\n'),
     );
     return Response.json({ ok: true, ignored: true, reason: 'telegram user not linked' });
@@ -74,6 +82,21 @@ export async function POST(req: Request) {
     if (commandName === '/workspaces' || commandName === '/minds') {
       await sendTelegramMessage(chatId, formatWorkspaceList(workspaces));
       return Response.json({ ok: true, command });
+    }
+
+    if (commandName === '/unlink') {
+      await unlinkTelegramUser(telegramUserId);
+      const connectUrl = createTelegramConnectUrl(new URL(req.url).origin, telegramUserId, chatId);
+      await sendTelegramMessage(
+        chatId,
+        [
+          'Telegram disconnected from MuttMind.',
+          '',
+          'To connect a different account, open this link and sign in:',
+          connectUrl,
+        ].join('\n'),
+      );
+      return Response.json({ ok: true, command, unlinked: true });
     }
 
     if (commandName === '/new' || commandName === '/newmind') {

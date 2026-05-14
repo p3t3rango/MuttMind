@@ -50,7 +50,38 @@ export function parseTelegramStartPayload(payload: string, now = Date.now()) {
   return { userId: expandUserId(compactId) };
 }
 
-async function getTelegramBotUrl() {
+export function createTelegramConnectToken(telegramUserId: number, chatId: number, now = Date.now()) {
+  const timestamp = now.toString(36);
+  const telegramId = String(telegramUserId);
+  const telegramChatId = String(chatId);
+  const data = `${telegramId}.${telegramChatId}.${timestamp}`;
+  return `t_${telegramId}_${telegramChatId}_${timestamp}_${signToken(data)}`;
+}
+
+export function parseTelegramConnectToken(token: string, now = Date.now()) {
+  const match = token.match(/^t_(-?\d+)_(-?\d+)_([a-z0-9]+)_([A-Za-z0-9_-]{16})$/);
+  if (!match) return null;
+
+  const [, telegramId, telegramChatId, timestamp, signature] = match;
+  const issuedAt = Number.parseInt(timestamp, 36);
+  if (!Number.isFinite(issuedAt) || now - issuedAt > TELEGRAM_LINK_TTL_MS || issuedAt - now > 60_000) {
+    return null;
+  }
+
+  const expected = signToken(`${telegramId}.${telegramChatId}.${timestamp}`);
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== signatureBuffer.length || !timingSafeEqual(expectedBuffer, signatureBuffer)) {
+    return null;
+  }
+
+  return {
+    telegramUserId: Number.parseInt(telegramId, 10),
+    chatId: Number.parseInt(telegramChatId, 10),
+  };
+}
+
+export async function getTelegramBotUrl() {
   const configuredBotUrl = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL?.trim().replace(/\?.*$/, '').replace(/\/$/, '');
   if (configuredBotUrl) return configuredBotUrl;
 
@@ -74,4 +105,9 @@ async function getTelegramBotUrl() {
 export async function createTelegramStartUrl(userId: string) {
   const botUrl = await getTelegramBotUrl();
   return `${botUrl}?start=${createTelegramStartPayload(userId)}`;
+}
+
+export function createTelegramConnectUrl(origin: string, telegramUserId: number, chatId: number) {
+  const token = createTelegramConnectToken(telegramUserId, chatId);
+  return `${origin.replace(/\/$/, '')}/telegram/connect?token=${encodeURIComponent(token)}`;
 }

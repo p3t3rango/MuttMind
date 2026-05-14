@@ -61,11 +61,14 @@ export async function POST(req: Request) {
       [
         'This Telegram account is not linked to MuttMind yet.',
         '',
-        'Open this link, sign in, and I will connect this Telegram chat to that account:',
-        connectUrl,
-        '',
+        'Tap Connect MuttMind, sign in, and I will connect this Telegram chat to that account.',
         'The link expires in 15 minutes. You can also sign in to MuttMind and click Open Bot from the Mind screen or Settings.',
       ].join('\n'),
+      {
+        replyMarkup: {
+          inline_keyboard: [[{ text: 'Connect MuttMind', url: connectUrl }]],
+        },
+      },
     );
     return Response.json({ ok: true, ignored: true, reason: 'telegram user not linked' });
   }
@@ -92,9 +95,13 @@ export async function POST(req: Request) {
         [
           'Telegram disconnected from MuttMind.',
           '',
-          'To connect a different account, open this link and sign in:',
-          connectUrl,
+          'To connect a different account, tap Connect MuttMind and sign in.',
         ].join('\n'),
+        {
+          replyMarkup: {
+            inline_keyboard: [[{ text: 'Connect MuttMind', url: connectUrl }]],
+          },
+        },
       );
       return Response.json({ ok: true, command, unlinked: true });
     }

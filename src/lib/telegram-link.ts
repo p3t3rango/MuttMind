@@ -107,7 +107,25 @@ export async function createTelegramStartUrl(userId: string) {
   return `${botUrl}?start=${createTelegramStartPayload(userId)}`;
 }
 
+function normalizeAppUrl(value: string | undefined) {
+  const rawValue = value?.trim().replace(/\/$/, '');
+  if (!rawValue) return '';
+  return rawValue.startsWith('http') ? rawValue : `https://${rawValue}`;
+}
+
+export function getPublicAppUrl(requestOrigin?: string) {
+  return (
+    normalizeAppUrl(process.env.NEXT_PUBLIC_APP_URL) ||
+    normalizeAppUrl(process.env.APP_URL) ||
+    normalizeAppUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
+    normalizeAppUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL) ||
+    normalizeAppUrl(process.env.VERCEL_URL) ||
+    normalizeAppUrl(requestOrigin?.includes('localhost') ? '' : requestOrigin) ||
+    'https://mutt-mind.vercel.app'
+  );
+}
+
 export function createTelegramConnectUrl(origin: string, telegramUserId: number, chatId: number) {
   const token = createTelegramConnectToken(telegramUserId, chatId);
-  return `${origin.replace(/\/$/, '')}/telegram/connect?token=${encodeURIComponent(token)}`;
+  return `${getPublicAppUrl(origin)}/telegram/connect?token=${encodeURIComponent(token)}`;
 }

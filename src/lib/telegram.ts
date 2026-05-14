@@ -7,7 +7,15 @@ export type TelegramWorkspace = {
   role: string;
 };
 
-export async function sendTelegramMessage(chatId: number, text: string) {
+type TelegramReplyMarkup = {
+  inline_keyboard: Array<Array<{ text: string; url: string }>>;
+};
+
+export async function sendTelegramMessage(
+  chatId: number,
+  text: string,
+  options: { replyMarkup?: TelegramReplyMarkup } = {},
+) {
   if (!process.env.TELEGRAM_BOT_TOKEN) {
     console.log('telegram reply skipped: TELEGRAM_BOT_TOKEN is not set');
     return;
@@ -22,6 +30,7 @@ export async function sendTelegramMessage(chatId: number, text: string) {
         chat_id: chatId,
         text,
         disable_web_page_preview: true,
+        ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
       }),
     },
   );

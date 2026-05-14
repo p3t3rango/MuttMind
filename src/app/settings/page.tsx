@@ -52,7 +52,7 @@ function SettingsContent() {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
   const [tags, setTags] = useState<Tag[]>([]);
-  const [status, setStatus] = useState('Loading settings...');
+  const [status, setStatus] = useState('');
   const [tagName, setTagName] = useState('');
   const [tagDescription, setTagDescription] = useState('');
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
@@ -284,7 +284,7 @@ function SettingsContent() {
   }, [telegramBotUrl]);
 
   return (
-    <main className="app-shell">
+    <main className="app-shell settings-shell">
       <AppNav active="settings" />
 
       <section className="section-header section-header--compact" aria-labelledby="settings-title">
@@ -300,7 +300,7 @@ function SettingsContent() {
         </Link>
       </section>
 
-      <section className="panel">
+      <section className="panel settings-panel">
         <div className="panel-header">
           <div>
             <p className="eyebrow">{getMindLabel(currentWorkspace)}</p>
@@ -317,8 +317,8 @@ function SettingsContent() {
           </div>
         </div>
 
-        <div className="vault-layout">
-          <aside className="vault-sidebar">
+        <div className="vault-layout settings-layout">
+          <aside className="vault-sidebar settings-sidebar">
             <label className="form-row">
               <span className="field-label">Mind</span>
               <select value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
@@ -344,10 +344,7 @@ function SettingsContent() {
                 <p className="kicker">Telegram</p>
               </div>
               <p className="vault-group__title">Bot capture</p>
-              <p className="meta vault-group__meta">Saved links from Telegram appear in the selected Mind.</p>
-              <button className="button-secondary" type="button" onClick={openTelegramBot}>
-                Open Telegram Bot
-              </button>
+              <p className="meta vault-group__meta">Saved links from Telegram appear in the selected Mind. Use the action in the header to open the bot.</p>
             </article>
 
             <article className="vault-group">
@@ -359,7 +356,7 @@ function SettingsContent() {
             </article>
           </aside>
 
-          <div className="vault-main">
+          <div className="vault-main settings-main">
             <section className="settings-list" aria-label="Mind members">
               <article className="vault-group">
                 <div className="vault-group__header">
@@ -426,49 +423,69 @@ function SettingsContent() {
             </div>
             <p className="status">{status}</p>
 
-            <div className="settings-list">
+            <div className="tag-table" role="list" aria-label="Tags">
+              <div className="tag-table__head" aria-hidden="true">
+                <span>Tag</span>
+                <span>Description</span>
+                <span />
+              </div>
+              {tags.length === 0 ? (
+                <p className="tag-table__empty">No tags yet. Create one above.</p>
+              ) : null}
               {tags.map((tag) => (
-                <article key={tag.id} className="vault-group">
+                <div key={tag.id} className="tag-row" role="listitem">
                   {editingTagId === tag.id ? (
-                    <>
-                      <label className="form-row">
-                        <span className="field-label">Tag name</span>
-                        <input value={editingName} onChange={(e) => setEditingName(e.target.value)} />
-                      </label>
-                      <label className="form-row">
-                        <span className="field-label">Description</span>
-                        <input
-                          value={editingDescription}
-                          onChange={(e) => setEditingDescription(e.target.value)}
-                        />
-                      </label>
-                      <div className="button-row">
-                        <button className="button" onClick={saveTag}>
+                    <form
+                      className="tag-row__edit"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        saveTag();
+                      }}
+                    >
+                      <input
+                        className="tag-row__input"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        placeholder="tag-name"
+                        aria-label="Tag name"
+                      />
+                      <input
+                        className="tag-row__input"
+                        value={editingDescription}
+                        onChange={(e) => setEditingDescription(e.target.value)}
+                        placeholder="Short description"
+                        aria-label="Description"
+                      />
+                      <div className="tag-row__actions">
+                        <button type="submit" className="link-button">
                           Save
                         </button>
-                        <button className="button-ghost" onClick={() => setEditingTagId(null)}>
+                        <button type="button" className="link-button" onClick={() => setEditingTagId(null)}>
                           Cancel
                         </button>
                       </div>
-                    </>
+                    </form>
                   ) : (
                     <>
-                      <div className="vault-group__header">
-                        <p className="kicker">Tag</p>
-                        <span className="tag-pill">{tag.shift_name}</span>
-                      </div>
-                      <p className="vault-group__title">{tag.description || 'No description yet.'}</p>
-                      <div className="button-row">
-                        <button className="button-secondary" onClick={() => beginEditTag(tag)}>
+                      <span className="tag-row__name">{tag.shift_name}</span>
+                      <span className={`tag-row__desc${tag.description ? '' : ' tag-row__desc--empty'}`}>
+                        {tag.description || 'No description'}
+                      </span>
+                      <div className="tag-row__actions">
+                        <button type="button" className="link-button" onClick={() => beginEditTag(tag)}>
                           Edit
                         </button>
-                        <button className="button-secondary" onClick={() => deleteTag(tag.id)}>
+                        <button
+                          type="button"
+                          className="link-button link-button--danger"
+                          onClick={() => deleteTag(tag.id)}
+                        >
                           Delete
                         </button>
                       </div>
                     </>
                   )}
-                </article>
+                </div>
               ))}
             </div>
           </div>

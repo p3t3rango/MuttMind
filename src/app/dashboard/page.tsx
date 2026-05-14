@@ -839,7 +839,7 @@ function DashboardContent() {
               </div>
               <div className="button-row">
                 {selectedCapture.original_url ? (
-                  <a className="button" href={selectedCapture.original_url} target="_blank" rel="noreferrer">
+                  <a className="button-secondary" href={selectedCapture.original_url} target="_blank" rel="noreferrer">
                     Open Source
                   </a>
                 ) : null}

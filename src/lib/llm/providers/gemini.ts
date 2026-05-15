@@ -1,9 +1,25 @@
-import { env } from './env';
+import { env } from '../../env';
 
-export type AiResult = {
+export type GeminiProcessInput = {
+  text: string;
+  tags: string[];
+  model?: string;
+};
+
+export type GeminiEmbedInput = {
+  text: string;
+  model?: string;
+};
+
+export type GeminiGenerateTextInput = {
+  prompt: string;
+  systemPrompt?: string;
+  model?: string;
+};
+
+export type GeminiProcessResult = {
   summary: string;
   tags: string[];
-  embedding: number[];
 };
 
 function parseJsonObject(text: string) {
@@ -22,7 +38,17 @@ function parseJsonObject(text: string) {
   }
 }
 
-async function geminiProcess(input: { text: string; tags: string[] }): Promise<AiResult> {
+function cleanTag(tag: string) {
+  return tag
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+export async function geminiProcess(input: GeminiProcessInput): Promise<GeminiProcessResult> {
   if (!env.geminiApiKey) throw new Error('GEMINI_API_KEY is required');
 
   const approvedTags = input.tags.map((tag) => tag.trim()).filter(Boolean);
@@ -48,8 +74,9 @@ async function geminiProcess(input: { text: string; tags: string[] }): Promise<A
     `Source content:\n${input.text}`,
   ].join('\n');
 
+  const model = input.model ?? env.geminiModel;
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${env.geminiModel}:generateContent?key=${env.geminiApiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.geminiApiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -68,14 +95,6 @@ async function geminiProcess(input: { text: string; tags: string[] }): Promise<A
   const data = await response.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{"summary":"","tags":[]}';
   const parsed = parseJsonObject(text);
-  const cleanTag = (tag: string) =>
-    tag
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
 
   const parsedTags: string[] = Array.isArray(parsed.tags)
     ? parsed.tags
@@ -85,21 +104,20 @@ async function geminiProcess(input: { text: string; tags: string[] }): Promise<A
     : [];
   const tags = Array.from(new Set(parsedTags)).slice(0, 10);
 
-  return { summary: typeof parsed.summary === 'string' ? parsed.summary : '', tags, embedding: [] };
+  return { summary: typeof parsed.summary === 'string' ? parsed.summary : '', tags };
 }
 
-async function geminiEmbed(input: { text: string }): Promise<number[]> {
+export async function geminiEmbed(input: GeminiEmbedInput): Promise<number[]> {
   if (!env.geminiApiKey) throw new Error('GEMINI_API_KEY is required');
 
+  const model = input.model ?? env.geminiEmbeddingModel;
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${env.geminiEmbeddingModel}:embedContent?key=${env.geminiApiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${env.geminiApiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        content: {
-          parts: [{ text: input.text }],
-        },
+        content: { parts: [{ text: input.text }] },
         task_type: 'SEMANTIC_SIMILARITY',
         output_dimensionality: 768,
       }),
@@ -113,15 +131,36 @@ async function geminiEmbed(input: { text: string }): Promise<number[]> {
 
   const data = await response.json();
   const values = data?.embedding?.values;
-  return Array.isArray(values) ? values.filter((value: unknown): value is number => typeof value === 'number') : [];
+  return Array.isArray(values)
+    ? values.filter((value: unknown): value is number => typeof value === 'number')
+    : [];
 }
 
-export async function aiProcess(input: { text: string; tags: string[] }): Promise<AiResult> {
-  if ((process.env.LLM_PROVIDER ?? 'gemini') === 'gemini') return geminiProcess(input);
-  throw new Error('Unsupported LLM provider');
-}
+export async function geminiGenerateText(input: GeminiGenerateTextInput): Promise<string> {
+  if (!env.geminiApiKey) throw new Error('GEMINI_API_KEY is required');
 
-export async function embeddingProcess(input: { text: string }): Promise<number[]> {
-  if ((process.env.LLM_PROVIDER ?? 'gemini') === 'gemini') return geminiEmbed(input);
-  throw new Error('Unsupported LLM provider');
+  const model = input.model ?? env.geminiModel;
+  const body: Record<string, unknown> = {
+    contents: [{ parts: [{ text: input.prompt }] }],
+  };
+  if (input.systemPrompt) {
+    body.system_instruction = { parts: [{ text: input.systemPrompt }] };
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.geminiApiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini text request failed: ${response.status} ${errorText.slice(0, 180)}`);
+  }
+
+  const data = await response.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }

@@ -1,9 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivationChecklist } from '@/components/activation-checklist';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
+import { Dropdown } from '@/components/dropdown';
+import { NewMindModal } from '@/components/new-mind-modal';
 import { authedFetch, getSupabaseBrowser } from '@/lib/client-auth';
 
 type Workspace = {
@@ -21,6 +25,7 @@ type CaptureItem = {
   id: string;
   is_processing?: boolean;
   created_by_label?: string;
+  created_at?: string;
   title: string | null;
   original_url: string | null;
   og_image_url: string | null;
@@ -53,6 +58,19 @@ function getHostLabel(url: string | null) {
   } catch {
     return 'source';
   }
+}
+
+function relativeTimeFrom(iso?: string) {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const diff = (Date.now() - then) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 86400 * 365) return `${Math.floor(diff / (86400 * 30))}mo ago`;
+  return `${Math.floor(diff / (86400 * 365))}y ago`;
 }
 
 function getCaptureType(captureItem: CaptureItem) {
@@ -127,9 +145,10 @@ function getNoteAuthorLabel(note: NodeNote) {
 }
 
 function DashboardContent() {
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get('q') ?? '';
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [tags, setTags] = useState<Tag[]>([]);
   const [recentCaptures, setRecentCaptures] = useState<CaptureItem[]>([]);
   const [selectedCapture, setSelectedCapture] = useState<CaptureItem | null>(null);
@@ -145,6 +164,7 @@ function DashboardContent() {
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [isImproving, setIsImproving] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [newMindModalOpen, setNewMindModalOpen] = useState(false);
 
   const filteredCaptures = useMemo(
     () => recentCaptures.filter((captureItem) => matchesQuery(captureItem, searchQuery)),
@@ -261,7 +281,6 @@ function DashboardContent() {
         return false;
       }
 
-      setSearchQuery('');
       setStatus(
         d.warnings?.length
           ? `Saved, but processing needs attention: ${d.warnings[0]}`
@@ -429,34 +448,6 @@ function DashboardContent() {
     [selectedCapture, updateCaptureTags, workspaceId],
   );
 
-  const saveSmartSpace = () => {
-    const query = searchQuery.trim();
-    if (!query || URL_PATTERN.test(query)) {
-      setStatus('Search or filter first, then save that view as a Smart Space.');
-      return;
-    }
-    if (!workspaceId) {
-        setStatus('Choose a Mind first.');
-      return;
-    }
-
-    const fallbackName = query.startsWith('#') ? query.slice(1) : query;
-    const name = window.prompt('Name this Smart Space', fallbackName);
-    if (!name?.trim()) return;
-
-    authedFetch('/api/spaces', {
-      method: 'POST',
-      body: JSON.stringify({
-        workspaceId,
-        name: name.trim(),
-        query,
-        color: '#7c3aed',
-      }),
-    }).then(async (response) => {
-      const data = await response.json();
-      setStatus(response.ok ? `Smart Space saved: ${name.trim()}.` : data.error ?? 'Unable to save Smart Space.');
-    });
-  };
 
   const createSharedMind = async () => {
     const name = workspaceNameDraft.trim();
@@ -523,17 +514,43 @@ function DashboardContent() {
   }, [loadSelectedNotes, selectedCapture?.id]);
 
   useEffect(() => {
-    const storedQuery = window.localStorage.getItem('muttmind:active-space-query');
     const storedMindId = window.localStorage.getItem('muttmind:active-mind-id');
-    if (storedQuery) {
-      setSearchQuery(storedQuery);
-      window.localStorage.removeItem('muttmind:active-space-query');
-    }
     if (storedMindId) {
       setWorkspaceId(storedMindId);
       window.localStorage.removeItem('muttmind:active-mind-id');
     }
   }, []);
+
+  // Deep-link: opening a capture from the vault graph (or anywhere) sets
+  // muttmind:focus-capture-id. Once the workspace is known, fetch that single
+  // capture and open its drawer — it may be older than the recent slice, so
+  // we fetch it directly rather than searching the loaded list.
+  useEffect(() => {
+    if (!workspaceId) return;
+    const focusId = window.localStorage.getItem('muttmind:focus-capture-id');
+    if (!focusId) return;
+    window.localStorage.removeItem('muttmind:focus-capture-id');
+
+    let cancelled = false;
+    (async () => {
+      const existing = recentCaptures.find((c) => c.id === focusId);
+      if (existing) {
+        if (!cancelled) setSelectedCapture(existing);
+        return;
+      }
+      const r = await authedFetch(
+        `/api/nodes/${encodeURIComponent(focusId)}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      );
+      if (!r.ok) return;
+      const d = await r.json();
+      if (!cancelled && d.node) setSelectedCapture(d.node as CaptureItem);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
@@ -560,109 +577,90 @@ function DashboardContent() {
     <main className="app-shell mind-shell">
       <AppNav active="dashboard" />
 
-      <section className="mind-home" aria-labelledby="dashboard-title">
-        <h1 id="dashboard-title" className="sr-only">Everything</h1>
-        <div className="mind-home__bar">
-          <label className="mind-search">
-            <span className="sr-only">Search or paste into MuttMind</span>
-            <input
-              value={searchQuery}
-              placeholder={isMobileViewport ? 'Search...' : 'Search MuttMind...'}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onPaste={(event) => {
-                const text = event.clipboardData.getData('text').trim();
-                if (!URL_PATTERN.test(text)) return;
-                event.preventDefault();
-                void saveCapture(text);
-              }}
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                  event.preventDefault();
-                  void saveCapture(searchQuery);
-                }
-              }}
-            />
-          </label>
+      <section className="dash-page" aria-labelledby="dashboard-title">
+        <h1 id="dashboard-title" className="sr-only">Captures</h1>
 
-          <div className="mind-home__tools">
-            <label className="mind-select mind-select--quiet">
-              <span className="sr-only">Shared Mind</span>
-              <select value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
-                <option value="">Choose Mind</option>
-                {workspaces.map((workspace) => (
-                  <option key={workspace.workspaces.id} value={workspace.workspaces.id}>
-                    {formatMindName(workspace.workspaces.name)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button className="mind-action" type="button" onClick={openTelegramBot}>
+        <header className="dash-header">
+          <div className="dash-crumb">
+            <Dropdown
+              value={workspaceId}
+              options={[
+                { value: '', name: 'no mind selected' },
+                ...workspaces.map((workspace) => ({
+                  value: workspace.workspaces.id,
+                  name: formatMindName(workspace.workspaces.name),
+                })),
+              ]}
+              onChange={(v) => setWorkspaceId(v)}
+              ariaLabel="Active Mind"
+              size="inline"
+            />
+            <span className="dash-crumb__sep">/</span>
+            <span className="dash-crumb__count">
+              {filteredCaptures.length} {filteredCaptures.length === 1 ? 'capture' : 'captures'}
+            </span>
+          </div>
+          <div className="dash-actions">
+            <button type="button" className="dash-action" onClick={openTelegramBot}>
               Open Bot
             </button>
-            <button className="mind-action" onClick={saveSmartSpace}>
-              Save as Space
+            <button type="button" className="dash-action" onClick={() => setNewMindModalOpen(true)}>
+              New Mind <span aria-hidden="true">+</span>
             </button>
           </div>
-        </div>
+        </header>
 
-        <div className="mind-status-row">
-          <span className={status ? 'mind-status-message' : 'mind-status-message mind-status-message--hint'}>
-            {status || 'Paste a link anywhere. Type #tag, type:video, site:domain, or by:name to search.'}
-          </span>
-          <span>{isSaving ? 'Saving...' : `${filteredCaptures.length} visible`}</span>
-          <span>{tags.length ? `${tags.length} tags` : 'Auto-tagging on'}</span>
-          <span>{currentWorkspace ? `${formatMindName(currentWorkspace.workspaces.name)} / ${getMindLabel(currentWorkspace)}` : 'No Mind selected'}</span>
-          <Link href="/vault">Relationship map</Link>
-        </div>
-
-        <form
-          className="quick-capture"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const saved = await saveCapture(captureDraft);
-            if (saved) setCaptureDraft('');
-          }}
-        >
-          <label className="quick-capture__field">
-            <span className="field-label">Add to Mind</span>
-            <textarea
-              value={captureDraft}
-              placeholder="Paste a link or write a note..."
-              onChange={(event) => setCaptureDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-            />
-          </label>
-          <div className="quick-capture__actions">
-            <button className="quick-capture__bot" type="button" onClick={openTelegramBot}>
-              Open Telegram Bot
-            </button>
-            <button className="quick-capture__submit" disabled={isSaving}>
-              {isSaving ? 'Saving' : 'Save'}
-            </button>
-          </div>
-        </form>
+        <nav className="dash-pivots" aria-label="View">
+          <Link href="/minds" className="dash-pivot">Minds</Link>
+          <span className="dash-pivot dash-pivot--active">Captures</span>
+          <Link href="/vault" className="dash-pivot">Map</Link>
+        </nav>
 
         {!workspaces.length ? (
-          <div className="mind-empty-setup">
-            <h2>Create your first Mind.</h2>
-            <div className="mind-toolbar__create">
-              <input
-                aria-label="New Mind name"
-                placeholder="Research, culture shifts, studio..."
-                value={workspaceNameDraft}
-                onChange={(e) => setWorkspaceNameDraft(e.target.value)}
-              />
-              <button className="button" onClick={createSharedMind}>
-                Create
-              </button>
-            </div>
+          <div className="dash-empty-setup">
+            <p className="dash-empty-setup__hint">You don't have a Mind yet.</p>
+            <button type="button" className="button" onClick={() => setNewMindModalOpen(true)}>
+              + New Mind
+            </button>
           </div>
-        ) : null}
+        ) : (
+          <>
+            <form
+              className="dash-capture"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const saved = await saveCapture(captureDraft);
+                if (saved) setCaptureDraft('');
+              }}
+            >
+              <textarea
+                className="dash-capture__input"
+                value={captureDraft}
+                placeholder="Paste a link or write a note…"
+                onChange={(event) => setCaptureDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                rows={2}
+              />
+              <div className="dash-capture__row">
+                <span className="dash-capture__hint">⌘ + Enter to save</span>
+                <button type="submit" className="dash-capture__submit" disabled={isSaving || !captureDraft.trim()}>
+                  {isSaving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </form>
+
+            {status || tags.length ? (
+              <p className="dash-status" aria-live="polite">
+                {status || `${tags.length} tags`}
+              </p>
+            ) : null}
+          </>
+        )}
       </section>
 
       <section className="mind-board" aria-label="Saved captures">
@@ -691,29 +689,75 @@ function DashboardContent() {
                     ) : (
                       <span className="mind-card__fallback">{getHostLabel(captureItem.original_url)}</span>
                     )}
-                    {captureItem.original_url ? <span className="mind-card__source">{getHostLabel(captureItem.original_url)}</span> : null}
                   </button>
 
-                  <button type="button" className="mind-card__title" onClick={() => setSelectedCapture(captureItem)}>
-                    {captureItem.title ?? 'Untitled capture'}
+                  <button type="button" className="mind-card__meta" onClick={() => setSelectedCapture(captureItem)}>
+                    <span className="mind-card__title">{captureItem.title ?? 'Untitled capture'}</span>
+                    <span className="mind-card__attribution" aria-hidden="true">
+                      Added by {captureItem.created_by_label ?? 'teammate'}
+                      {relativeTimeFrom(captureItem.created_at) ? ` · ${relativeTimeFrom(captureItem.created_at)}` : ''}
+                    </span>
                   </button>
-                  <p className="mind-card__creator">Added by {captureItem.created_by_label ?? 'teammate'}</p>
-
-                  {captureItem.tags?.length ? (
-                    <div className="mind-card__tags">
-                      {captureItem.tags.slice(0, 4).map((tag) => (
-                        <span key={tag}>{tag}</span>
-                      ))}
-                    </div>
-                  ) : null}
                 </article>
               );
             })}
           </div>
         ) : (
-          <div className="mind-empty">
-            <h2>{searchQuery ? 'No matches yet.' : 'Paste a link to begin.'}</h2>
-            <p>{searchQuery ? 'Clear the search or save this query as a Smart Space.' : 'MuttMind will create a visual card, summarize it, and tag it automatically.'}</p>
+          <div className="dash-empty">
+            {searchQuery ? (
+              <>
+                <p className="dash-empty__title">No matches yet.</p>
+                <p className="dash-empty__hint">Clear the search to see everything.</p>
+              </>
+            ) : (
+              <>
+                <p className="dash-empty__title">Save your first capture to start this Mind.</p>
+                <div className="dash-empty__paths" role="list">
+                  <button
+                    type="button"
+                    className="dash-empty__path"
+                    onClick={() => {
+                      const composer = document.querySelector<HTMLTextAreaElement>('.dash-capture__input');
+                      composer?.focus();
+                    }}
+                    role="listitem"
+                  >
+                    <span className="dash-empty__path-icon" aria-hidden="true">⎘</span>
+                    <span className="dash-empty__path-name">Paste link</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="dash-empty__path"
+                    onClick={() => {
+                      const composer = document.querySelector<HTMLTextAreaElement>('.dash-capture__input');
+                      composer?.focus();
+                    }}
+                    role="listitem"
+                  >
+                    <span className="dash-empty__path-icon" aria-hidden="true">≡</span>
+                    <span className="dash-empty__path-name">Write a note</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="dash-empty__path dash-empty__path--soon"
+                    disabled
+                    title="Upload — coming soon"
+                    role="listitem"
+                  >
+                    <span className="dash-empty__path-icon" aria-hidden="true">⤒</span>
+                    <span className="dash-empty__path-name">Upload</span>
+                    <span className="dash-empty__path-soon">soon</span>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="dash-empty__bot"
+                  onClick={openTelegramBot}
+                >
+                  or save from anywhere — open the Telegram bot →
+                </button>
+              </>
+            )}
           </div>
         )}
       </section>
@@ -856,6 +900,51 @@ function DashboardContent() {
           </aside>
         </div>
       ) : null}
+
+      <NewMindModal
+        open={newMindModalOpen}
+        onClose={() => setNewMindModalOpen(false)}
+        onCreated={() => loadWorkspaces()}
+      />
+
+      <ActivationChecklist
+        milestones={[
+          {
+            key: 'mind',
+            label: 'Create your first Mind',
+            done: workspaces.length > 0,
+          },
+          {
+            key: 'capture',
+            label: 'Save your first capture',
+            done: recentCaptures.length > 0,
+          },
+          {
+            key: 'tailor',
+            label: 'Tailor your assistant',
+            done: false,
+            manuallyCheckable: true,
+            onAction: () => {
+              if (currentWorkspace?.workspaces.id) {
+                window.location.href = `/minds/${currentWorkspace.workspaces.id}/tailor`;
+              }
+            },
+          },
+          {
+            key: 'shared',
+            label: 'Make it a Shared Mind',
+            done: (currentWorkspace?.workspaces.member_count ?? 1) > 1,
+            onAction: () => setNewMindModalOpen(true),
+          },
+          {
+            key: 'telegram',
+            label: 'Connect the Telegram bot',
+            done: false,
+            manuallyCheckable: true,
+            onAction: openTelegramBot,
+          },
+        ]}
+      />
     </main>
   );
 }

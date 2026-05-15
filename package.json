@@ -11,12 +11,18 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
     "cheerio": "^1.0.0",
+    "d3-force": "^3.0.0",
+    "d3-zoom": "^3.0.0",
     "jszip": "^3.10.1",
     "next": "15.5.15",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
   "devDependencies": {
+    "@types/d3-drag": "^3.0.7",
+    "@types/d3-force": "^3.0.10",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-zoom": "^3.0.8",
     "@types/node": "^22.15.17",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.4",

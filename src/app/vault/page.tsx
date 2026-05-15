@@ -1,85 +1,67 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  forceCenter,
+  forceCollide,
+  forceLink,
+  forceManyBody,
+  forceSimulation,
+  type Simulation,
+  type SimulationLinkDatum,
+  type SimulationNodeDatum,
+} from 'd3-force';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { authedFetch } from '@/lib/client-auth';
 
 type Workspace = {
   role: string;
-  workspaces: { id: string; name: string; created_at: string };
+  workspaces: { id: string; name: string };
 };
 
-type NodeItem = {
+type GraphNode = {
   id: string;
   title: string | null;
   original_url: string | null;
   og_image_url: string | null;
-  source_description: string | null;
-  source_author: string | null;
-  raw_text: string | null;
-  ai_summary: string | null;
-  tags: string[];
+  created_at: string;
 };
 
-type RelatedNode = {
+type NodeDetail = {
   id: string;
   title: string | null;
   original_url: string | null;
+  og_image_url: string | null;
   ai_summary: string | null;
   source_description: string | null;
+  source_author: string | null;
+  user_notes: string | null;
+  created_by_label?: string;
+  created_at?: string;
   tags: string[];
-  similarity: number;
-  sharedTags: string[];
-};
-
-type GraphGroup = {
-  label: string;
-  items: NodeItem[];
-  x: number;
-  y: number;
-};
-
-type GraphNodeKind = 'core' | 'capture' | 'meta';
-type GraphMetaKind = 'host' | 'tag';
-
-type GraphNode = {
-  id: string;
-  label: string;
-  subtitle: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  kind: GraphNodeKind;
-  metaKind?: GraphMetaKind;
-  groupLabel: string;
-  node?: NodeItem;
-  count: number;
-  connectedIds: string[];
-  previewUrl?: string | null;
 };
 
 type GraphEdge = {
-  id: string;
   from: string;
   to: string;
-  kind: 'core' | 'host' | 'tag' | 'semantic';
+  weight: number;
 };
 
-type ViewTransform = {
-  x: number;
-  y: number;
-  scale: number;
-};
-
-type PositionMap = Record<string, { x: number; y: number }>;
+type SimNode = SimulationNodeDatum & GraphNode;
+type SimEdge = SimulationLinkDatum<SimNode> & { weight: number };
 
 function getHostLabel(url: string | null) {
   if (!url) return 'source';
-
   try {
     return new URL(url).hostname.replace(/^www\./, '');
   } catch {
@@ -87,950 +69,534 @@ function getHostLabel(url: string | null) {
   }
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
-const STOP_WORDS = new Set([
-  'the',
-  'and',
-  'with',
-  'that',
-  'this',
-  'from',
-  'your',
-  'into',
-  'about',
-  'page',
-  'site',
-  'home',
-  'blog',
-  'http',
-  'https',
-  'www',
-  'com',
-  'xyz',
-  'org',
-  'net',
-  'co',
-  'app',
-  'io',
-]);
-
-function normalizePhrase(input: string) {
-  return input
-    .toLowerCase()
-    .replace(/https?:\/\//g, ' ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function extractKeywords(input: string) {
-  return normalizePhrase(input)
-    .split(' ')
-    .filter((token) => token.length > 3 && !STOP_WORDS.has(token));
-}
-
-function collectSearchText(node: NodeItem) {
-  return [
-    node.title,
-    getHostLabel(node.original_url),
-    node.source_author,
-    node.source_description,
-    node.ai_summary,
-    node.raw_text,
-    node.tags.join(' '),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-}
-
-function buildSemanticLinkPairs(items: NodeItem[]) {
-  const entries = items.map((node) => {
-    const title = node.title?.trim() ?? '';
-    const host = getHostLabel(node.original_url);
-    const author = node.source_author?.trim() ?? '';
-    const phrases = [normalizePhrase(title), normalizePhrase(author), normalizePhrase(host)].filter(
-      (phrase) => phrase.length > 3,
-    );
-    const keywords = new Set([...extractKeywords(title), ...extractKeywords(author)]);
-    return {
-      node,
-      phrases,
-      keywords,
-      text: collectSearchText(node),
-    };
-  });
-
-  const pairs = new Set<string>();
-
-  entries.forEach((entry, index) => {
-    entries.slice(index + 1).forEach((candidate) => {
-      const directMatch =
-        entry.phrases.some((phrase) => phrase && candidate.text.includes(phrase)) ||
-        candidate.phrases.some((phrase) => phrase && entry.text.includes(phrase));
-
-      const sharedKeywords = Array.from(entry.keywords).filter((token) => candidate.keywords.has(token));
-      const keywordMatch = sharedKeywords.length >= 2;
-
-      if (directMatch || keywordMatch) {
-        const key = [entry.node.id, candidate.node.id].sort().join(':');
-        pairs.add(key);
-      }
-    });
-  });
-
-  return Array.from(pairs).map((pair) => pair.split(':') as [string, string]);
-}
-
-function buildGraphModel(items: NodeItem[], overrides: PositionMap) {
-  const hostGroups = new Map<string, NodeItem[]>();
-  const tagGroups = new Map<string, NodeItem[]>();
-  const captureLookup = new Map<string, GraphNode>();
-
-  items.forEach((node) => {
-    const hostLabel = getHostLabel(node.original_url);
-    const hostGroup = hostGroups.get(hostLabel) ?? [];
-    hostGroup.push(node);
-    hostGroups.set(hostLabel, hostGroup);
-
-    node.tags.forEach((tag) => {
-      const tagGroup = tagGroups.get(tag) ?? [];
-      tagGroup.push(node);
-      tagGroups.set(tag, tagGroup);
-    });
-  });
-
-  const graphGroups: GraphGroup[] = Array.from(tagGroups.entries())
-    .filter(([, groupItems]) => groupItems.length > 1)
-    .map(([label, groupItems], index, list) => {
-      const angle = list.length ? (index / list.length) * Math.PI * 2 - Math.PI / 2 : 0;
-      return {
-        label,
-        items: groupItems,
-        x: 50 + Math.cos(angle) * 34,
-        y: 50 + Math.sin(angle) * 28,
-      };
-    });
-
-  const sortedItems = [...items].sort((left, right) => {
-    const leftKey = `${left.tags[0] ?? ''}:${left.title ?? ''}:${left.id}`;
-    const rightKey = `${right.tags[0] ?? ''}:${right.title ?? ''}:${right.id}`;
-    return leftKey.localeCompare(rightKey);
-  });
-  const graphNodes: GraphNode[] = [];
-  const graphEdges: GraphEdge[] = [];
-  const semanticPairs = buildSemanticLinkPairs(items);
-  const coreId = 'core:muttmind';
-
-  graphNodes.push({
-    id: coreId,
-    label: 'MuttMind',
-    subtitle: `${items.length} capture${items.length === 1 ? '' : 's'}`,
-    x: overrides[coreId]?.x ?? 50,
-    y: overrides[coreId]?.y ?? 50,
-    width: 176,
-    height: 82,
-    kind: 'core',
-    groupLabel: 'core',
-    count: items.length,
-    connectedIds: sortedItems.map((item) => item.id),
-  });
-
-  sortedItems.forEach((node, index) => {
-    const count = Math.max(sortedItems.length, 1);
-    const angle = (index / count) * Math.PI * 2 - Math.PI / 2;
-    const ring = count <= 5 ? 1 : 1 + Math.floor(index / 8) * 0.18;
-    const baseX = 50 + Math.cos(angle) * 27 * ring;
-    const baseY = 50 + Math.sin(angle) * 24 * ring;
-    const hostLabel = getHostLabel(node.original_url);
-    const title = node.title?.trim() || hostLabel || 'Untitled';
-    const subtitle = node.ai_summary || node.source_description || node.original_url || 'No summary available.';
-    const width = node.og_image_url ? 250 : 220;
-    const height = node.og_image_url ? 132 : 96;
-    const resolvedX = overrides[node.id]?.x ?? clamp(baseX, 24, 76);
-    const resolvedY = overrides[node.id]?.y ?? clamp(baseY, 22, 78);
-
-    const graphNode: GraphNode = {
-      id: node.id,
-      label: title,
-      subtitle,
-      x: resolvedX,
-      y: resolvedY,
-      width,
-      height,
-      kind: 'capture',
-      groupLabel: node.tags[0] || hostLabel,
-      node,
-      count: node.tags.length,
-      connectedIds: [coreId],
-      previewUrl: node.og_image_url,
-    };
-
-    graphNodes.push(graphNode);
-    captureLookup.set(node.id, graphNode);
-    graphEdges.push({ id: `${coreId}-${node.id}`, from: coreId, to: node.id, kind: 'core' });
-  });
-
-  const sharedHosts = Array.from(hostGroups.entries()).filter(([, hostItems]) => hostItems.length > 1);
-  const hostNodeIds = new Map<string, string>();
-  sharedHosts.forEach(([hostLabel, hostItems], index) => {
-    const id = `host:${hostLabel}`;
-    const angle = (index / Math.max(sharedHosts.length, 1)) * Math.PI * 2 + Math.PI / 5;
-    const baseX = 50 + Math.cos(angle) * 33;
-    const baseY = 50 + Math.sin(angle) * 29;
-    const resolvedX = overrides[id]?.x ?? clamp(baseX, 22, 78);
-    const resolvedY = overrides[id]?.y ?? clamp(baseY, 18, 82);
-
-    graphNodes.push({
-      id,
-      label: hostLabel,
-      subtitle: `${hostItems.length} captures`,
-      x: resolvedX,
-      y: resolvedY,
-      width: clamp(170 + hostLabel.length * 6, 230, 390),
-      height: hostLabel.length > 24 ? 92 : 78,
-      kind: 'meta',
-      metaKind: 'host',
-      groupLabel: hostLabel,
-      count: hostItems.length,
-      connectedIds: hostItems.map((item) => item.id),
-    });
-
-    hostNodeIds.set(hostLabel, id);
-  });
-
-  const sharedTags = Array.from(tagGroups.entries()).filter(([, tagItems]) => tagItems.length > 1);
-  const tagNodeIds = new Map<string, string>();
-  sharedTags.forEach(([tagLabel, tagItems], index) => {
-    const id = `tag:${tagLabel}`;
-    const angle = (index / Math.max(sharedTags.length, 1)) * Math.PI * 2 - Math.PI / 4;
-    const baseX = 50 + Math.cos(angle) * 31;
-    const baseY = 50 + Math.sin(angle) * 27;
-    const resolvedX = overrides[id]?.x ?? clamp(baseX, 22, 78);
-    const resolvedY = overrides[id]?.y ?? clamp(baseY, 18, 82);
-
-    graphNodes.push({
-      id,
-      label: tagLabel,
-      subtitle: `${tagItems.length} captures`,
-      x: resolvedX,
-      y: resolvedY,
-      width: clamp(170 + tagLabel.length * 6, 230, 390),
-      height: tagLabel.length > 24 ? 92 : 78,
-      kind: 'meta',
-      metaKind: 'tag',
-      groupLabel: tagLabel,
-      count: tagItems.length,
-      connectedIds: tagItems.map((item) => item.id),
-    });
-
-    tagNodeIds.set(tagLabel, id);
-  });
-
-  captureLookup.forEach((captureNode, captureId) => {
-    const original = captureNode.node;
-    if (!original) return;
-
-    const hostId = hostNodeIds.get(getHostLabel(original.original_url));
-    if (hostId) {
-      captureNode.connectedIds.push(hostId);
-      graphEdges.push({ id: `${captureId}-${hostId}`, from: captureId, to: hostId, kind: 'host' });
-    }
-
-    original.tags.forEach((tag) => {
-      const tagId = tagNodeIds.get(tag);
-      if (tagId) {
-        captureNode.connectedIds.push(tagId);
-        graphEdges.push({ id: `${captureId}-${tagId}`, from: captureId, to: tagId, kind: 'tag' });
-      }
-    });
-  });
-
-  semanticPairs.forEach(([leftId, rightId]) => {
-    const left = captureLookup.get(leftId);
-    const right = captureLookup.get(rightId);
-    if (!left || !right) return;
-
-    left.connectedIds.push(right.id);
-    right.connectedIds.push(left.id);
-    graphEdges.push({ id: `${left.id}-${right.id}-semantic`, from: left.id, to: right.id, kind: 'semantic' });
-  });
-
-  return { graphGroups, graphNodes, graphEdges };
-}
-
-function GraphStage({
-  nodes,
-  edges,
-  selectedId,
-  onSelect,
-  onMoveNode,
-  onResetLayout,
-}: {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  onMoveNode: (id: string, x: number, y: number) => void;
-  onResetLayout: () => void;
-}) {
-  const [transform, setTransform] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
-  const stageRef = useRef<HTMLDivElement | null>(null);
-  const dragState = useRef<
-    | {
-        mode: 'pan';
-        startX: number;
-        startY: number;
-        originX: number;
-        originY: number;
-        moved: boolean;
-      }
-    | {
-        mode: 'node';
-        id: string;
-        startX: number;
-        startY: number;
-        originX: number;
-        originY: number;
-        moved: boolean;
-      }
-    | null
-  >(null);
-  const suppressClickRef = useRef(false);
-
-  const selectedNode = nodes.find((node) => node.id === selectedId) ?? null;
-
-  const onWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const element = stageRef.current;
-    if (!element) return;
-
-    const rect = element.getBoundingClientRect();
-    const cursorX = e.clientX - rect.left;
-    const cursorY = e.clientY - rect.top;
-
-    setTransform((current) => {
-      const nextScale = clamp(current.scale + (e.deltaY > 0 ? -0.08 : 0.08), 0.58, 2.4);
-      const worldX = (cursorX - current.x) / current.scale;
-      const worldY = (cursorY - current.y) / current.scale;
-      return {
-        scale: nextScale,
-        x: cursorX - worldX * nextScale,
-        y: cursorY - worldY * nextScale,
-      };
-    });
-  };
-
-  const beginPan = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return;
-    dragState.current = {
-      mode: 'pan',
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: transform.x,
-      originY: transform.y,
-      moved: false,
-    };
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-  };
-
-  const beginNodeDrag = (e: ReactPointerEvent<HTMLButtonElement>, node: GraphNode) => {
-    e.stopPropagation();
-    dragState.current = {
-      mode: 'node',
-      id: node.id,
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: node.x,
-      originY: node.y,
-      moved: false,
-    };
-    (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
-  };
-
-  const move = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = dragState.current;
-    if (!drag) return;
-
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
-    const movedEnough = Math.abs(dx) > 3 || Math.abs(dy) > 3;
-    if (movedEnough) suppressClickRef.current = true;
-
-    if (drag.mode === 'pan') {
-      setTransform({
-        x: drag.originX + dx,
-        y: drag.originY + dy,
-        scale: transform.scale,
-      });
-      drag.moved = movedEnough;
-      return;
-    }
-
-    const element = stageRef.current;
-    if (!element) return;
-    const rect = element.getBoundingClientRect();
-    const node = nodes.find((item) => item.id === drag.id);
-    const halfWidth = Math.min(((node?.width ?? 160) / rect.width) * 50, 44);
-    const halfHeight = Math.min(((node?.height ?? 80) / rect.height) * 50, 44);
-    const nextX = clamp(drag.originX + (dx / rect.width) * 100 / transform.scale, halfWidth + 2, 98 - halfWidth);
-    const nextY = clamp(drag.originY + (dy / rect.height) * 100 / transform.scale, halfHeight + 2, 98 - halfHeight);
-    onMoveNode(drag.id, nextX, nextY);
-    drag.moved = movedEnough;
-  };
-
-  const end = () => {
-    dragState.current = null;
-  };
-
-  const zoomToFit = () => setTransform({ x: 0, y: 0, scale: 1 });
-
-  const resetLayout = () => {
-    onResetLayout();
-    setTransform({ x: 0, y: 0, scale: 1 });
-  };
-
-  const activeIds = useMemo(() => {
-    if (!selectedNode) return null;
-    return new Set([selectedNode.id, ...selectedNode.connectedIds]);
-  }, [selectedNode]);
-
-  const centerX = (node: GraphNode) => node.x;
-  const centerY = (node: GraphNode) => node.y;
-
-  return (
-    <div className="graph-shell">
-      <div
-        ref={stageRef}
-        className="graph-stage"
-        onWheel={onWheel}
-        onPointerDown={beginPan}
-        onPointerMove={move}
-        onPointerUp={end}
-        onPointerCancel={end}
-        role="application"
-        aria-label="Relationship map"
-      >
-        <div
-          className="graph-stage__viewport"
-          style={{
-            transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
-          }}
-        >
-          <svg className="graph-stage__edges" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            {edges.map((edge) => {
-              const from = nodes.find((node) => node.id === edge.from);
-              const to = nodes.find((node) => node.id === edge.to);
-              if (!from || !to) return null;
-              const dimmed = activeIds ? !(activeIds.has(from.id) && activeIds.has(to.id)) : false;
-              return (
-                <line
-                  key={edge.id}
-                  x1={centerX(from)}
-                  y1={centerY(from)}
-                  x2={centerX(to)}
-                  y2={centerY(to)}
-                  className={[
-                    'graph-edge',
-                    `graph-edge--${edge.kind}`,
-                    dimmed ? 'graph-edge--dim' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                />
-              );
-            })}
-          </svg>
-
-          {nodes.map((node) => {
-            const isSelected = selectedId === node.id;
-            const isDimmed = activeIds ? !activeIds.has(node.id) : false;
-            const previewStyle = node.previewUrl
-              ? { backgroundImage: `linear-gradient(rgba(5, 5, 5, 0.28), rgba(5, 5, 5, 0.72)), url(${node.previewUrl})` }
-              : undefined;
-
-            return (
-              <button
-                key={node.id}
-                type="button"
-                className={[
-                  'graph-node',
-                  `graph-node--${node.kind}`,
-                  node.metaKind ? `graph-node--${node.metaKind}` : '',
-                  isSelected ? 'is-selected' : '',
-                  isDimmed ? 'is-dimmed' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                style={{
-                  left: `${node.x}%`,
-                  top: `${node.y}%`,
-                  width: `${node.width}px`,
-                  height: `${node.height}px`,
-                }}
-                title={node.label}
-                onClick={() => {
-                  if (suppressClickRef.current) {
-                    suppressClickRef.current = false;
-                    return;
-                  }
-                  onSelect(node.id);
-                }}
-                onPointerDown={(e) => beginNodeDrag(e, node)}
-              >
-                {node.kind === 'core' ? (
-                  <span className="graph-node__content graph-node__content--core">
-                    <span className="graph-node__eyebrow">Mind core</span>
-                    <strong>{node.label}</strong>
-                    <span>{node.count} captures</span>
-                  </span>
-                ) : node.kind === 'capture' ? (
-                  <span
-                    className="graph-node__content graph-node__content--capture"
-                    style={previewStyle}
-                  >
-                    <span className="graph-node__eyebrow">{node.node ? getHostLabel(node.node.original_url) : node.groupLabel}</span>
-                    <strong>{node.label}</strong>
-                    <span>{node.count ? `${node.count} tag${node.count === 1 ? '' : 's'}` : getHostLabel(node.node?.original_url ?? null)}</span>
-                  </span>
-                ) : (
-                  <span className="graph-node__content graph-node__content--meta">
-                    <span className="graph-node__eyebrow">{node.metaKind === 'tag' ? 'Tag' : 'Source'}</span>
-                    <strong>{node.label}</strong>
-                    <span>{node.count} saved</span>
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="graph-hint">Pan, zoom, drag cards, click to inspect.</div>
-        <div className="graph-controls">
-          <button type="button" className="button-ghost" onClick={zoomToFit}>
-            Reset View
-          </button>
-          <button type="button" className="button-ghost" onClick={resetLayout}>
-            Reset Layout
-          </button>
-        </div>
-      </div>
-
-    </div>
-  );
-}
-
 function VaultContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const query = (searchParams.get('q') ?? '').trim().toLowerCase();
+
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [nodes, setNodes] = useState<NodeItem[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
-  const [status, setStatus] = useState('Loading Minds...');
-  const [view, setView] = useState<'list' | 'graph'>('list');
-  const [search, setSearch] = useState('');
+  const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
+  const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [layoutOverrides, setLayoutOverrides] = useState<PositionMap>({});
-  const [relatedNodes, setRelatedNodes] = useState<RelatedNode[]>([]);
+  const [detail, setDetail] = useState<NodeDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [, forceRender] = useState(0);
 
-  const layoutKey = useMemo(() => {
-    if (!workspaceId) return '';
-    return `muttmind:vault-layout:v5:${workspaceId}`;
-  }, [workspaceId]);
+  // Viewport (for the SVG): pan + zoom. Maintained as a ref so we can update
+  // smoothly during pointer moves without re-rendering on every event.
+  const transformRef = useRef({ x: 0, y: 0, k: 1 });
+  const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const simulationRef = useRef<Simulation<SimNode, SimEdge> | null>(null);
+  const simNodesRef = useRef<SimNode[]>([]);
+  const simEdgesRef = useRef<SimEdge[]>([]);
+  const draggedNodeRef = useRef<SimNode | null>(null);
+  // Tracks whether the active node interaction has moved enough to count as a
+  // drag (vs. a click). Set on pointerdown, flipped true once movement exceeds
+  // the threshold. Without this, every node press registered as a drag and
+  // clicks never opened anything.
+  const nodeGestureRef = useRef<{ id: string; startX: number; startY: number; moved: boolean } | null>(null);
+  const panRef = useRef<{ active: boolean; startX: number; startY: number } | null>(null);
+  const [stageSize, setStageSize] = useState({ width: 1200, height: 800 });
 
-  useEffect(() => {
-    (async () => {
-      const r = await authedFetch('/api/workspaces');
-      const d = await r.json();
-      const nextWorkspaces = d.workspaces ?? [];
-      setWorkspaces(nextWorkspaces);
-      setWorkspaceId((current) => current || nextWorkspaces[0]?.workspaces.id || '');
+  const loadWorkspaces = useCallback(async () => {
+    const r = await authedFetch('/api/workspaces');
+    const d = await r.json();
+    const next = (d.workspaces ?? []) as Workspace[];
+    setWorkspaces(next);
+    setWorkspaceId((current) => {
+      if (current) return current;
+      const stored = typeof window !== 'undefined' ? window.localStorage.getItem('muttmind:active-mind-id') : null;
+      return stored ?? next[0]?.workspaces?.id ?? '';
+    });
+  }, []);
 
-      if (!nextWorkspaces.length) {
-        setStatus('No Minds found. Create one from the Mind view first.');
-      }
-    })();
+  const loadGraph = useCallback(async (id: string) => {
+    if (!id) return;
+    setIsLoading(true);
+    const r = await authedFetch(`/api/nodes/graph?workspaceId=${id}`);
+    const d = await r.json();
+    setGraphNodes((d.nodes ?? []) as GraphNode[]);
+    setGraphEdges((d.edges ?? []) as GraphEdge[]);
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    if (!workspaceId) {
-      setLayoutOverrides({});
+    loadWorkspaces();
+  }, [loadWorkspaces]);
+
+  useEffect(() => {
+    if (workspaceId) loadGraph(workspaceId);
+  }, [workspaceId, loadGraph]);
+
+  // Track stage size so the simulation centers correctly.
+  useEffect(() => {
+    const observe = () => {
+      if (!stageRef.current) return;
+      const rect = stageRef.current.getBoundingClientRect();
+      setStageSize({ width: rect.width, height: rect.height });
+    };
+    observe();
+    window.addEventListener('resize', observe);
+    return () => window.removeEventListener('resize', observe);
+  }, []);
+
+  // Build / rebuild the d3 simulation when nodes or edges change.
+  useEffect(() => {
+    simulationRef.current?.stop();
+    if (graphNodes.length === 0) {
+      simNodesRef.current = [];
+      simEdgesRef.current = [];
+      forceRender((n) => n + 1);
       return;
     }
 
-    try {
-      const raw = window.localStorage.getItem(layoutKey);
-      setLayoutOverrides(raw ? JSON.parse(raw) : {});
-    } catch {
-      setLayoutOverrides({});
+    const center = { x: stageSize.width / 2, y: stageSize.height / 2 };
+    const sim: SimNode[] = graphNodes.map((n) => ({
+      ...n,
+      x: center.x + (Math.random() - 0.5) * 80,
+      y: center.y + (Math.random() - 0.5) * 80,
+    }));
+    const nodeById = new Map(sim.map((n) => [n.id, n] as const));
+    const links: SimEdge[] = graphEdges
+      .filter((e) => nodeById.has(e.from) && nodeById.has(e.to))
+      .map((e) => ({ source: nodeById.get(e.from)!, target: nodeById.get(e.to)!, weight: e.weight }));
+
+    simNodesRef.current = sim;
+    simEdgesRef.current = links;
+
+    const simulation = forceSimulation<SimNode, SimEdge>(sim)
+      .force('charge', forceManyBody().strength(-180))
+      .force('link', forceLink<SimNode, SimEdge>(links).id((d) => d.id).distance((d) => 90 + (1 - d.weight) * 80).strength(0.45))
+      .force('collide', forceCollide<SimNode>().radius(28))
+      .force('center', forceCenter(center.x, center.y))
+      .alphaDecay(0.025)
+      .on('tick', () => forceRender((n) => n + 1));
+
+    simulationRef.current = simulation;
+
+    return () => {
+      simulation.stop();
+    };
+  }, [graphNodes, graphEdges, stageSize.width, stageSize.height]);
+
+  // Adjacency for hover highlighting.
+  const adjacency = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const e of graphEdges) {
+      if (!m.has(e.from)) m.set(e.from, new Set());
+      if (!m.has(e.to)) m.set(e.to, new Set());
+      m.get(e.from)!.add(e.to);
+      m.get(e.to)!.add(e.from);
     }
-  }, [layoutKey, workspaceId]);
+    return m;
+  }, [graphEdges]);
 
-  useEffect(() => {
-    if (!workspaceId) return;
-
-    try {
-      window.localStorage.setItem(layoutKey, JSON.stringify(layoutOverrides));
-    } catch {
-      // Ignore storage quota or privacy errors.
+  // URL ?q= filtering — fade non-matching nodes.
+  const matchedIds = useMemo(() => {
+    if (!query) return null;
+    const set = new Set<string>();
+    for (const n of graphNodes) {
+      const haystack = `${n.title ?? ''} ${getHostLabel(n.original_url)}`.toLowerCase();
+      if (haystack.includes(query)) set.add(n.id);
     }
-  }, [layoutKey, layoutOverrides, workspaceId]);
+    return set;
+  }, [graphNodes, query]);
 
-  useEffect(() => {
-    (async () => {
-      if (!workspaceId) {
-        setNodes([]);
-        setSelectedId(null);
-        return;
+  // Pointer handlers for pan + drag.
+  const onSvgPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (event.button !== 0) return;
+    panRef.current = {
+      active: true,
+      startX: event.clientX - transformRef.current.x,
+      startY: event.clientY - transformRef.current.y,
+    };
+    (event.currentTarget as Element).setPointerCapture(event.pointerId);
+  };
+
+  const onSvgPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    // If a node press is in progress, decide drag-vs-click based on movement.
+    const gesture = nodeGestureRef.current;
+    if (gesture) {
+      const dx = event.clientX - gesture.startX;
+      const dy = event.clientY - gesture.startY;
+      if (!gesture.moved && Math.hypot(dx, dy) > 4) {
+        gesture.moved = true;
+        const node = simNodesRef.current.find((n) => n.id === gesture.id);
+        if (node) {
+          draggedNodeRef.current = node;
+          node.fx = node.x;
+          node.fy = node.y;
+          simulationRef.current?.alphaTarget(0.3).restart();
+        }
       }
-
-      setStatus('Loading Mind...');
-      const r = await authedFetch(`/api/nodes?workspaceId=${workspaceId}`);
-      const d = await r.json();
-      const nextNodes: NodeItem[] = d.nodes ?? [];
-      setNodes(nextNodes);
-      setStatus(nextNodes.length ? 'Mind loaded.' : 'No captures found for this Mind.');
-      setSelectedId((current) => {
-        if (current && nextNodes.some((node: NodeItem) => node.id === current)) return current;
-        return null;
-      });
-    })();
-  }, [workspaceId]);
-
-  const clearVault = async () => {
-    if (!workspaceId) return;
-    if (!confirm('Clear all captures in this Mind?')) return;
-    setStatus('Clearing Mind...');
-    const r = await authedFetch(`/api/nodes?workspaceId=${workspaceId}`, {
-      method: 'DELETE',
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      setStatus(d.error ?? 'Unable to clear Mind.');
-      return;
-    }
-    setNodes([]);
-    setSelectedId(null);
-    setStatus('Library cleared.');
-  };
-
-  const deleteCapture = async (nodeId: string) => {
-    if (!workspaceId) return;
-    if (!confirm('Delete this capture?')) return;
-    setStatus('Deleting capture...');
-    const r = await authedFetch(`/api/nodes?workspaceId=${workspaceId}&nodeId=${nodeId}`, {
-      method: 'DELETE',
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      setStatus(d.error ?? 'Unable to delete capture.');
-      return;
-    }
-    const nextNodes = nodes.filter((node) => node.id !== nodeId);
-    setNodes(nextNodes);
-    setSelectedId((current) => (current === nodeId ? null : current));
-    setStatus('Capture deleted.');
-  };
-
-  const resetLayout = () => {
-    if (!workspaceId) return;
-    setLayoutOverrides({});
-    try {
-      window.localStorage.removeItem(layoutKey);
-    } catch {
-      // Ignore storage errors.
-    }
-    setStatus('Map layout reset.');
-  };
-
-  const filteredNodes = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return nodes;
-    return nodes.filter((node) => {
-      const haystack = [
-        node.title,
-        node.original_url,
-        node.source_description,
-        node.ai_summary,
-        node.tags.join(' '),
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [nodes, search]);
-
-  const { graphGroups, graphNodes, graphEdges } = useMemo(
-    () => buildGraphModel(filteredNodes, layoutOverrides),
-    [filteredNodes, layoutOverrides],
-  );
-
-  const selectedGraphNode = graphNodes.find((node) => node.id === selectedId) ?? null;
-  const selectedCapture = selectedGraphNode?.kind === 'capture' ? selectedGraphNode.node ?? null : null;
-  const relatedCaptures = selectedGraphNode
-    ? graphNodes.filter((node) => node.kind === 'capture' && node.connectedIds.includes(selectedGraphNode.id))
-    : [];
-
-  const selectedGraphNodeId = selectedGraphNode?.id;
-  const selectedGraphNodeKind = selectedGraphNode?.kind;
-
-  useEffect(() => {
-    (async () => {
-      if (!workspaceId || !selectedGraphNodeId || selectedGraphNodeKind !== 'capture') {
-        setRelatedNodes([]);
-        return;
+      const dragged = draggedNodeRef.current;
+      if (dragged) {
+        const pt = svgClientToWorld(event.clientX, event.clientY);
+        dragged.fx = pt.x;
+        dragged.fy = pt.y;
       }
+      return;
+    }
+    const pan = panRef.current;
+    if (!pan?.active) return;
+    transformRef.current = {
+      ...transformRef.current,
+      x: event.clientX - pan.startX,
+      y: event.clientY - pan.startY,
+    };
+    setTransform({ ...transformRef.current });
+  };
 
-      const r = await authedFetch(`/api/nodes/${selectedGraphNodeId}/related?workspaceId=${workspaceId}`);
-      const d = await r.json();
-      setRelatedNodes((d.related ?? []) as RelatedNode[]);
+  const onSvgPointerUp = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const gesture = nodeGestureRef.current;
+    if (gesture) {
+      if (gesture.moved) {
+        // Was a drag — release the fixed position.
+        if (draggedNodeRef.current) {
+          draggedNodeRef.current.fx = null;
+          draggedNodeRef.current.fy = null;
+          draggedNodeRef.current = null;
+          simulationRef.current?.alphaTarget(0);
+        }
+      } else {
+        // No movement — it's a click. Open the node.
+        setSelectedId((current) => (current === gesture.id ? null : gesture.id));
+      }
+      nodeGestureRef.current = null;
+    }
+    if (panRef.current) panRef.current.active = false;
+    try {
+      (event.currentTarget as Element).releasePointerCapture(event.pointerId);
+    } catch {
+      /* no-op */
+    }
+  };
+
+  const svgClientToWorld = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    const t = transformRef.current;
+    return {
+      x: (clientX - rect.left - t.x) / t.k,
+      y: (clientY - rect.top - t.y) / t.k,
+    };
+  };
+
+  const onWheel = (event: WheelEvent) => {
+    event.preventDefault();
+    const t = transformRef.current;
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const factor = event.deltaY > 0 ? 0.92 : 1.08;
+    const nextK = Math.min(3, Math.max(0.3, t.k * factor));
+    const ratio = nextK / t.k;
+    transformRef.current = {
+      x: localX - (localX - t.x) * ratio,
+      y: localY - (localY - t.y) * ratio,
+      k: nextK,
+    };
+    setTransform({ ...transformRef.current });
+  };
+
+  // Native wheel listener (React's onWheel is passive in some browsers).
+  useEffect(() => {
+    const node = svgRef.current;
+    if (!node) return;
+    const handler = (e: WheelEvent) => onWheel(e);
+    node.addEventListener('wheel', handler, { passive: false });
+    return () => node.removeEventListener('wheel', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Pointer-down on a node only RECORDS the gesture. Whether it becomes a
+  // drag or a click is decided in onSvgPointerMove / onSvgPointerUp based on
+  // whether the pointer actually moved. Capture stays on the SVG so the
+  // move/up handlers there see the whole gesture.
+  const onNodePointerDown = (node: SimNode) => (event: ReactPointerEvent<SVGGElement>) => {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    nodeGestureRef.current = {
+      id: node.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+    };
+    panRef.current = null;
+    const svg = svgRef.current;
+    if (svg) {
+      try {
+        svg.setPointerCapture(event.pointerId);
+      } catch {
+        /* no-op */
+      }
+    }
+  };
+
+  const openInDashboard = (id: string) => {
+    if (workspaceId) {
+      window.localStorage.setItem('muttmind:active-mind-id', workspaceId);
+    }
+    window.localStorage.setItem('muttmind:focus-capture-id', id);
+    router.push('/dashboard');
+  };
+
+  // When a node is selected, fetch its full detail so the map can show the
+  // whole capture (summary, tags, notes) without bouncing to the dashboard.
+  useEffect(() => {
+    if (!selectedId || !workspaceId) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    (async () => {
+      const r = await authedFetch(
+        `/api/nodes/${encodeURIComponent(selectedId)}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      );
+      if (cancelled) return;
+      if (r.ok) {
+        const d = await r.json();
+        setDetail((d.node ?? null) as NodeDetail | null);
+      } else {
+        setDetail(null);
+      }
+      setDetailLoading(false);
     })();
-  }, [workspaceId, selectedGraphNodeId, selectedGraphNodeKind]);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, workspaceId]);
 
   return (
-    <main className="app-shell">
+    <main className="app-shell vault-shell">
       <AppNav active="vault" />
 
-      <section className="section-header section-header--compact section-header--vault" aria-labelledby="vault-title">
-        <div>
-          <p className="eyebrow">§ Mind / Saved intelligence</p>
-          <h1 id="vault-title">Mind map.</h1>
-          <p className="lede">
-            Inspect how captures connect by source, tag, and semantic similarity.
-          </p>
-        </div>
-        <Link href="/dashboard" className="button-secondary">
-          Save More
-        </Link>
-      </section>
-
-      <section className="panel vault-controls">
-        <div className="panel-header vault-controls__header">
-          <div>
-            <p className="eyebrow">Mind</p>
-            <h2>{view === 'graph' ? 'Relationship map' : 'Capture library'}</h2>
+      <section className="vault-page">
+        <header className="vault-page__top">
+          <div className="vault-page__crumb">
+            <Link href="/minds" className="vault-page__crumb-link">minds</Link>
+            <span className="vault-page__crumb-sep">/</span>
+            <span>{graphNodes.length} {graphNodes.length === 1 ? 'capture' : 'captures'}</span>
+            {graphEdges.length ? (
+              <>
+                <span className="vault-page__crumb-sep">·</span>
+                <span>{graphEdges.length} {graphEdges.length === 1 ? 'connection' : 'connections'}</span>
+              </>
+            ) : null}
           </div>
-          <div className="vault-actions">
-            <div className="vault-mode-tabs" aria-label="Mind view mode">
-              <button className={view === 'list' ? 'button' : 'button-ghost'} onClick={() => setView('list')}>
-                Cards
+          <nav className="vault-page__pivots" aria-label="View">
+            <Link href="/minds" className="vault-page__pivot">Minds</Link>
+            <Link href="/dashboard" className="vault-page__pivot">Captures</Link>
+            <span className="vault-page__pivot vault-page__pivot--active">Map</span>
+          </nav>
+        </header>
+
+        <div className="vault-stage" ref={stageRef}>
+          {isLoading ? (
+            <p className="vault-stage__hint">Loading graph…</p>
+          ) : graphNodes.length === 0 ? (
+            <p className="vault-stage__hint">This Mind has no captures yet.</p>
+          ) : null}
+
+          <svg
+            ref={svgRef}
+            className="vault-svg"
+            width={stageSize.width}
+            height={stageSize.height}
+            onPointerDown={onSvgPointerDown}
+            onPointerMove={onSvgPointerMove}
+            onPointerUp={onSvgPointerUp}
+            onPointerLeave={onSvgPointerUp}
+            style={{ cursor: panRef.current?.active ? 'grabbing' : 'grab' }}
+          >
+            <g transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
+              {/* Edges */}
+              {simEdgesRef.current.map((edge, i) => {
+                const a = edge.source as SimNode;
+                const b = edge.target as SimNode;
+                if (typeof a.x !== 'number' || typeof b.x !== 'number') return null;
+                const isFaded = hoveredId !== null && hoveredId !== a.id && hoveredId !== b.id;
+                return (
+                  <line
+                    key={i}
+                    x1={a.x}
+                    y1={a.y}
+                    x2={b.x}
+                    y2={b.y}
+                    className={`vault-edge ${isFaded ? 'vault-edge--faded' : ''}`}
+                    strokeWidth={Math.max(0.5, edge.weight * 1.4)}
+                  />
+                );
+              })}
+
+              {/* Nodes */}
+              {simNodesRef.current.map((node) => {
+                if (typeof node.x !== 'number' || typeof node.y !== 'number') return null;
+                const connected = adjacency.get(node.id);
+                const degree = connected?.size ?? 0;
+                const isHovered = hoveredId === node.id;
+                const isNeighbor = hoveredId !== null && (connected?.has(hoveredId) ?? false);
+                const isFaded =
+                  (hoveredId !== null && !isHovered && !isNeighbor) ||
+                  (matchedIds !== null && !matchedIds.has(node.id));
+                const isSelected = selectedId === node.id;
+                // Radius scales with connection count (Obsidian-style), capped.
+                const baseRadius = 4 + Math.min(degree, 12) * 0.85;
+                const radius = isHovered || isSelected ? baseRadius + 2.5 : baseRadius;
+                const label = node.title?.trim() || getHostLabel(node.original_url);
+                const shortLabel = label.length > 42 ? `${label.slice(0, 42)}…` : label;
+                return (
+                  <g
+                    key={node.id}
+                    transform={`translate(${node.x},${node.y})`}
+                    className={`vault-node ${isFaded ? 'vault-node--faded' : ''} ${isSelected ? 'vault-node--selected' : ''}`}
+                    onPointerDown={onNodePointerDown(node)}
+                    onMouseEnter={() => setHoveredId(node.id)}
+                    onMouseLeave={() => setHoveredId(null)}
+                  >
+                    <circle r={radius} className="vault-node__circle" />
+                    <text
+                      y={radius + 13}
+                      className={`vault-node__label ${isHovered || isSelected ? 'vault-node__label--strong' : ''}`}
+                      textAnchor="middle"
+                    >
+                      {shortLabel}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          </svg>
+
+          {selectedId ? (
+            <aside className="vault-detail" role="complementary">
+              <button
+                type="button"
+                className="vault-detail__close"
+                onClick={() => setSelectedId(null)}
+                aria-label="Close detail"
+              >
+                ×
               </button>
-              <button className={view === 'graph' ? 'button' : 'button-ghost'} onClick={() => setView('graph')}>
-                Map
-              </button>
-            </div>
-            <button className="button-secondary" onClick={clearVault}>
-              Clear
-            </button>
-            <span className="tag-pill">{nodes.length} saved</span>
-          </div>
-        </div>
 
-        <div className="vault-filterbar">
-          <label className="form-row">
-              <span className="field-label">Mind</span>
-              <select value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
-                <option value="">Select Mind</option>
-                {workspaces.map((workspace) => (
-                  <option key={workspace.workspaces.id} value={workspace.workspaces.id}>
-                    {workspace.workspaces.name} ({workspace.role})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="form-row">
-              <span className="field-label">Search</span>
-              <input
-                placeholder="Search titles, tags, URLs, or summaries"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
-        </div>
+              {detailLoading && !detail ? (
+                <p className="vault-detail__loading">Loading capture…</p>
+              ) : detail ? (
+                <div className="vault-detail__scroll">
+                  {detail.og_image_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={detail.og_image_url} alt="" className="vault-detail__image" />
+                  ) : null}
+                  <p className="vault-detail__host">{getHostLabel(detail.original_url)}</p>
+                  <h2 className="vault-detail__title">{detail.title ?? 'Untitled'}</h2>
 
-        <div className="vault-summary-row">
-          <span>{workspaces.length} Minds</span>
-          <span>{filteredNodes.length} shown</span>
-          <span>{graphGroups.length} groups</span>
-          <span>{status}</span>
-        </div>
-      </section>
-
-      <section className={`vault-view vault-view--${view}`} aria-label={view === 'graph' ? 'Relationship map' : 'Saved captures'}>
-        {view === 'graph' ? (
-          filteredNodes.length > 0 ? (
-            <GraphStage
-              nodes={graphNodes}
-              edges={graphEdges}
-              selectedId={selectedGraphNode?.id ?? null}
-              onSelect={(id) => setSelectedId(id)}
-              onMoveNode={(id, x, y) => setLayoutOverrides((current) => ({ ...current, [id]: { x, y } }))}
-              onResetLayout={resetLayout}
-            />
-          ) : (
-            <div className="empty-state">Choose a Mind with captures to see the map.</div>
-          )
-        ) : filteredNodes.length > 0 ? (
-          <div className="card-grid">
-            {filteredNodes.map((node) => (
-              <article key={node.id} className="card signal-card">
-                <a
-                  className="signal-card__media"
-                  href={node.original_url ?? '#'}
-                  target={node.original_url ? '_blank' : undefined}
-                  rel={node.original_url ? 'noreferrer' : undefined}
-                  aria-label={node.original_url ? `Open ${node.title ?? 'source link'}` : undefined}
-                >
-                  {node.og_image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={node.og_image_url} alt={node.title ?? 'Link preview'} className="signal-card__thumb" />
-                  ) : (
-                    <div className="signal-card__thumb signal-card__thumb--fallback">
-                      <span>{getHostLabel(node.original_url)}</span>
+                  {detail.ai_summary || detail.source_description ? (
+                    <div className="vault-detail__block">
+                      <p className="vault-detail__kicker">TLDR</p>
+                      <p className="vault-detail__body">
+                        {detail.ai_summary || detail.source_description}
+                      </p>
                     </div>
-                  )}
-                </a>
+                  ) : null}
 
-                <div className="signal-card__body">
-                  <div className="signal-card__header">
-                    <div>
-                      <p className="kicker">Capture</p>
-                      <h3>{node.title ?? 'Untitled'}</h3>
+                  {detail.tags.length ? (
+                    <div className="vault-detail__block">
+                      <p className="vault-detail__kicker">Tags</p>
+                      <div className="vault-detail__tags">
+                        {detail.tags.map((t) => (
+                          <span key={t} className="vault-detail__tag">{t}</span>
+                        ))}
+                      </div>
                     </div>
-                    <span className="tag-pill">{getHostLabel(node.original_url)}</span>
-                  </div>
-                  <p className="meta">{node.source_description || node.ai_summary || 'Pending AI summary...'}</p>
-                  {node.tags.length ? <p className="meta">Tags: {node.tags.join(', ')}</p> : null}
-                  <div className="button-row">
-                    {node.original_url ? (
-                      <a className="button-ghost" href={node.original_url} target="_blank" rel="noreferrer">
-                        Open
+                  ) : null}
+
+                  {detail.user_notes ? (
+                    <div className="vault-detail__block">
+                      <p className="vault-detail__kicker">Notes</p>
+                      <p className="vault-detail__body">{detail.user_notes}</p>
+                    </div>
+                  ) : null}
+
+                  <p className="vault-detail__meta">
+                    Added by {detail.created_by_label ?? 'teammate'}
+                  </p>
+
+                  <div className="vault-detail__actions">
+                    {detail.original_url ? (
+                      <a
+                        className="vault-detail__action"
+                        href={detail.original_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Visit source
                       </a>
                     ) : null}
-                    <button className="button-secondary" onClick={() => setSelectedId(node.id)}>
-                      Inspect
-                    </button>
-                    <button className="button-secondary" onClick={() => deleteCapture(node.id)}>
-                      Delete
+                    <button
+                      type="button"
+                      className="vault-detail__action vault-detail__action--ghost"
+                      onClick={() => openInDashboard(detail.id)}
+                    >
+                      Edit in dashboard
                     </button>
                   </div>
                 </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">Saved links will appear here after you choose a Mind.</div>
-        )}
-      </section>
-
-      <section className="panel vault-detail" aria-label="Selection details">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Selected capture</p>
-            <h2>Capture details</h2>
-          </div>
-          {selectedCapture?.original_url ? (
-            <a className="button-secondary" href={selectedCapture.original_url} target="_blank" rel="noreferrer">
-              Open Source
-            </a>
+              ) : (
+                <p className="vault-detail__loading">Could not load this capture.</p>
+              )}
+            </aside>
           ) : null}
+
+          <div className="vault-stage__legend" aria-hidden="true">
+            <span>drag to pan · scroll to zoom · drag a node to rearrange</span>
+          </div>
         </div>
 
-        {selectedGraphNode ? (
-          <div className="detail-grid">
-            <div className="detail-card detail-card--main">
-              <p className="kicker">
-                {selectedCapture
-                  ? getHostLabel(selectedCapture.original_url)
-                  : selectedGraphNode.kind === 'core'
-                    ? 'Mind'
-                    : selectedGraphNode.metaKind === 'tag'
-                      ? 'Tag'
-                      : 'Source'}
-              </p>
-              <h3>{selectedGraphNode.label}</h3>
-              <p className="meta">{selectedGraphNode.subtitle}</p>
-              <div className="detail-stats">
-                <div className="list-item">
-                  <span className="kicker">Related</span>
-                  <span className="metric-label">{selectedGraphNode.connectedIds.length}</span>
-                </div>
-                {selectedCapture ? (
-                  <>
-                    <div className="list-item">
-                      <span className="kicker">Source</span>
-                      <span className="metric-label">{getHostLabel(selectedCapture.original_url)}</span>
-                    </div>
-                    <div className="list-item">
-                      <span className="kicker">Tags</span>
-                      <span className="metric-label">
-                        {selectedCapture.tags.length ? selectedCapture.tags.join(', ') : 'No tags yet.'}
-                      </span>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="detail-card detail-card--side">
-              <p className="kicker">Related captures</p>
-              {relatedCaptures.length ? (
-                <div className="settings-list">
-                  {relatedCaptures.slice(0, 6).map((node) => (
-                    <button
-                      key={node.id}
-                      type="button"
-                      className="list-item list-item--button"
-                      onClick={() => setSelectedId(node.id)}
-                    >
-                      <span className="metric-label">{node.label}</span>
-                      <span className="kicker">{getHostLabel(node.node?.original_url ?? null)}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="meta">Pick a capture, source, or tag to see related captures here.</p>
-              )}
-              {selectedCapture ? (
-                <div className="button-row">
-                  {selectedCapture.original_url ? (
-                    <a className="button-ghost" href={selectedCapture.original_url} target="_blank" rel="noreferrer">
-                      Open
-                    </a>
-                  ) : null}
-                  <button className="button-secondary" onClick={() => deleteCapture(selectedCapture.id)}>
-                    Delete Capture
-                  </button>
-                </div>
-              ) : null}
-              {relatedNodes.length ? (
-                <div className="settings-list">
-                  <p className="kicker">Semantic related</p>
-                  {relatedNodes.map((node) => (
-                    <button
-                      key={node.id}
-                      type="button"
-                      className="list-item list-item--button"
-                      onClick={() => setSelectedId(node.id)}
-                    >
-                      <span className="metric-label">{node.title ?? 'Untitled'}</span>
-                      <span className="kicker">
-                        {Math.round(node.similarity * 100)}% match
-                        {node.sharedTags.length ? ` · ${node.sharedTags.join(', ')}` : ''}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          <div className="empty-state">Select a capture, source, or tag to inspect it here.</div>
-        )}
+        <Workspaces
+          workspaces={workspaces}
+          workspaceId={workspaceId}
+          onChange={(id) => {
+            setSelectedId(null);
+            setWorkspaceId(id);
+          }}
+        />
       </section>
     </main>
+  );
+}
+
+function Workspaces({
+  workspaces,
+  workspaceId,
+  onChange,
+}: {
+  workspaces: Workspace[];
+  workspaceId: string;
+  onChange: (id: string) => void;
+}) {
+  if (workspaces.length <= 1) return null;
+  return (
+    <div className="vault-mind-row">
+      <span className="vault-mind-row__label">Mind:</span>
+      <select
+        className="vault-mind-row__select"
+        value={workspaceId}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {workspaces.map((workspace) => (
+          <option key={workspace.workspaces.id} value={workspace.workspaces.id}>
+            {workspace.workspaces.name}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 

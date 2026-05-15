@@ -18,4 +18,10 @@ export const env = {
   geminiEmbeddingModel: normalizeGeminiEmbeddingModel(process.env.GEMINI_EMBEDDING_MODEL ?? process.env.EMBEDDING_MODEL),
   telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? '',
   xBearerToken: process.env.X_BEARER_TOKEN ?? '',
+  // LLM-cost feature flags. Default OFF — set to '1' to enable. Synthesis,
+  // lenses, and Q&A all stay dormant unless explicitly enabled, so the
+  // scaffolding can ship without burning tokens.
+  synthesisEnabled: process.env.MUTTMIND_SYNTHESIS_ENABLED === '1',
+  lensesEnabled: process.env.MUTTMIND_LENSES_ENABLED === '1',
+  askEnabled: process.env.MUTTMIND_ASK_ENABLED === '1',
 };

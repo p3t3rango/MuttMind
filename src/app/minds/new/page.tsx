@@ -1,29 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { authedFetch } from '@/lib/client-auth';
 
-type Mind = {
-  role: string;
-  workspaces: {
-    id: string;
-    name: string;
-    member_count?: number;
-  };
-};
-
 type Step = 1 | 2 | 3 | 4;
 
-function NewSpaceContent() {
+function NewMindContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const prefilledFilter = searchParams.get('filter') ?? '';
-  const [minds, setMinds] = useState<Mind[]>([]);
-  const [mindId, setMindId] = useState('');
   const [step, setStep] = useState<Step>(1);
   const [name, setName] = useState('');
   const [purpose, setPurpose] = useState('');
@@ -33,28 +20,8 @@ function NewSpaceContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState('');
 
-  const loadMinds = useCallback(async () => {
-    const response = await authedFetch('/api/workspaces');
-    const data = await response.json();
-    const nextMinds = data.workspaces ?? [];
-    setMinds(nextMinds);
-    setMindId((current) => {
-      if (current) return current;
-      const stored = typeof window !== 'undefined' ? window.localStorage.getItem('muttmind:active-mind-id') : null;
-      return stored ?? nextMinds[0]?.workspaces?.id ?? '';
-    });
-  }, []);
-
-  useEffect(() => {
-    loadMinds();
-  }, [loadMinds]);
-
-  const saveSpace = useCallback(
+  const saveMind = useCallback(
     async (systemPrompt?: string) => {
-      if (!mindId) {
-        setStatus('Choose a Mind first.');
-        return;
-      }
       const trimmedName = name.trim();
       if (!trimmedName) {
         setStatus('Name is required.');
@@ -64,39 +31,37 @@ function NewSpaceContent() {
 
       setIsSaving(true);
       setStatus('Saving…');
-      const body: Record<string, unknown> = {
-        workspaceId: mindId,
-        name: trimmedName,
-        query: prefilledFilter.trim(),
-        color: '#7c3aed',
-      };
+      const body: Record<string, unknown> = { name: trimmedName };
       if (systemPrompt && systemPrompt.trim()) {
         body.systemPrompt = systemPrompt.trim();
       }
 
-      const response = await authedFetch('/api/spaces', {
+      const response = await authedFetch('/api/workspaces', {
         method: 'POST',
         body: JSON.stringify(body),
       });
       const data = await response.json();
       setIsSaving(false);
       if (!response.ok) {
-        setStatus(data.error ?? 'Unable to save Space.');
+        setStatus(data.error ?? 'Unable to create Mind.');
         return;
       }
-      router.push('/spaces');
+      // Make the new Mind the active one when we land on the dashboard.
+      if (data.workspace?.id) {
+        window.localStorage.setItem('muttmind:active-mind-id', data.workspace.id);
+      }
+      router.push('/dashboard');
     },
-    [mindId, name, prefilledFilter, router],
+    [name, router],
   );
 
   const generatePrompt = useCallback(async () => {
-    if (!mindId || !name.trim()) return;
+    if (!name.trim()) return;
     setIsGenerating(true);
-    setStatus('Generating a draft system prompt…');
-    const response = await authedFetch('/api/spaces/generate-prompt', {
+    setStatus('Drafting a system prompt from your answers…');
+    const response = await authedFetch('/api/workspaces/generate-prompt', {
       method: 'POST',
       body: JSON.stringify({
-        workspaceId: mindId,
         name: name.trim(),
         purpose: purpose.trim() || undefined,
         primer: primer.trim() || undefined,
@@ -111,7 +76,7 @@ function NewSpaceContent() {
     }
     setGeneratedPrompt(data.systemPrompt ?? '');
     setStatus('');
-  }, [mindId, name, purpose, primer]);
+  }, [name, purpose, primer]);
 
   const goNext = () => {
     setStatus('');
@@ -140,23 +105,23 @@ function NewSpaceContent() {
   };
 
   const skipToSave = () => {
-    void saveSpace(undefined);
+    void saveMind(undefined);
   };
 
   const finalize = () => {
-    void saveSpace(generatedPrompt);
+    void saveMind(generatedPrompt);
   };
 
   return (
     <main className="app-shell mind-shell">
-      <AppNav active="spaces" />
+      <AppNav active="minds" />
 
-      <section className="onboarding" aria-labelledby="new-space-title">
+      <section className="onboarding" aria-labelledby="new-mind-title">
         <header className="onboarding__header">
-          <p className="eyebrow">New Space</p>
-          <h1 id="new-space-title" className="onboarding__title">
-            {step === 1 && 'Name your Space.'}
-            {step === 2 && 'What is this Space for?'}
+          <p className="eyebrow">New Mind</p>
+          <h1 id="new-mind-title" className="onboarding__title">
+            {step === 1 && 'Name your Mind.'}
+            {step === 2 && 'What is this Mind for?'}
             {step === 3 && 'Anything to prime the assistant with?'}
             {step === 4 && 'Review the generated system prompt.'}
           </h1>
@@ -166,23 +131,7 @@ function NewSpaceContent() {
         {step === 1 && (
           <div className="onboarding__body">
             <label className="onboarding__field">
-              <span className="onboarding__label">Mind</span>
-              <select
-                value={mindId}
-                onChange={(event) => setMindId(event.target.value)}
-                className="onboarding__input"
-              >
-                <option value="">Choose a Mind</option>
-                {minds.map((mind) => (
-                  <option key={mind.workspaces.id} value={mind.workspaces.id}>
-                    {mind.workspaces.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="onboarding__field">
-              <span className="onboarding__label">Space name</span>
+              <span className="onboarding__label">Mind name</span>
               <input
                 className="onboarding__input"
                 value={name}
@@ -194,9 +143,7 @@ function NewSpaceContent() {
                 autoFocus
               />
               <span className="onboarding__hint">
-                {prefilledFilter
-                  ? `This Space will use the filter "${prefilledFilter}" (carried over from your search). You can change or clear it later from the Space card.`
-                  : 'Spaces start with no filter — every capture in this Mind is in scope. You can add a saved-search filter later from the Space card if you want this Space to also act as a filtered view.'}
+                A Mind is a focused container for one research project, topic, or interest. Solo by default; you can share it later from settings.
               </span>
             </label>
           </div>
@@ -205,7 +152,7 @@ function NewSpaceContent() {
         {step === 2 && (
           <div className="onboarding__body">
             <label className="onboarding__field">
-              <span className="onboarding__label">What is this Space for?</span>
+              <span className="onboarding__label">What is this Mind for?</span>
               <textarea
                 className="onboarding__textarea"
                 value={purpose}
@@ -253,7 +200,7 @@ function NewSpaceContent() {
                     rows={16}
                   />
                   <span className="onboarding__hint">
-                    This is what the assistant inside this Space will be told. Edit freely — you can also change it later.
+                    This is what the assistant inside this Mind will be told. Edit freely — you can also change it later.
                   </span>
                 </label>
                 <button type="button" className="link-button" onClick={generatePrompt}>
@@ -268,7 +215,7 @@ function NewSpaceContent() {
 
         <footer className="onboarding__footer">
           <div className="onboarding__footer-left">
-            <Link href="/spaces" className="link-button">
+            <Link href="/minds" className="link-button">
               Cancel
             </Link>
             {step > 1 && step < 4 ? (
@@ -304,7 +251,7 @@ function NewSpaceContent() {
                   onClick={finalize}
                   disabled={isSaving || isGenerating || !generatedPrompt.trim()}
                 >
-                  {isSaving ? 'Saving…' : 'Create Space'}
+                  {isSaving ? 'Saving…' : 'Create Mind'}
                 </button>
               </>
             )}
@@ -315,10 +262,10 @@ function NewSpaceContent() {
   );
 }
 
-export default function NewSpacePage() {
+export default function NewMindPage() {
   return (
     <AuthGate>
-      <NewSpaceContent />
+      <NewMindContent />
     </AuthGate>
   );
 }

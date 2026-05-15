@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/client-auth';
 
 type AppNavProps = {
-  active?: 'home' | 'dashboard' | 'spaces' | 'vault' | 'settings' | 'login';
+  active?: 'home' | 'dashboard' | 'minds' | 'vault' | 'settings' | 'login';
 };
 
 export function AppNav({ active = 'home' }: AppNavProps) {
@@ -81,13 +81,11 @@ export function AppNav({ active = 'home' }: AppNavProps) {
               <span className="nav-num">01</span> Mind
             </Link>
             <Link
-              href="/spaces"
-              className={active === 'spaces' ? 'nav-link active' : 'nav-link'}
+              href="/minds"
+              className={active === 'minds' ? 'nav-link active' : 'nav-link'}
               onClick={() => setMenuOpen(false)}
             >
-              <span className="nav-num">02</span>
-              <span className="nav-label-full">Smart Spaces</span>
-              <span className="nav-label-short">Spaces</span>
+              <span className="nav-num">02</span> Minds
             </Link>
             <Link
               href="/vault"

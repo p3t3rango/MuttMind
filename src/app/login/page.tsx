@@ -112,21 +112,21 @@ export default function LoginPage() {
             <p className="eyebrow">§ Secure access / MuttMind entrance</p>
             <h1 id="login-title" className="auth-title">Sign in to MuttMind.</h1>
             <p className="lede">
-              Use your account to reach your Mind, Smart Spaces, and Telegram capture flow.
+              Use your account to reach your Minds and the Telegram capture flow.
             </p>
           </div>
           <div className="login-features" aria-label="Authenticated areas">
             <article className="login-feature">
-              <span className="kicker">Mind</span>
-              <p>Choose the personal or shared Mind you want to work in.</p>
-            </article>
-            <article className="login-feature">
-              <span className="kicker">Smart Spaces</span>
-              <p>Save filtered views that stay shared with the Mind.</p>
+              <span className="kicker">Minds</span>
+              <p>Switch between personal and shared Minds, each with its own focus and voice.</p>
             </article>
             <article className="login-feature">
               <span className="kicker">Capture</span>
               <p>Save links, notes, and thumbnails as they arrive.</p>
+            </article>
+            <article className="login-feature">
+              <span className="kicker">Synthesis</span>
+              <p>The assistant in each Mind surfaces connections across what you've saved.</p>
             </article>
           </div>
         </div>

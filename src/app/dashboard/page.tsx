@@ -495,12 +495,7 @@ function DashboardContent() {
   }, [loadSelectedNotes, selectedCapture?.id]);
 
   useEffect(() => {
-    const storedQuery = window.localStorage.getItem('muttmind:active-space-query');
     const storedMindId = window.localStorage.getItem('muttmind:active-mind-id');
-    if (storedQuery) {
-      setSearchQuery(storedQuery);
-      window.localStorage.removeItem('muttmind:active-space-query');
-    }
     if (storedMindId) {
       setWorkspaceId(storedMindId);
       window.localStorage.removeItem('muttmind:active-mind-id');
@@ -571,11 +566,8 @@ function DashboardContent() {
             <button className="mind-action" type="button" onClick={openTelegramBot}>
               Open Bot
             </button>
-            <Link
-              className="mind-action"
-              href={`/spaces/new${searchQuery.trim() ? `?filter=${encodeURIComponent(searchQuery.trim())}` : ''}`}
-            >
-              + New Space
+            <Link className="mind-action" href="/minds/new">
+              + New Mind
             </Link>
           </div>
         </div>
@@ -688,7 +680,7 @@ function DashboardContent() {
         ) : (
           <div className="mind-empty">
             <h2>{searchQuery ? 'No matches yet.' : 'Paste a link to begin.'}</h2>
-            <p>{searchQuery ? 'Clear the search or save this query as a Smart Space.' : 'MuttMind will create a visual card, summarize it, and tag it automatically.'}</p>
+            <p>{searchQuery ? 'Clear the search or refine it.' : 'MuttMind will create a visual card, summarize it, and tag it automatically.'}</p>
           </div>
         )}
       </section>

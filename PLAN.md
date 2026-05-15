@@ -2,6 +2,19 @@
 
 > A staged plan to evolve MuttMind from a capture/curation tool into a *Shared Mind* — a low-friction, AI-augmented place where individuals or groups capture across the web, watch the Mind organize itself, and receive synthesis (essays, digests, suggested external sources) that helps them see patterns, reuse knowledge, and extend their thinking.
 
+## The unit is a Mind (Are.na-aligned)
+
+A user has many **Minds**. A Mind is a focused container — like an Are.na channel — for one research project, topic, or interest. A Shared Mind is the same thing with multiple members. **There is no "Space" concept above or below Minds.** Each Mind has its own:
+
+- system prompt (defines how the assistant behaves inside it)
+- voice (system prompt / one user's notes / multiple users' notes blended)
+- members (solo by default; share to make it a Shared Mind)
+- captures, tags, notes
+- LLM provider/model (with workspace and user defaults)
+- synthesis cadence and external scouting settings (when those features land)
+
+Captures may eventually live in many Minds at once via Are.na-style "Connect" (Feature 1.5: Manual collection).
+
 ## Vision
 
 The product loop:
@@ -47,7 +60,7 @@ When in doubt about UI, defer to Are.na's aesthetic. The product is minimal, con
 
 - Content is the visual hero. UI affordances stay quiet.
 - No engagement-bait surfaces (notification badges, hot streaks, trending things). This is not a social media app.
-- Block-style thinking: a saved item ("node") can live in multiple Spaces without duplication. Already partly true via Smart Spaces; preserve in any new feature.
+- Block-style thinking: a saved item ("node") can live in multiple Minds without duplication (see Feature 1.5: Manual collection).
 - Connections / trails are a first-class viewing surface. The graph view, the "this connects to that" essays, future "see who else has this in their Mind" trails.
 - Algorithm-free; surface things by genuine resonance only.
 
@@ -79,65 +92,61 @@ A node having no user note is **not** a signal of provenance — provenance is t
 
 Each feature is its own branch off `main`. Each ends with: a working demo, a short test plan executed by the user, and explicit approval before merging and starting the next feature.
 
-### Feature 1 — Spaces with system prompt + onboarding (foundation)
+### Feature 1 — Minds with system prompt + onboarding (foundation)
 
-**Branch:** `feature/spaces-onboarding`
+**Branch:** `feature/minds-foundation` (originally `feature/spaces-onboarding` — collapsed)
 
 **Scope:**
-- Schema:
-  - Add `system_prompt`, `voice_source` (`system_prompt` | `user_notes` | `mind_notes`), `voice_user_ids uuid[]`, `mode_type` (`query` | `steep` | `voice` | `neighborhood` | `all`), `seed_node_id`, `seed_tag_id`, `seed_author`, `provider`, `model` to `smart_spaces`.
-  - Add Mind-level defaults: `default_system_prompt`, `default_provider`, `default_model` to `workspaces`.
+- Schema (`workspaces` is the Mind):
+  - `system_prompt text`, `voice_source` (`system_prompt` | `user_notes` | `mind_notes`), `voice_user_ids uuid[]`, `provider text`, `model text`.
   - **Permissions system:**
-    - New table `workspace_member_permissions(workspace_id, user_id, permission_key, granted_by, granted_at)`.
-    - Initial enum of permission keys: `manage_spaces`, `manage_voice`, `manage_members`. Grows as later features land (`manage_api_keys` in Feature 9, `manage_feeds` in Feature 7).
-    - Helper: `userCan(userId, workspaceId, permissionKey)` — returns true if user is owner/admin OR has the permission grant.
-    - Members listing in settings shows current grants per member; admins can toggle.
-- LLM adapter scaffolding:
-  - Refactor `src/lib/llm.ts` to a provider-agnostic interface; keep Gemini as only exposed implementation in this feature.
-  - Plumbing for per-Space provider/model is wired, but the picker is locked to Gemini.
-- Onboarding UI: `/spaces/new`
-  1. "What's this Space for?" (free text)
-  2. "Anything specific you want to feed the assistant as priming context?" (optional free text)
-  3. Optional preview of generated system prompt (LLM-generated from answers); editable
-  4. Save Space (with mode_type defaulted to `query` for now)
-- "Skip onboarding" path: creates Space with title + a generic default prompt; LLM bootstraps from title + future captures.
-- Edit-anytime UI for the Space's system prompt under settings (gated by `manage_spaces` permission).
+    - Table `workspace_member_permissions(workspace_id, user_id, permission_key, granted_by, granted_at)`.
+    - Initial enum of permission keys: `manage_spaces`, `manage_voice`, `manage_members`. Extended in later features (`manage_api_keys` in Feature 9, `manage_feeds` in Feature 7). Note: `manage_spaces` keeps its name for now and gates Mind-level edits — minor naming wart, not worth a migration.
+    - Helper: `userCan(userId, workspaceId, permissionKey)` — owner/admin always true; members true with explicit grant.
+- LLM adapter (`src/lib/llm/`): provider-agnostic interface + Gemini implementation + `generateText()` helper for arbitrary completions.
+- Mind onboarding (`/minds/new`): 4-step flow — name → purpose → primer → review/edit generated system prompt. Skip & save available from any step (after name is filled).
+- Minds list (`/minds`): all Minds the user belongs to, with inline system prompt editor per card.
+- Dashboard "+ New Mind" link in the toolbar.
+- Smart Spaces concept removed from the codebase entirely (Are.na-aligned).
 
 **What it touches:**
-- `supabase/schema.sql` (migration)
-- `src/lib/llm.ts` (refactor)
-- `src/app/api/spaces/route.ts` (extend)
-- `src/app/spaces/page.tsx` + new `src/app/spaces/new/page.tsx`
-- `src/app/settings/page.tsx` (Space prompt editor)
+- `supabase/spaces_v2_patch.sql`, `supabase/spaces_v2_query_optional_patch.sql`, `supabase/minds_v1_patch.sql` (incremental migrations as the model evolved)
+- `src/lib/llm/` (provider-agnostic adapter)
+- `src/lib/minds-prompts.ts` (base ethos + meta-prompt)
+- `src/lib/permissions.ts` (`userCan`, `assertCan`, `getUserPermissions`)
+- `src/app/api/workspaces/route.ts` + `src/app/api/workspaces/generate-prompt/route.ts`
+- `src/app/minds/page.tsx` + `src/app/minds/new/page.tsx`
+- `src/app/dashboard/page.tsx` (+ New Mind link)
+- `src/components/app-nav.tsx` (Smart Spaces nav link replaced with Minds)
 
 **Test plan:**
-- [ ] Create a new Space via onboarding; verify generated prompt is editable and saved
-- [ ] Create a new Space via skip path; verify generic prompt and bootstrap works
-- [ ] Edit a Space's prompt later from settings; verify it persists
-- [ ] Verify Mind-level defaults apply when a Space prompt is empty
+- [ ] Create a new Mind via onboarding; verify generated prompt is editable and saved
+- [ ] Create a new Mind via skip path; verify generic prompt is applied
+- [ ] Edit a Mind's prompt later from `/minds`; verify it persists and that non-admins without `manage_spaces` are blocked
+- [ ] After creating a Mind, the dashboard switches to it automatically (via `muttmind:active-mind-id` localStorage signal)
 
-**Success:** A user can spin up a new Space in under a minute (skip path) or with a tailored prompt in under three minutes (onboarding path).
+**Success:** A user can spin up a new Mind in under a minute (skip path) or with a tailored prompt in under three minutes (onboarding path). The dashboard's Mind dropdown is the everyday switcher.
 
 ---
 
-### Feature 1.5 — Manual collection ("Add to Space")
+### Feature 1.5 — Manual collection ("Connect to Mind")
 
 **Branch:** `feature/manual-collection`
 
-**Scope:** Are.na-style explicit collection. Today a Space can have a saved-search filter that automatically pulls matching captures into view. This adds the ability to *manually* add any capture to a Space — independent of the filter — so Spaces can act as curated channels, not only as saved searches.
+**Scope:** Are.na-style explicit collection. A capture is currently bound to one Mind. This feature lets the same capture live in many Minds without duplication — like Are.na "blocks" connecting to multiple channels.
 
-- Schema: `node_spaces(node_id, space_id, added_by, added_at)` junction table with PK on `(node_id, space_id)`.
-- Dashboard / drawer affordance: "Add to Space" button on a capture, opens a small picker of the Mind's Spaces.
-- Spaces page: each Space shows both filter-matched captures and manually-added captures in one list (deduped). Visual indicator on which is which.
-- A capture can live in many Spaces without duplication — block-style.
+- Schema: `node_workspaces(node_id, workspace_id, added_by, added_at)` junction table with PK on `(node_id, workspace_id)`. The capture's "home" workspace stays on `nodes.workspace_id` for backward-compat; the junction tracks additional Mind memberships.
+- Dashboard / drawer affordance: "Connect to Mind" button on a capture, opens a picker of the user's Minds.
+- A capture appears in every Mind it's connected to, with a small indicator on whether it's "from here" (this Mind is its home) or "connected from elsewhere."
+- Disconnecting a capture from a Mind doesn't delete it; deleting from its home Mind cascades to all connections.
 
 **Test plan:**
-- [ ] From a capture's drawer, add it to a Space; verify it appears on opening that Space
-- [ ] Add the same capture to two Spaces; verify it shows in both with no duplication of the underlying node
-- [ ] A Space with a filter + manual additions shows both sets, deduped
-- [ ] Removing from a Space doesn't delete the capture
+- [ ] From a capture's drawer, connect it to a second Mind; verify it appears there too
+- [ ] Connect the same capture to three Minds; verify it shows in all three with no duplication of the underlying node
+- [ ] Disconnect from a non-home Mind; verify it disappears from that Mind only
+- [ ] Delete from the home Mind; verify it disappears from all connected Minds
 
-**Success:** A user can deliberately curate captures into a Space without depending on tag/filter syntax.
+**Success:** A capture can deliberately live in multiple Minds, the way an Are.na block connects to multiple channels.
 
 ---
 
@@ -323,7 +332,7 @@ Each feature is its own branch off `main`. Each ends with: a working demo, a sho
 
 ## Cross-cutting work (in parallel where reasonable)
 
-- **UI audit pass.** Once Feature 1 ships, audit `/dashboard`, `/vault`, `/spaces`, `/login`, `/telegram`, `/invite/[token]` for visual consistency, mobile usability, and dead-state empties. No new features — just polish.
+- **UI audit pass.** Once Feature 1 ships, audit `/dashboard`, `/vault`, `/minds`, `/login`, `/telegram`, `/invite/[token]` for visual consistency, mobile usability, and dead-state empties. No new features — just polish.
 - **Capture-time provenance.** Add the `source` field migration alongside Feature 1 so every later feature can rely on it.
 - **Telegram bot UX.** Where new commands are added, prefer inline keyboards over typed slash-commands so users don't memorize.
 

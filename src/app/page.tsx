@@ -42,8 +42,8 @@ export default function Home() {
             <h1 id="home-title" className="display-title">Capture the links your team keeps revisiting.</h1>
             <p className="lede">
               MuttMind turns links, notes, and source context into a shared Mind.
-              Capture from Telegram or the browser, let AI organize it, then save useful
-              searches as Smart Spaces.
+              Capture from Telegram or the browser, let AI organize it, then watch
+              connections surface across what your team has saved.
             </p>
             <div className="hero-actions">
               <Link href="/login" className="button">
@@ -71,7 +71,7 @@ export default function Home() {
               </div>
               <div className="list-item">
                 <span className="metric-value">REVIEW</span>
-                <span className="metric-label">Inspect thumbnails, Smart Spaces, and the relationship map.</span>
+                <span className="metric-label">Inspect thumbnails, the relationship map, and synthesis essays.</span>
               </div>
             </div>
           </div>
@@ -91,7 +91,7 @@ export default function Home() {
           <p className="eyebrow">02 Organize</p>
           <h3>Work by Mind.</h3>
           <p className="lede">
-            Each personal or shared Mind gets its own tags, members, Smart Spaces, and capture history.
+            Each personal or shared Mind gets its own tags, members, system prompt, and capture history.
           </p>
         </article>
         <article className="panel">

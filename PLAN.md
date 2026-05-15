@@ -35,7 +35,8 @@ Every collaborative project starts with people sharing links into a chat. The li
 | Feeds | User-opted; per-feed kill switch (Telegram + web) | Suggested feeds in onboarding deferred |
 | Newsletter | On the roadmap as separate output type | Mechanics later |
 | Local LLM | Future-note only | Not v1 |
-| API keys | **Per-user**, with optional workspace fallback | Privacy + cost attribution |
+| API keys | **Per-workspace** primary; per-user keys opt-in via workspace setting | Admins control; per-member permissions can delegate |
+| Permissions | Role (owner/admin/member) + per-member delegated permissions | Admins grant specific privileges (e.g. `manage_api_keys`) without promoting to admin |
 | LLM providers (eventual) | Gemini (hosted default), Anthropic, OpenAI, OpenRouter | OpenRouter covers the long tail |
 | Default voice for new Space | Generated system prompt from onboarding | Notes-based voice opt-in once notes exist |
 | Workflow | **One feature, one branch, one approval gate at a time** | Test before moving on |
@@ -74,6 +75,11 @@ Each feature is its own branch off `main`. Each ends with: a working demo, a sho
 - Schema:
   - Add `system_prompt`, `voice_source` (`system_prompt` | `user_notes` | `mind_notes`), `voice_user_ids uuid[]`, `mode_type` (`query` | `steep` | `voice` | `neighborhood` | `all`), `seed_node_id`, `seed_tag_id`, `seed_author`, `provider`, `model` to `smart_spaces`.
   - Add Mind-level defaults: `default_system_prompt`, `default_provider`, `default_model` to `workspaces`.
+  - **Permissions system:**
+    - New table `workspace_member_permissions(workspace_id, user_id, permission_key, granted_by, granted_at)`.
+    - Initial enum of permission keys: `manage_spaces`, `manage_voice`, `manage_members`. Grows as later features land (`manage_api_keys` in Feature 9, `manage_feeds` in Feature 7).
+    - Helper: `userCan(userId, workspaceId, permissionKey)` — returns true if user is owner/admin OR has the permission grant.
+    - Members listing in settings shows current grants per member; admins can toggle.
 - LLM adapter scaffolding:
   - Refactor `src/lib/llm.ts` to a provider-agnostic interface; keep Gemini as only exposed implementation in this feature.
   - Plumbing for per-Space provider/model is wired, but the picker is locked to Gemini.
@@ -83,7 +89,7 @@ Each feature is its own branch off `main`. Each ends with: a working demo, a sho
   3. Optional preview of generated system prompt (LLM-generated from answers); editable
   4. Save Space (with mode_type defaulted to `query` for now)
 - "Skip onboarding" path: creates Space with title + a generic default prompt; LLM bootstraps from title + future captures.
-- Edit-anytime UI for the Space's system prompt under settings.
+- Edit-anytime UI for the Space's system prompt under settings (gated by `manage_spaces` permission).
 
 **What it touches:**
 - `supabase/schema.sql` (migration)
@@ -254,18 +260,23 @@ Each feature is its own branch off `main`. Each ends with: a working demo, a sho
 **Branch:** `feature/byo-llm`
 
 **Scope:**
-- User-level provider settings UI: add Anthropic, OpenAI, OpenRouter (each with API key field, encrypted at rest).
-- Per-Space provider + model picker (already plumbed in Feature 1, now exposed).
-- Workspace-fallback option: a Mind owner can set a workspace key that members use unless they have their own.
+- **Workspace-level API keys (primary):** add `provider_keys` per workspace — Gemini / Anthropic / OpenAI / OpenRouter. Encrypted at rest. Admins or members with `manage_api_keys` permission can set/edit.
+- **Per-user keys (opt-in):** workspace setting `allow_per_user_keys: bool` (default off, admin-toggled). When on, members can set their own key in personal settings, which overrides the workspace key for that member's actions.
+- New permission key `manage_api_keys` added to the Feature 1 enum.
+- Per-Space provider + model picker (plumbed in Feature 1, now exposed).
 - Usage tracking: per-user / per-Mind token + cost counters in settings.
+- Hosted Gemini default remains for any workspace without a configured key.
 
 **Test plan:**
-- [ ] Add a Claude key, set a Space to use Claude Sonnet; verify synthesis uses it
-- [ ] Add an OpenRouter key, point it at an open model; verify works
-- [ ] Verify Gemini hosted default still works for users without keys
-- [ ] Verify usage counters increment
+- [ ] Admin sets a workspace Claude key; verify synthesis in any Space uses it
+- [ ] Admin grants member `manage_api_keys`; verify that member can change the key
+- [ ] Member without `manage_api_keys` cannot see/change the key
+- [ ] Admin enables `allow_per_user_keys`; member sets their own OpenAI key; verify their actions use that key while others still use the workspace key
+- [ ] Disable `allow_per_user_keys`; verify members fall back to workspace key
+- [ ] Verify Gemini hosted default still works for a workspace with no keys configured
+- [ ] Verify usage counters increment per user and per workspace
 
-**Success:** A user can pick their own LLM, pay their own bill, and pick the right model per Space.
+**Success:** Workspaces can pick their LLM and pay their own bill; admins control by default; per-member overrides exist when needed.
 
 ---
 

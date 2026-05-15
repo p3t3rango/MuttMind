@@ -3825,6 +3825,131 @@ select:focus {
 }
 
 /* ---------------------------------------------------------------------------
+   Activation checklist — floating "Finish setup" widget bottom-right
+   --------------------------------------------------------------------------- */
+
+.activation {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  width: min(280px, calc(100vw - 32px));
+  background: #0a0a0a;
+  border: 1px solid rgba(247, 247, 242, 0.18);
+  display: grid;
+  gap: 0;
+}
+
+.activation__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(247, 247, 242, 0.1);
+}
+
+.activation__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.85);
+}
+
+.activation__count {
+  margin-left: 6px;
+  color: rgba(247, 247, 242, 0.5);
+  font-weight: normal;
+}
+
+.activation__close {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: rgba(247, 247, 242, 0.5);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.activation__close:hover {
+  color: var(--ink);
+}
+
+.activation__list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+  display: grid;
+  gap: 0;
+}
+
+.activation__item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: rgba(247, 247, 242, 0.75);
+}
+
+.activation__item--done {
+  color: rgba(247, 247, 242, 0.4);
+  text-decoration: line-through;
+  text-decoration-color: rgba(247, 247, 242, 0.2);
+}
+
+.activation__checkbox {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(247, 247, 242, 0.3);
+  background: transparent;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+}
+
+.activation__item--done .activation__checkbox {
+  border-color: rgba(247, 247, 242, 0.5);
+  background: rgba(247, 247, 242, 0.06);
+}
+
+.activation__action {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.activation__action:hover {
+  color: var(--ink);
+}
+
+.activation__text {
+  text-align: left;
+}
+
+@media (max-width: 700px) {
+  .activation {
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+  }
+}
+
+/* ---------------------------------------------------------------------------
    /vault — Obsidian-style force-directed graph in editorial restraint
    --------------------------------------------------------------------------- */
 

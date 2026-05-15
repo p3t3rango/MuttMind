@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivationChecklist } from '@/components/activation-checklist';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { Dropdown } from '@/components/dropdown';
@@ -873,6 +874,45 @@ function DashboardContent() {
         open={newMindModalOpen}
         onClose={() => setNewMindModalOpen(false)}
         onCreated={() => loadWorkspaces()}
+      />
+
+      <ActivationChecklist
+        milestones={[
+          {
+            key: 'mind',
+            label: 'Create your first Mind',
+            done: workspaces.length > 0,
+          },
+          {
+            key: 'capture',
+            label: 'Save your first capture',
+            done: recentCaptures.length > 0,
+          },
+          {
+            key: 'tailor',
+            label: 'Tailor your assistant',
+            done: false,
+            manuallyCheckable: true,
+            onAction: () => {
+              if (currentWorkspace?.workspaces.id) {
+                window.location.href = `/minds/${currentWorkspace.workspaces.id}/tailor`;
+              }
+            },
+          },
+          {
+            key: 'shared',
+            label: 'Make it a Shared Mind',
+            done: (currentWorkspace?.workspaces.member_count ?? 1) > 1,
+            onAction: () => setNewMindModalOpen(true),
+          },
+          {
+            key: 'telegram',
+            label: 'Connect the Telegram bot',
+            done: false,
+            manuallyCheckable: true,
+            onAction: openTelegramBot,
+          },
+        ]}
       />
     </main>
   );

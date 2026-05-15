@@ -10,6 +10,7 @@ type NodeTagRow = {
 
 type NodeListRow = {
   id: string;
+  workspace_id: string;
   title: string | null;
   original_url: string | null;
   og_image_url: string | null;
@@ -19,6 +20,7 @@ type NodeListRow = {
   ai_summary: string | null;
   user_notes: string | null;
   created_by: string | null;
+  created_at: string;
   users?: {
     display_name?: string | null;
     email?: string | null;
@@ -32,32 +34,58 @@ export async function GET(req: Request) {
     const workspaceId = new URL(req.url).searchParams.get('workspaceId');
     if (!workspaceId) return Response.json({ error: 'workspaceId required' }, { status: 400 });
     await assertWorkspaceMember(workspaceId, userId);
-    const { data, error } = await getSupabaseAdmin()
-      .from('nodes')
-      .select('id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,created_by,users(display_name,email),node_tags(tags(shift_name))')
-      .eq('workspace_id', workspaceId)
+
+    const select =
+      'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,created_by,created_at,users(display_name,email),node_tags(tags(shift_name))';
+
+    // Captures connected to this Mind from elsewhere (Feature 1.5).
+    const { data: connections } = await getSupabaseAdmin()
+      .from('node_workspaces')
+      .select('node_id')
+      .eq('workspace_id', workspaceId);
+    const connectedIds = (connections ?? [])
+      .map((c) => (c as { node_id: string }).node_id)
+      .filter((id): id is string => typeof id === 'string');
+
+    let queryBuilder = getSupabaseAdmin().from('nodes').select(select);
+    queryBuilder = connectedIds.length
+      ? queryBuilder.or(`workspace_id.eq.${workspaceId},id.in.(${connectedIds.join(',')})`)
+      : queryBuilder.eq('workspace_id', workspaceId);
+
+    const { data, error } = await queryBuilder
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) return Response.json({ error: error.message }, { status: 500 });
+
     const rows = (data ?? []) as unknown as NodeListRow[];
-    const nodes = rows.map((node) => ({
-      id: node.id,
-      title: node.title,
-      original_url: node.original_url,
-      og_image_url: node.og_image_url,
-      source_description: node.source_description,
-      source_author: node.source_author,
-      raw_text: node.raw_text,
-      user_notes: node.user_notes,
-      ai_summary: node.ai_summary,
-      created_by: node.created_by,
-      created_by_label: node.users?.display_name || node.users?.email || 'teammate',
-      tags: Array.isArray(node.node_tags)
-        ? node.node_tags
-            .map((item) => item?.tags?.shift_name)
-            .filter((tag: unknown): tag is string => typeof tag === 'string' && tag.length > 0)
-        : [],
-    }));
+    const seen = new Set<string>();
+    const nodes = rows
+      .filter((node) => {
+        if (seen.has(node.id)) return false;
+        seen.add(node.id);
+        return true;
+      })
+      .map((node) => ({
+        id: node.id,
+        title: node.title,
+        original_url: node.original_url,
+        og_image_url: node.og_image_url,
+        source_description: node.source_description,
+        source_author: node.source_author,
+        raw_text: node.raw_text,
+        user_notes: node.user_notes,
+        ai_summary: node.ai_summary,
+        created_by: node.created_by,
+        created_by_label: node.users?.display_name || node.users?.email || 'teammate',
+        // True when the capture's home is a different Mind — it's here via a
+        // connection rather than originally saved here.
+        connected: node.workspace_id !== workspaceId,
+        tags: Array.isArray(node.node_tags)
+          ? node.node_tags
+              .map((item) => item?.tags?.shift_name)
+              .filter((tag: unknown): tag is string => typeof tag === 'string' && tag.length > 0)
+          : [],
+      }));
     return Response.json({ nodes });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : 'unknown' }, { status: 401 });

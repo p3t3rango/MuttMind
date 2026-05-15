@@ -35,6 +35,7 @@ type CaptureItem = {
   user_notes: string | null;
   ai_summary: string | null;
   tags: string[];
+  connected?: boolean;
 };
 
 type NodeNote = {
@@ -158,6 +159,9 @@ function DashboardContent() {
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [isImproving, setIsImproving] = useState(false);
   const [newMindModalOpen, setNewMindModalOpen] = useState(false);
+  const [connectHome, setConnectHome] = useState('');
+  const [connectIds, setConnectIds] = useState<string[]>([]);
+  const [connectBusy, setConnectBusy] = useState<string | null>(null);
 
   const filteredCaptures = useMemo(
     () => recentCaptures.filter((captureItem) => matchesQuery(captureItem, searchQuery)),
@@ -476,6 +480,56 @@ function DashboardContent() {
     void loadSelectedNotes();
   }, [loadSelectedNotes, selectedCapture?.id]);
 
+  // Load which Minds the selected capture is connected to (Feature 1.5).
+  useEffect(() => {
+    if (!selectedCapture || !workspaceId || selectedCapture.id.startsWith('pending-')) {
+      setConnectHome('');
+      setConnectIds([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const r = await authedFetch(
+        `/api/nodes/${encodeURIComponent(selectedCapture.id)}/connect?workspaceId=${encodeURIComponent(workspaceId)}`,
+      );
+      if (cancelled || !r.ok) return;
+      const d = await r.json();
+      setConnectHome(d.homeWorkspaceId ?? '');
+      setConnectIds((d.connectedWorkspaceIds ?? []) as string[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCapture?.id, workspaceId, selectedCapture]);
+
+  const toggleConnection = useCallback(
+    async (targetWorkspaceId: string) => {
+      if (!selectedCapture || !workspaceId) return;
+      setConnectBusy(targetWorkspaceId);
+      const isConnected = connectIds.includes(targetWorkspaceId);
+      const nodeId = encodeURIComponent(selectedCapture.id);
+      const r = isConnected
+        ? await authedFetch(
+            `/api/nodes/${nodeId}/connect?workspaceId=${encodeURIComponent(targetWorkspaceId)}`,
+            { method: 'DELETE' },
+          )
+        : await authedFetch(`/api/nodes/${nodeId}/connect`, {
+            method: 'POST',
+            body: JSON.stringify({ fromWorkspaceId: workspaceId, targetWorkspaceId }),
+          });
+      setConnectBusy(null);
+      if (!r.ok) {
+        const d = await r.json();
+        setStatus(d.error ?? 'Could not change connection.');
+        return;
+      }
+      setConnectIds((current) =>
+        isConnected ? current.filter((id) => id !== targetWorkspaceId) : [...current, targetWorkspaceId],
+      );
+    },
+    [selectedCapture, workspaceId, connectIds],
+  );
+
   useEffect(() => {
     const storedMindId = window.localStorage.getItem('muttmind:active-mind-id');
     if (storedMindId) {
@@ -655,7 +709,10 @@ function DashboardContent() {
                   </button>
 
                   <button type="button" className="mind-card__meta" onClick={() => setSelectedCapture(captureItem)}>
-                    <span className="mind-card__title">{captureItem.title ?? 'Untitled capture'}</span>
+                    <span className="mind-card__title">
+                      {captureItem.connected ? <span className="mind-card__connected" title="Connected from another Mind">⮃ </span> : null}
+                      {captureItem.title ?? 'Untitled capture'}
+                    </span>
                     <span className="mind-card__attribution" aria-hidden="true">
                       Added by {captureItem.created_by_label ?? 'teammate'}
                       {relativeTimeFrom(captureItem.created_at) ? ` · ${relativeTimeFrom(captureItem.created_at)}` : ''}
@@ -791,6 +848,34 @@ function DashboardContent() {
                   </form>
                 ) : null}
               </div>
+              {!selectedCapture.id.startsWith('pending-') && workspaces.length > 1 ? (
+                <div className="connect-box">
+                  <p className="kicker">Lives in</p>
+                  <div className="connect-list">
+                    {workspaces.map((w) => {
+                      const id = w.workspaces.id;
+                      const isHome = id === connectHome;
+                      const isConnected = isHome || connectIds.includes(id);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          className={`connect-pill ${isConnected ? 'connect-pill--on' : ''}`}
+                          disabled={isHome || connectBusy === id}
+                          onClick={() => toggleConnection(id)}
+                          title={isHome ? 'Home Mind' : isConnected ? 'Connected — click to disconnect' : 'Connect to this Mind'}
+                        >
+                          <span className="connect-pill__check" aria-hidden="true">
+                            {isConnected ? '✓' : '+'}
+                          </span>
+                          {formatMindName(w.workspaces.name)}
+                          {isHome ? <span className="connect-pill__home">home</span> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <p className="kicker">Notes</p>
                 {selectedCapture.user_notes ? (

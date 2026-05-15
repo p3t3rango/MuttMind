@@ -125,14 +125,23 @@ function MindsContent() {
               ];
               return (
                 <li key={w.id} className="mind-row">
-                  <button type="button" className="mind-row__main" onClick={() => openMind(mind)}>
-                    <span className="mind-row__name">{w.name}</span>
-                    <span className="mind-row__meta">
-                      {w.capture_count ?? 0} {w.capture_count === 1 ? 'capture' : 'captures'} · {getMindLabel(mind)} · {w.privacy}
-                      {w.created_at ? ` · ${relativeTime(w.created_at)}` : ''}
-                    </span>
-                    {w.description ? <span className="mind-row__desc">{w.description}</span> : null}
-                  </button>
+                  <div className="mind-row__lead">
+                    <button type="button" className="mind-row__main" onClick={() => openMind(mind)}>
+                      <span className="mind-row__name">{w.name}</span>
+                      <span className="mind-row__meta">
+                        {w.capture_count ?? 0} {w.capture_count === 1 ? 'capture' : 'captures'} · {getMindLabel(mind)} · {w.privacy}
+                        {w.created_at ? ` · ${relativeTime(w.created_at)}` : ''}
+                      </span>
+                      {w.description ? <span className="mind-row__desc">{w.description}</span> : null}
+                    </button>
+                    <Link
+                      href={`/minds/${w.id}/settings`}
+                      className="mind-row__settings"
+                      aria-label={`Settings for ${w.name}`}
+                    >
+                      Settings
+                    </Link>
+                  </div>
                   <div className="mind-row__strip" aria-label="Recent captures">
                     {filledSlots.map((cap, idx) =>
                       cap ? (

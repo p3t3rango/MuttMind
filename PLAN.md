@@ -239,6 +239,61 @@ Inspired by [MemPalace](https://github.com/MemPalace/mempalace) but scoped per-M
 
 ---
 
+### Feature 3.7 — "Find or ask" — search + chat unified
+
+**Branch:** `feature/find-or-ask`
+
+**Scope:** The global search input becomes both retrieval and question-answering. Same field, two behaviors decided by intent:
+
+- Plain query (`Jevons paradox`) → semantic search across captures + memory; results dropdown.
+- Question (`what's the through-line of what I've saved on AI safety?`) → routes to LLM with retrieved captures as context; streams an answer.
+
+Detect intent simply: presence of `?` OR question-like prefix (`what`, `how`, `why`, `should I`, etc.). Otherwise, surface a small "Ask instead" toggle in the results dropdown.
+
+The answer view:
+- Short LLM response with **inline citations** linking back to source captures
+- Below: the matching captures themselves, so the user can drop into the corpus
+- Saved to a `mind_questions` log so the user can revisit / share / fork their queries
+
+**Why this is critical:** the daydream essay (Feature 3) is the periodic event; "find or ask" is the everyday move. Bates' berrypicking is exactly this — query evolves as you find things. Without it, the synthesis loop is too slow to feel useful in the moment.
+
+Lands after Feature 3 (synthesis exists) and Feature 3.5 (memory exists), since both are needed to answer well.
+
+---
+
+### Feature 3.8 — Per-capture Insight Lenses
+
+**Branch:** `feature/insight-lenses`
+
+**Scope:** A small palette of interpretive lenses applied to a single capture. Click a sparkle on any capture, get a popover menu of fixed prompts that each re-interpret the source through a different frame.
+
+Initial lens set (mirrors Sublime's, plus our additions):
+
+| Lens | Prompt shape | Output |
+|---|---|---|
+| **The Gist** | "What's the one-paragraph essence?" | 80-word condensation |
+| **Explain Like I'm 5** | "Re-explain this for an intelligent twelve-year-old." | Plain-language version |
+| **Contrarian Take** | "Steelman the opposite. What would a thoughtful skeptic say?" | Counter-argument |
+| **Analogy** | "Find a non-obvious analogy that makes this idea click." | One sharp analogy |
+| **Hot Take** | "What's the punchy, opinionated, one-line take on this?" | Tweet-length opinion |
+| **Why I might have saved this** | (uses the Mind's system prompt + capture context) | Inferred relevance to the user's stated focus |
+| **What's missing** | (looks at corpus + this capture) | What this source doesn't address that the Mind would want |
+
+Each lens is a small prompt template — lives in `src/lib/lens-prompts.ts`. Output renders inline below the capture, persisted to a `node_lens_outputs` table so re-running gives the same result unless explicitly regenerated.
+
+**Per-Mind controls:**
+- Soft cap on free-tier lens runs per week (Sublime gates with "10 insights left. Unlock unlimited.")
+- Lens outputs become candidate **memory entries** (Feature 3.5) — the most-used lens results bubble into the Mind's running memory.
+
+**Why this matters as its own feature, not just part of synthesis:**
+- Different shape than the essay (Feature 3): essay = across-corpus synthesis with author voice. Lenses = depth on a single source through many frames. **Same source, many berries.** Direct expression of Bates' insight that the same item rewards multiple modes of looking.
+- Cheap and predictable per-call vs. essay's bigger lift.
+- The per-capture sparkle is a powerful affordance — every capture becomes a small thinking partner.
+
+Lands after Feature 3 (synthesis pipeline exists, prompts/voice live) and before Feature 4 (digests). The lens results enrich what the digest can summarize.
+
+---
+
 ### Feature 4 — Telegram delivery (weekly digest)
 
 **Branch:** `feature/telegram-digest`

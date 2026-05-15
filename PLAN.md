@@ -409,19 +409,30 @@ This is a future / not-now consideration. No pricing UI work yet — just keep t
 | **Cross-user AI surfacing** from public collections ("Sublime universe") | Watch, don't chase. We have a structural advantage (Minds are already multi-participant); the equivalent for us is cross-Mind synthesis suggestions. v2 territory, after single-Mind synthesis is excellent. |
 | **Annotations per card** (Are.na blocks are metadata-only) | Already true for us — captures have `user_notes` + a notes log. |
 
-### New near-term feature: Browser extension for capture
+### New near-term feature: Browser extension (capture + related-cards rail)
 
 **Branch:** `feature/browser-extension`
 
-**Scope:** A Chromium extension that captures the current page into the active Mind in one click. Pulls title, full article body, og:image, and any image you right-click.
+**Scope:** A Chromium extension that does two distinct things on the open web. Capture is the entry; the related-cards rail is the loop that makes the Mind feel alive.
 
-- Uses the existing `/api/capture` endpoint plus a token-based auth header (extension obtains a long-lived token from a settings page).
-- Toolbar icon: click to save current tab. Right-click any image: "Save image to MuttMind."
-- Highlight + right-click: "Save quote to MuttMind."
-- Active Mind selector in the popup; defaults to last-used.
-- After save: small toast with "Show related" link → opens MuttMind dashboard scoped to the new capture.
+**Part A — Capture (one-click save anywhere):**
+- Toolbar icon: click to save current tab. Pulls title, full article body, og:image, author.
+- Right-click any image: "Save image to MuttMind."
+- Highlight + right-click: "Save quote to MuttMind" (quote becomes the capture's content; URL becomes its source).
+- Region screenshot: "Save screenshot to MuttMind" (handles paywalled / dynamic content).
+- Save panel shows: thumbnail preview, note field, Mind picker (defaults to last-used), Favorite + Private toggles.
+- Auth via long-lived token issued from MuttMind settings.
+
+**Part B — Related-cards rail (the unlock):**
+- A right-rail panel that opens on any webpage. Shows captures from your active Mind that are semantically related to what you're currently reading (cosine similarity vs. the page's extracted text).
+- Trigger: a small floating chip in the page's gutter, OR keyboard shortcut (Cmd+Shift+R), OR highlight-to-show on selected text.
+- Each related card shows og:image + title + which Mind it came from + when it was saved.
+- Click a card → open it in a MuttMind drawer (in-page overlay) without leaving the current site.
+- The whole point: browse the open web, your Mind shows up alongside as context. Reading and synthesis become one motion instead of two.
 
 This should land **after** Feature 1 (Minds foundation) is fully merged and **before** Feature 7 (Feeds), since the extension partially obviates feeds for power users.
+
+**Why both parts in one feature:** Capture-only loses to Sublime's complete loop. Related-cards-only is a half-built reader. Both together = a desktop reading surface that always knows what your Mind already contains.
 
 ## Future / not-now
 

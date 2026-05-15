@@ -45,6 +45,7 @@ function SettingsContent() {
   const [shareLink, setShareLink] = useState('');
   const [tagName, setTagName] = useState('');
   const [tagDescription, setTagDescription] = useState('');
+  const [digestOptIn, setDigestOptIn] = useState(false);
 
   const loadMind = useCallback(async () => {
     const r = await authedFetch('/api/workspaces');
@@ -85,11 +86,35 @@ function SettingsContent() {
     setInvites(ir.ok ? id.invites ?? [] : []);
   }, [mindId]);
 
+  const loadDigest = useCallback(async () => {
+    const r = await authedFetch(`/api/digest-prefs?workspaceId=${mindId}`);
+    if (r.ok) {
+      const d = await r.json();
+      setDigestOptIn(Boolean(d.optIn));
+    }
+  }, [mindId]);
+
   useEffect(() => {
     loadMind();
     loadTags();
     loadMembers();
-  }, [loadMind, loadTags, loadMembers]);
+    loadDigest();
+  }, [loadMind, loadTags, loadMembers, loadDigest]);
+
+  const toggleDigest = async () => {
+    const next = !digestOptIn;
+    setDigestOptIn(next);
+    const r = await authedFetch('/api/digest-prefs', {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId: mindId, optIn: next }),
+    });
+    if (!r.ok) {
+      setDigestOptIn(!next);
+      setStatus('Could not update digest preference.');
+    } else {
+      setStatus(next ? 'Weekly digest on for you.' : 'Weekly digest off.');
+    }
+  };
 
   const saveIdentity = async () => {
     setStatus('Saving…');
@@ -277,6 +302,26 @@ function SettingsContent() {
               {PRIVACY_OPTIONS.find((o) => o.value === privacy)?.hint}
             </span>
           </div>
+        </section>
+
+        <section className="ms-section">
+          <h2 className="ms-section__title">Weekly digest</h2>
+          <p className="ms-section__hint">
+            Get this Mind&apos;s weekly synthesis essay delivered to Telegram. Per-person — only you
+            control your own delivery. Off by default.
+          </p>
+          <button
+            type="button"
+            className={`ms-toggle ${digestOptIn ? 'ms-toggle--on' : ''}`}
+            onClick={toggleDigest}
+            role="switch"
+            aria-checked={digestOptIn}
+          >
+            <span className="ms-toggle__dot" />
+            <span className="ms-toggle__label">
+              {digestOptIn ? 'Weekly digest is ON for you' : 'Weekly digest is off'}
+            </span>
+          </button>
         </section>
 
         <section className="ms-section">

@@ -24,4 +24,6 @@ export const env = {
   synthesisEnabled: process.env.MUTTMIND_SYNTHESIS_ENABLED === '1',
   lensesEnabled: process.env.MUTTMIND_LENSES_ENABLED === '1',
   askEnabled: process.env.MUTTMIND_ASK_ENABLED === '1',
+  digestEnabled: process.env.MUTTMIND_DIGEST_ENABLED === '1',
+  cronSecret: process.env.CRON_SECRET ?? '',
 };

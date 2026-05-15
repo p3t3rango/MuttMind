@@ -10,6 +10,7 @@ type WorkspaceMemberRow = {
     id: string;
     name: string;
     description: string | null;
+    privacy: string;
     markdown_content: string | null;
     system_prompt: string | null;
     voice_source: string;
@@ -20,12 +21,14 @@ type WorkspaceMemberRow = {
   };
 };
 
+const PRIVACY_VALUES = ['open', 'closed', 'private'] as const;
+
 type MemberCountRow = {
   workspace_id: string;
 };
 
 const VOICE_SOURCES = ['system_prompt', 'user_notes', 'mind_notes'] as const;
-const WORKSPACE_SELECT = 'id,name,description,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at';
+const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at';
 
 function serializeWorkspace<T extends Record<string, unknown>>(row: T) {
   return {
@@ -66,6 +69,7 @@ export async function GET(req: Request) {
         title: item.workspaces.name,
         name: item.workspaces.name,
         description: item.workspaces.description,
+        privacy: item.workspaces.privacy,
         markdown_content: item.workspaces.markdown_content,
         system_prompt: item.workspaces.system_prompt,
         voice_source: item.workspaces.voice_source,
@@ -111,6 +115,8 @@ export async function POST(req: Request) {
       voice_user_ids: voiceUserIds,
     };
     if (typeof body?.description === 'string' && body.description.trim()) insertPayload.description = body.description.trim();
+    if (typeof body?.privacy === 'string' && (PRIVACY_VALUES as readonly string[]).includes(body.privacy))
+      insertPayload.privacy = body.privacy;
     if (typeof body?.provider === 'string' && body.provider.trim()) insertPayload.provider = body.provider.trim();
     if (typeof body?.model === 'string' && body.model.trim()) insertPayload.model = body.model.trim();
 
@@ -152,6 +158,8 @@ export async function PATCH(req: Request) {
     if (typeof title === 'string' && title.trim()) updates.name = title.trim();
     if (typeof markdownContent === 'string') updates.markdown_content = markdownContent;
     if (typeof body.description === 'string') updates.description = body.description.trim() || null;
+    if (typeof body.privacy === 'string' && (PRIVACY_VALUES as readonly string[]).includes(body.privacy))
+      updates.privacy = body.privacy;
     if (typeof body.systemPrompt === 'string') updates.system_prompt = body.systemPrompt;
     if (typeof body.voiceSource === 'string' && (VOICE_SOURCES as readonly string[]).includes(body.voiceSource))
       updates.voice_source = body.voiceSource;

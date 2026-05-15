@@ -4,8 +4,29 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { authedFetch } from '@/lib/client-auth';
 
-type Privacy = 'solo' | 'shared';
+type Privacy = 'open' | 'closed' | 'private';
 type Mode = 'form' | 'creating' | 'success';
+
+const PRIVACY_OPTIONS: { value: Privacy; name: string; hint: string; tone: 'open' | 'closed' | 'private' }[] = [
+  {
+    value: 'open',
+    name: 'Open',
+    hint: 'Anyone can view and add to this Mind.',
+    tone: 'open',
+  },
+  {
+    value: 'closed',
+    name: 'Closed',
+    hint: 'Anyone can view; only collaborators can add.',
+    tone: 'closed',
+  },
+  {
+    value: 'private',
+    name: 'Private',
+    hint: 'Only collaborators can view or add.',
+    tone: 'private',
+  },
+];
 
 type NewMindModalProps = {
   open: boolean;
@@ -18,7 +39,7 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('form');
   const [name, setName] = useState('');
-  const [privacy, setPrivacy] = useState<Privacy>('solo');
+  const [privacy, setPrivacy] = useState<Privacy>('closed');
   const [description, setDescription] = useState('');
   const [createdMindId, setCreatedMindId] = useState('');
   const [createdMindName, setCreatedMindName] = useState('');
@@ -32,7 +53,7 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
     if (!open) return;
     setMode('form');
     setName('');
-    setPrivacy('solo');
+    setPrivacy('closed');
     setDescription('');
     setCreatedMindId('');
     setCreatedMindName('');
@@ -80,6 +101,7 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
       body: JSON.stringify({
         name: trimmedName,
         description: description.trim() || undefined,
+        privacy,
       }),
     });
     const createData = await createRes.json();
@@ -93,15 +115,17 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
     setCreatedMindId(workspaceId);
     setCreatedMindName(createData.workspace.name as string);
 
-    if (privacy === 'shared') {
-      const inviteRes = await authedFetch('/api/invites', {
-        method: 'POST',
-        body: JSON.stringify({ workspaceId }),
-      });
-      const inviteData = await inviteRes.json();
-      if (inviteRes.ok && inviteData.invite?.token) {
-        setShareLink(`${window.location.origin}/invite/${inviteData.invite.token}`);
-      }
+    // Generate a share link for any non-private mode (Open and Closed both
+    // benefit from a link; Private also generates one so the user can invite
+    // collaborators). Once public read/write routes ship for Open and Closed,
+    // those modes will have a different "share link" (the public URL itself).
+    const inviteRes = await authedFetch('/api/invites', {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId }),
+    });
+    const inviteData = await inviteRes.json();
+    if (inviteRes.ok && inviteData.invite?.token) {
+      setShareLink(`${window.location.origin}/invite/${inviteData.invite.token}`);
     }
 
     onCreated?.(workspaceId);
@@ -165,32 +189,22 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
             <fieldset className="mm-field" disabled={mode === 'creating'}>
               <legend className="mm-field__label">Privacy</legend>
               <div className="mm-options">
-                <label
-                  className={`mm-option ${privacy === 'solo' ? 'mm-option--selected' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="privacy"
-                    value="solo"
-                    checked={privacy === 'solo'}
-                    onChange={() => setPrivacy('solo')}
-                  />
-                  <span className="mm-option__name">Solo</span>
-                  <span className="mm-option__hint">Just you. No invite.</span>
-                </label>
-                <label
-                  className={`mm-option ${privacy === 'shared' ? 'mm-option--selected' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="privacy"
-                    value="shared"
-                    checked={privacy === 'shared'}
-                    onChange={() => setPrivacy('shared')}
-                  />
-                  <span className="mm-option__name">Shared</span>
-                  <span className="mm-option__hint">Generates a share link you can send.</span>
-                </label>
+                {PRIVACY_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`mm-option mm-option--${opt.tone} ${privacy === opt.value ? 'mm-option--selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="privacy"
+                      value={opt.value}
+                      checked={privacy === opt.value}
+                      onChange={() => setPrivacy(opt.value)}
+                    />
+                    <span className="mm-option__name">{opt.name}</span>
+                    <span className="mm-option__hint">{opt.hint}</span>
+                  </label>
+                ))}
               </div>
             </fieldset>
 

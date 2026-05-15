@@ -1523,6 +1523,8 @@ h3 {
   font-size: 34px;
   font-style: italic;
   line-height: 1.05;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .space-card__query,
@@ -2869,6 +2871,20 @@ select:focus {
 
 .mm-option--selected .mm-option__name {
   color: var(--ink);
+}
+
+.mm-option--open .mm-option__name {
+  color: rgba(160, 220, 170, 0.8);
+}
+.mm-option--open.mm-option--selected .mm-option__name {
+  color: rgb(170, 230, 180);
+}
+
+.mm-option--private .mm-option__name {
+  color: rgba(232, 150, 150, 0.8);
+}
+.mm-option--private.mm-option--selected .mm-option__name {
+  color: rgb(240, 162, 162);
 }
 
 .mm-option--selected::after {

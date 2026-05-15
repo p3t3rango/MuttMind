@@ -5053,6 +5053,61 @@ select:focus {
   flex-shrink: 0;
 }
 
+/* Digest opt-in toggle (per-Mind settings) */
+.ms-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(247, 247, 242, 0.2);
+  background: transparent;
+  padding: 10px 16px;
+  cursor: pointer;
+  width: fit-content;
+  transition: border-color 120ms ease;
+}
+
+.ms-toggle:hover {
+  border-color: rgba(247, 247, 242, 0.45);
+}
+
+.ms-toggle__dot {
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(247, 247, 242, 0.14);
+  position: relative;
+  flex-shrink: 0;
+  transition: background 160ms ease;
+}
+
+.ms-toggle__dot::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(247, 247, 242, 0.6);
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.ms-toggle--on .ms-toggle__dot {
+  background: rgba(170, 230, 180, 0.4);
+}
+
+.ms-toggle--on .ms-toggle__dot::after {
+  transform: translateX(14px);
+  background: rgb(170, 230, 180);
+}
+
+.ms-toggle__label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: rgba(247, 247, 242, 0.75);
+}
+
 /* ---------------------------------------------------------------------------
    Thinking — animated loading state for LLM generation. Editorial restraint
    with motion: braille spinner, cycling phases, indeterminate progress bar.

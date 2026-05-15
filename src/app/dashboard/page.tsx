@@ -543,113 +543,104 @@ function DashboardContent() {
     <main className="app-shell mind-shell">
       <AppNav active="dashboard" />
 
-      <section className="mind-home" aria-labelledby="dashboard-title">
-        <h1 id="dashboard-title" className="sr-only">Everything</h1>
-        <div className="mind-home__bar">
-          <label className="mind-search">
-            <span className="sr-only">Search or paste into MuttMind</span>
-            <input
-              value={searchQuery}
-              placeholder={isMobileViewport ? 'Search...' : 'Search MuttMind...'}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onPaste={(event) => {
-                const text = event.clipboardData.getData('text').trim();
-                if (!URL_PATTERN.test(text)) return;
-                event.preventDefault();
-                void saveCapture(text);
-              }}
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                  event.preventDefault();
-                  void saveCapture(searchQuery);
-                }
-              }}
-            />
-          </label>
+      <section className="dash-page" aria-labelledby="dashboard-title">
+        <h1 id="dashboard-title" className="sr-only">Captures</h1>
 
-          <div className="mind-home__tools">
-            <label className="mind-select mind-select--quiet">
-              <span className="sr-only">Shared Mind</span>
-              <select value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)}>
-                <option value="">Choose Mind</option>
-                {workspaces.map((workspace) => (
-                  <option key={workspace.workspaces.id} value={workspace.workspaces.id}>
-                    {formatMindName(workspace.workspaces.name)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button className="mind-action" type="button" onClick={openTelegramBot}>
+        <header className="dash-header">
+          <div className="dash-crumb">
+            <select
+              className="dash-mind-select"
+              aria-label="Active Mind"
+              value={workspaceId}
+              onChange={(e) => setWorkspaceId(e.target.value)}
+            >
+              <option value="">no mind selected</option>
+              {workspaces.map((workspace) => (
+                <option key={workspace.workspaces.id} value={workspace.workspaces.id}>
+                  {formatMindName(workspace.workspaces.name)}
+                </option>
+              ))}
+            </select>
+            <span className="dash-crumb__sep">/</span>
+            <span className="dash-crumb__count">
+              {filteredCaptures.length} {filteredCaptures.length === 1 ? 'capture' : 'captures'}
+            </span>
+          </div>
+          <div className="dash-actions">
+            <button type="button" className="dash-action" onClick={openTelegramBot}>
               Open Bot
             </button>
-            <button
-              className="mind-action"
-              type="button"
-              onClick={() => setNewMindModalOpen(true)}
-            >
+            <button type="button" className="dash-action" onClick={() => setNewMindModalOpen(true)}>
+              New Mind <span aria-hidden="true">+</span>
+            </button>
+          </div>
+        </header>
+
+        <nav className="dash-pivots" aria-label="View">
+          <Link href="/minds" className="dash-pivot">Minds</Link>
+          <span className="dash-pivot dash-pivot--active">Captures</span>
+          <Link href="/vault" className="dash-pivot">Map</Link>
+        </nav>
+
+        {!workspaces.length ? (
+          <div className="dash-empty-setup">
+            <p className="dash-empty-setup__hint">You don't have a Mind yet.</p>
+            <button type="button" className="button" onClick={() => setNewMindModalOpen(true)}>
               + New Mind
             </button>
           </div>
-        </div>
-
-        <div className="mind-status-row">
-          <span className={status ? 'mind-status-message' : 'mind-status-message mind-status-message--hint'}>
-            {status || 'Paste a link anywhere. Type #tag, type:video, site:domain, or by:name to search.'}
-          </span>
-          <span>{isSaving ? 'Saving...' : `${filteredCaptures.length} visible`}</span>
-          <span>{tags.length ? `${tags.length} tags` : 'Auto-tagging on'}</span>
-          <span>{currentWorkspace ? `${formatMindName(currentWorkspace.workspaces.name)} / ${getMindLabel(currentWorkspace)}` : 'No Mind selected'}</span>
-          <Link href="/vault">Relationship map</Link>
-        </div>
-
-        <form
-          className="quick-capture"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const saved = await saveCapture(captureDraft);
-            if (saved) setCaptureDraft('');
-          }}
-        >
-          <label className="quick-capture__field">
-            <span className="field-label">Add to Mind</span>
-            <textarea
-              value={captureDraft}
-              placeholder="Paste a link or write a note..."
-              onChange={(event) => setCaptureDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
+        ) : (
+          <>
+            <form
+              className="dash-capture"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const saved = await saveCapture(captureDraft);
+                if (saved) setCaptureDraft('');
               }}
-            />
-          </label>
-          <div className="quick-capture__actions">
-            <button className="quick-capture__bot" type="button" onClick={openTelegramBot}>
-              Open Telegram Bot
-            </button>
-            <button className="quick-capture__submit" disabled={isSaving}>
-              {isSaving ? 'Saving' : 'Save'}
-            </button>
-          </div>
-        </form>
-
-        {!workspaces.length ? (
-          <div className="mind-empty-setup">
-            <h2>Create your first Mind.</h2>
-            <div className="mind-toolbar__create">
-              <input
-                aria-label="New Mind name"
-                placeholder="Research, culture shifts, studio..."
-                value={workspaceNameDraft}
-                onChange={(e) => setWorkspaceNameDraft(e.target.value)}
+            >
+              <textarea
+                className="dash-capture__input"
+                value={captureDraft}
+                placeholder="Paste a link or write a note…"
+                onChange={(event) => setCaptureDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                rows={2}
               />
-              <button className="button" onClick={createSharedMind}>
-                Create
-              </button>
+              <div className="dash-capture__row">
+                <span className="dash-capture__hint">⌘ + Enter to save</span>
+                <button type="submit" className="dash-capture__submit" disabled={isSaving || !captureDraft.trim()}>
+                  {isSaving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </form>
+
+            <div className="dash-filter-row">
+              <label className="dash-search">
+                <span className="sr-only">Filter captures</span>
+                <input
+                  value={searchQuery}
+                  placeholder={isMobileViewport ? 'Filter…' : 'Filter captures: #tag, type:video, by:pete, site:domain.com'}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(event) => {
+                    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                      event.preventDefault();
+                      void saveCapture(searchQuery);
+                    }
+                  }}
+                />
+              </label>
+              <span className="dash-status" aria-live="polite">
+                {status || (tags.length ? `${tags.length} tags` : 'auto-tagging on')}
+              </span>
             </div>
-          </div>
-        ) : null}
+          </>
+        )}
       </section>
 
       <section className="mind-board" aria-label="Saved captures">

@@ -2813,77 +2813,140 @@ select:focus {
   border-bottom-color: rgba(247, 247, 242, 0.7);
 }
 
-/* Privacy options ---------------------------------------------------------- */
+/* Privacy custom dropdown -------------------------------------------------- */
 
-.mm-options {
+.mm-select {
+  position: relative;
+  width: 100%;
+}
+
+.mm-select__trigger {
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px 0 0;
+  border: 0;
+  border-bottom: 1px solid rgba(247, 247, 242, 0.18);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+
+.mm-select__trigger:hover,
+.mm-select__trigger:focus-visible,
+.mm-select[data-open='true'] .mm-select__trigger {
+  outline: none;
+  border-bottom-color: rgba(247, 247, 242, 0.7);
+}
+
+.mm-select__trigger:disabled {
+  cursor: not-allowed;
+  color: rgba(247, 247, 242, 0.4);
+}
+
+.mm-select__trigger--open {
+  color: rgb(170, 230, 180);
+}
+
+.mm-select__trigger--private {
+  color: rgb(240, 162, 162);
+}
+
+.mm-select__chevron {
+  font-size: 11px;
+  color: rgba(247, 247, 242, 0.5);
+  transition: transform 140ms ease;
+}
+
+.mm-select[data-open='true'] .mm-select__chevron {
+  transform: rotate(180deg);
+}
+
+.mm-select__menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: #0a0a0a;
+  border: 1px solid rgba(247, 247, 242, 0.22);
   display: grid;
   gap: 1px;
-  border: 1px solid rgba(247, 247, 242, 0.18);
-  background: rgba(247, 247, 242, 0.18);
+  background-color: rgba(247, 247, 242, 0.18);
 }
 
-.mm-option {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  gap: 4px 12px;
-  padding: 14px 16px;
+.mm-select__menu li {
   background: #0a0a0a;
-  cursor: pointer;
-  transition: background 120ms ease;
 }
 
-.mm-option input[type='radio'] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
+.mm-select__option {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 10px 14px;
   border: 0;
-  clip: rect(0, 0, 0, 0);
-  overflow: hidden;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 100ms ease;
 }
 
-.mm-option__name {
+.mm-select__option:hover,
+.mm-select__option:focus-visible {
+  outline: none;
+  background: rgba(247, 247, 242, 0.05);
+}
+
+.mm-select__option-name {
   font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(247, 247, 242, 0.85);
 }
 
-.mm-option__hint {
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: rgba(247, 247, 242, 0.55);
+.mm-select__option-hint {
   grid-column: 1 / -1;
-  line-height: 1.45;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: rgba(247, 247, 242, 0.5);
+  line-height: 1.4;
 }
 
-.mm-option:hover {
-  background: rgba(247, 247, 242, 0.04);
-}
-
-.mm-option--selected {
-  background: rgba(247, 247, 242, 0.06);
-}
-
-.mm-option--selected .mm-option__name {
+.mm-select__option-check {
+  font-family: var(--font-mono);
+  font-size: 13px;
   color: var(--ink);
+  align-self: center;
+  grid-column: 2;
+  grid-row: 1;
 }
 
-.mm-option--open .mm-option__name {
-  color: rgba(160, 220, 170, 0.8);
-}
-.mm-option--open.mm-option--selected .mm-option__name {
-  color: rgb(170, 230, 180);
+.mm-select__option--open .mm-select__option-name {
+  color: rgba(170, 230, 180, 0.9);
 }
 
-.mm-option--private .mm-option__name {
-  color: rgba(232, 150, 150, 0.8);
+.mm-select__option--private .mm-select__option-name {
+  color: rgba(240, 162, 162, 0.9);
 }
-.mm-option--private.mm-option--selected .mm-option__name {
-  color: rgb(240, 162, 162);
+
+.mm-select__option--selected {
+  background: rgba(247, 247, 242, 0.06);
 }
 
 .mm-option--selected::after {

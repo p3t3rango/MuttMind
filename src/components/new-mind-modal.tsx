@@ -40,6 +40,7 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
   const [mode, setMode] = useState<Mode>('form');
   const [name, setName] = useState('');
   const [privacy, setPrivacy] = useState<Privacy>('closed');
+  const [privacyMenuOpen, setPrivacyMenuOpen] = useState(false);
   const [description, setDescription] = useState('');
   const [createdMindId, setCreatedMindId] = useState('');
   const [createdMindName, setCreatedMindName] = useState('');
@@ -54,6 +55,7 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
     setMode('form');
     setName('');
     setPrivacy('closed');
+    setPrivacyMenuOpen(false);
     setDescription('');
     setCreatedMindId('');
     setCreatedMindName('');
@@ -74,15 +76,32 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
     };
   }, [open]);
 
-  // ESC closes the modal.
+  // ESC closes the dropdown first, then the modal on a second press.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      if (privacyMenuOpen) {
+        setPrivacyMenuOpen(false);
+        return;
+      }
+      onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, privacyMenuOpen, onClose]);
+
+  // Close the privacy dropdown when clicking anywhere outside it.
+  useEffect(() => {
+    if (!privacyMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('.mm-select')) return;
+      setPrivacyMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [privacyMenuOpen]);
 
   if (!open) return null;
 
@@ -188,27 +207,49 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
               />
             </label>
 
-            <fieldset className="mm-field" disabled={mode === 'creating'}>
-              <legend className="mm-field__label">Privacy</legend>
-              <div className="mm-options">
-                {PRIVACY_OPTIONS.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className={`mm-option mm-option--${opt.tone} ${privacy === opt.value ? 'mm-option--selected' : ''}`}
-                  >
-                    <input
-                      type="radio"
-                      name="privacy"
-                      value={opt.value}
-                      checked={privacy === opt.value}
-                      onChange={() => setPrivacy(opt.value)}
-                    />
-                    <span className="mm-option__name">{opt.name}</span>
-                    <span className="mm-option__hint">{opt.hint}</span>
-                  </label>
-                ))}
+            <div className="mm-field">
+              <span className="mm-field__label">Privacy</span>
+              <div className="mm-select" data-open={privacyMenuOpen}>
+                <button
+                  type="button"
+                  className={`mm-select__trigger mm-select__trigger--${privacy}`}
+                  onClick={() => setPrivacyMenuOpen((o) => !o)}
+                  disabled={mode === 'creating'}
+                  aria-haspopup="listbox"
+                  aria-expanded={privacyMenuOpen}
+                >
+                  <span>{PRIVACY_OPTIONS.find((opt) => opt.value === privacy)?.name}</span>
+                  <span className="mm-select__chevron" aria-hidden="true">▾</span>
+                </button>
+                {privacyMenuOpen ? (
+                  <ul className="mm-select__menu" role="listbox">
+                    {PRIVACY_OPTIONS.map((opt) => (
+                      <li key={opt.value}>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={privacy === opt.value}
+                          className={`mm-select__option mm-select__option--${opt.tone} ${privacy === opt.value ? 'mm-select__option--selected' : ''}`}
+                          onClick={() => {
+                            setPrivacy(opt.value);
+                            setPrivacyMenuOpen(false);
+                          }}
+                        >
+                          <span className="mm-select__option-name">{opt.name}</span>
+                          <span className="mm-select__option-hint">{opt.hint}</span>
+                          {privacy === opt.value ? (
+                            <span className="mm-select__option-check" aria-hidden="true">✓</span>
+                          ) : null}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
-            </fieldset>
+              <span className="mm-field__optional">
+                {PRIVACY_OPTIONS.find((opt) => opt.value === privacy)?.hint}
+              </span>
+            </div>
 
             <label className="mm-field">
               <span className="mm-field__label">Description <span className="mm-field__optional">— optional</span></span>

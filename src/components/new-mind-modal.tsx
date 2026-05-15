@@ -151,8 +151,10 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
     router.push('/dashboard');
   };
 
-  const stayOnList = () => {
+  const openTailorAndClose = () => {
+    if (!createdMindId) return;
     onClose();
+    router.push(`/minds/${createdMindId}/tailor`);
   };
 
   return (
@@ -235,7 +237,7 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
           <div className="mm-modal__body">
             <p className="mm-success__name">{createdMindName}</p>
             <p className="mm-success__hint">
-              Your Mind is ready. {shareLink ? 'Send the share link below to anyone you want to join.' : 'Tailor the assistant to it any time from the Mind.'}
+              Your Mind is ready. The next step shapes how its assistant talks and what it pays attention to — you can skip and do it later.
             </p>
 
             {shareLink ? (
@@ -252,11 +254,11 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
             ) : null}
 
             <div className="mm-actions">
-              <button type="button" className="mm-text-button" onClick={stayOnList}>
-                Stay on Minds
+              <button type="button" className="mm-text-button" onClick={openMindAndClose}>
+                Skip — open Mind
               </button>
-              <button type="button" className="mm-primary" onClick={openMindAndClose}>
-                Open Mind
+              <button type="button" className="mm-primary" onClick={openTailorAndClose}>
+                Tailor your assistant
               </button>
             </div>
           </div>

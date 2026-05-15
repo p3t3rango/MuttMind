@@ -1,18 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { authedFetch } from '@/lib/client-auth';
 
+type Mind = {
+  id: string;
+  name: string;
+  system_prompt?: string | null;
+};
+
 type Step = 1 | 2 | 3 | 4;
 
-function NewMindContent() {
+function TailorMindContent() {
   const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const mindId = params.id;
+
+  const [mind, setMind] = useState<Mind | null>(null);
   const [step, setStep] = useState<Step>(1);
-  const [name, setName] = useState('');
   const [purpose, setPurpose] = useState('');
   const [primer, setPrimer] = useState('');
   const [generatedPrompt, setGeneratedPrompt] = useState('');
@@ -20,49 +29,44 @@ function NewMindContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState('');
 
-  const saveMind = useCallback(
-    async (systemPrompt?: string) => {
-      const trimmedName = name.trim();
-      if (!trimmedName) {
-        setStatus('Name is required.');
-        setStep(1);
-        return;
+  // Load Mind metadata so we can show the name and pass it to the generator.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const r = await authedFetch('/api/workspaces');
+      const d = await r.json();
+      const found = (d.workspaces ?? []).find((row: { workspaces?: { id: string } }) => row.workspaces?.id === mindId);
+      if (!cancelled && found?.workspaces) {
+        setMind({
+          id: found.workspaces.id,
+          name: found.workspaces.name,
+          system_prompt: found.workspaces.system_prompt,
+        });
+        if (found.workspaces.system_prompt) {
+          setGeneratedPrompt(found.workspaces.system_prompt);
+        }
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mindId]);
 
-      setIsSaving(true);
-      setStatus('Saving…');
-      const body: Record<string, unknown> = { name: trimmedName };
-      if (systemPrompt && systemPrompt.trim()) {
-        body.systemPrompt = systemPrompt.trim();
-      }
-
-      const response = await authedFetch('/api/workspaces', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-      const data = await response.json();
-      setIsSaving(false);
-      if (!response.ok) {
-        setStatus(data.error ?? 'Unable to create Mind.');
-        return;
-      }
-      // Make the new Mind the active one when we land on the dashboard.
-      if (data.workspace?.id) {
-        window.localStorage.setItem('muttmind:active-mind-id', data.workspace.id);
-      }
-      router.push('/dashboard');
-    },
-    [name, router],
-  );
+  const openMindAndExit = useCallback(() => {
+    if (mindId) {
+      window.localStorage.setItem('muttmind:active-mind-id', mindId);
+    }
+    router.push('/dashboard');
+  }, [mindId, router]);
 
   const generatePrompt = useCallback(async () => {
-    if (!name.trim()) return;
+    if (!mind?.name) return;
     setIsGenerating(true);
     setStatus('');
     const response = await authedFetch('/api/workspaces/generate-prompt', {
       method: 'POST',
       body: JSON.stringify({
-        name: name.trim(),
+        name: mind.name,
         purpose: purpose.trim() || undefined,
         primer: primer.trim() || undefined,
       }),
@@ -71,29 +75,39 @@ function NewMindContent() {
     setIsGenerating(false);
     if (!response.ok) {
       setStatus(data.error ?? 'Unable to generate a prompt — you can write one yourself or skip.');
-      setGeneratedPrompt('');
       return;
     }
     setGeneratedPrompt(data.systemPrompt ?? '');
-    setStatus('');
-  }, [name, purpose, primer]);
+  }, [mind, purpose, primer]);
+
+  const savePrompt = useCallback(async () => {
+    if (!mindId || !generatedPrompt.trim()) return;
+    setIsSaving(true);
+    setStatus('Saving…');
+    const response = await authedFetch('/api/workspaces', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        workspaceId: mindId,
+        systemPrompt: generatedPrompt.trim(),
+      }),
+    });
+    const data = await response.json();
+    setIsSaving(false);
+    if (!response.ok) {
+      setStatus(data.error ?? 'Unable to save the assistant prompt.');
+      return;
+    }
+    openMindAndExit();
+  }, [mindId, generatedPrompt, openMindAndExit]);
 
   const goNext = () => {
     setStatus('');
     if (step === 1) {
-      if (!name.trim()) {
-        setStatus('Name is required.');
-        return;
-      }
       setStep(2);
       return;
     }
     if (step === 2) {
       setStep(3);
-      return;
-    }
-    if (step === 3) {
-      setStep(4);
       void generatePrompt();
       return;
     }
@@ -104,52 +118,33 @@ function NewMindContent() {
     setStep((step - 1) as Step);
   };
 
-  const skipToSave = () => {
-    void saveMind(undefined);
-  };
-
-  const finalize = () => {
-    void saveMind(generatedPrompt);
-  };
+  if (!mind) {
+    return (
+      <main className="app-shell mind-shell">
+        <AppNav active="minds" />
+        <section className="onboarding">
+          <p className="onboarding__progress">Loading Mind…</p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="app-shell mind-shell">
       <AppNav active="minds" />
 
-      <section className="onboarding" aria-labelledby="new-mind-title">
+      <section className="onboarding" aria-labelledby="tailor-title">
         <header className="onboarding__header">
-          <p className="eyebrow">New Mind</p>
-          <h1 id="new-mind-title" className="onboarding__title">
-            {step === 1 && 'Name your Mind.'}
-            {step === 2 && 'What is this Mind for?'}
-            {step === 3 && 'Anything to prime the assistant with?'}
-            {step === 4 && 'Review the generated system prompt.'}
+          <p className="eyebrow">Tailor the assistant — {mind.name}</p>
+          <h1 id="tailor-title" className="onboarding__title">
+            {step === 1 && 'What is this Mind for?'}
+            {step === 2 && 'Anything to prime the assistant with?'}
+            {step === 3 && 'Review the generated system prompt.'}
           </h1>
-          <p className="onboarding__progress">Step {step} of 4</p>
+          <p className="onboarding__progress">Step {step} of 3</p>
         </header>
 
         {step === 1 && (
-          <div className="onboarding__body">
-            <label className="onboarding__field">
-              <span className="onboarding__label">Mind name</span>
-              <input
-                className="onboarding__input"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Q3 brand refresh research"
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') goNext();
-                }}
-                autoFocus
-              />
-              <span className="onboarding__hint">
-                A Mind is a focused container for one research project, topic, or interest. Solo by default; you can share it later from settings.
-              </span>
-            </label>
-          </div>
-        )}
-
-        {step === 2 && (
           <div className="onboarding__body">
             <label className="onboarding__field">
               <span className="onboarding__label">What is this Mind for?</span>
@@ -166,7 +161,7 @@ function NewMindContent() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === 2 && (
           <div className="onboarding__body">
             <label className="onboarding__field">
               <span className="onboarding__label">Priming context for the assistant</span>
@@ -174,7 +169,7 @@ function NewMindContent() {
                 className="onboarding__textarea"
                 value={primer}
                 onChange={(event) => setPrimer(event.target.value)}
-                placeholder="e.g. I have a strong bias toward Swiss design and away from playful illustration. Take Pentagram and Wim Crouwel seriously; politely ignore most agency rebrand case studies. We're a small team, not a Fortune 500."
+                placeholder="e.g. I have a strong bias toward Swiss design and away from playful illustration. Take Pentagram and Wim Crouwel seriously; politely ignore most agency rebrand case studies."
                 rows={6}
                 autoFocus
               />
@@ -185,7 +180,7 @@ function NewMindContent() {
           </div>
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <div className="onboarding__body">
             {isGenerating ? (
               <p className="onboarding__hint">Drafting a system prompt from your answers…</p>
@@ -200,7 +195,7 @@ function NewMindContent() {
                     rows={16}
                   />
                   <span className="onboarding__hint">
-                    This is what the assistant inside this Mind will be told. Edit freely — you can also change it later.
+                    Edit freely — you can change it later from the Mind settings.
                   </span>
                 </label>
                 <button type="button" className="link-button" onClick={generatePrompt}>
@@ -218,40 +213,34 @@ function NewMindContent() {
             <Link href="/minds" className="link-button">
               Cancel
             </Link>
-            {step > 1 && step < 4 ? (
+            {step > 1 && step < 3 ? (
               <button type="button" className="link-button" onClick={goBack}>
                 Back
               </button>
             ) : null}
           </div>
           <div className="onboarding__footer-right">
-            {step < 4 ? (
+            {step < 3 ? (
               <>
-                <button
-                  type="button"
-                  className="button-secondary"
-                  onClick={skipToSave}
-                  disabled={isSaving || !name.trim()}
-                  title={!name.trim() ? 'Add a name first' : 'Save with default prompt'}
-                >
-                  Skip & save
+                <button type="button" className="button-secondary" onClick={openMindAndExit} disabled={isSaving}>
+                  Skip — open Mind
                 </button>
                 <button type="button" className="button" onClick={goNext} disabled={isSaving}>
-                  {step === 3 ? 'Generate prompt' : 'Next'}
+                  {step === 2 ? 'Generate prompt' : 'Next'}
                 </button>
               </>
             ) : (
               <>
-                <button type="button" className="button-secondary" onClick={goBack} disabled={isSaving}>
-                  Back
+                <button type="button" className="button-secondary" onClick={openMindAndExit} disabled={isSaving}>
+                  Skip — open Mind
                 </button>
                 <button
                   type="button"
                   className="button"
-                  onClick={finalize}
+                  onClick={savePrompt}
                   disabled={isSaving || isGenerating || !generatedPrompt.trim()}
                 >
-                  {isSaving ? 'Saving…' : 'Create Mind'}
+                  {isSaving ? 'Saving…' : 'Save and open'}
                 </button>
               </>
             )}
@@ -262,10 +251,10 @@ function NewMindContent() {
   );
 }
 
-export default function NewMindPage() {
+export default function TailorMindPage() {
   return (
     <AuthGate>
-      <NewMindContent />
+      <TailorMindContent />
     </AuthGate>
   );
 }

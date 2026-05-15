@@ -397,6 +397,32 @@ Are.na's pricing — ~$70/yr standard, ~$120/yr patron — is the reference poin
 
 This is a future / not-now consideration. No pricing UI work yet — just keep the architecture honest about real costs.
 
+## Competitive intel — Sublime
+
+[Sublime](https://sublime.app) is the closest competitor: also a curation-meets-light-PKM tool with explicit AI features. Their compare-with-Are.na page positions them as "Are.na with AI." What they do that's different and what we should do about it:
+
+| Sublime move | Our response |
+|---|---|
+| Heavy **Chrome extension** that pulls full article body + images, one-click save, right-click on any image | **Promote browser extension from `future / not-now` to a real planned feature** (see below). Telegram is great mobile-first but desktop reading happens in browsers. |
+| **Ctrl+R "Related" hotkey** on selected text — shows related cards from your library + public Sublime universe at the moment of reading | Adopt the *shape*. When you save in Telegram, the bot replies *"this looks related to N things in your Mind already"* with thumbnails. Slots into the candidates queue (Feature 5). |
+| **Canvas** spatial workspace for synthesis | **Don't build.** Spatial whiteboard is a feature trap; our edge is conversational synthesis across multi-person Minds, not spatial arrangement. |
+| **Cross-user AI surfacing** from public collections ("Sublime universe") | Watch, don't chase. We have a structural advantage (Minds are already multi-participant); the equivalent for us is cross-Mind synthesis suggestions. v2 territory, after single-Mind synthesis is excellent. |
+| **Annotations per card** (Are.na blocks are metadata-only) | Already true for us — captures have `user_notes` + a notes log. |
+
+### New near-term feature: Browser extension for capture
+
+**Branch:** `feature/browser-extension`
+
+**Scope:** A Chromium extension that captures the current page into the active Mind in one click. Pulls title, full article body, og:image, and any image you right-click.
+
+- Uses the existing `/api/capture` endpoint plus a token-based auth header (extension obtains a long-lived token from a settings page).
+- Toolbar icon: click to save current tab. Right-click any image: "Save image to MuttMind."
+- Highlight + right-click: "Save quote to MuttMind."
+- Active Mind selector in the popup; defaults to last-used.
+- After save: small toast with "Show related" link → opens MuttMind dashboard scoped to the new capture.
+
+This should land **after** Feature 1 (Minds foundation) is fully merged and **before** Feature 7 (Feeds), since the extension partially obviates feeds for power users.
+
 ## Future / not-now
 
 - Local LLM (Ollama) provider

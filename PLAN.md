@@ -41,6 +41,18 @@ Every collaborative project starts with people sharing links into a chat. The li
 | Default voice for new Space | Generated system prompt from onboarding | Notes-based voice opt-in once notes exist |
 | Workflow | **One feature, one branch, one approval gate at a time** | Test before moving on |
 
+## Design north star: Are.na
+
+When in doubt about UI, defer to Are.na's aesthetic. The product is minimal, content-focused, and distraction-free. Specifically:
+
+- Content is the visual hero. UI affordances stay quiet.
+- No engagement-bait surfaces (notification badges, hot streaks, trending things). This is not a social media app.
+- Block-style thinking: a saved item ("node") can live in multiple Spaces without duplication. Already partly true via Smart Spaces; preserve in any new feature.
+- Connections / trails are a first-class viewing surface. The graph view, the "this connects to that" essays, future "see who else has this in their Mind" trails.
+- Algorithm-free; surface things by genuine resonance only.
+
+Borrowable patterns: single-column reading-mode pages for essays, channel-style listing for Spaces (just a title + a stack of blocks, no metadata clutter), quiet monochrome palette with content providing the color.
+
 ## Cost discipline (cross-cutting principle)
 
 - Default to the cheapest path: Wikipedia and free APIs before paid LLM scouting.
@@ -293,6 +305,17 @@ Each feature is its own branch off `main`. Each ends with: a working demo, a sho
 - **UI audit pass.** Once Feature 1 ships, audit `/dashboard`, `/vault`, `/spaces`, `/login`, `/telegram`, `/invite/[token]` for visual consistency, mobile usability, and dead-state empties. No new features — just polish.
 - **Capture-time provenance.** Add the `source` field migration alongside Feature 1 so every later feature can rely on it.
 - **Telegram bot UX.** Where new commands are added, prefer inline keyboards over typed slash-commands so users don't memorize.
+
+## Pricing / sustainability reference
+
+Are.na's pricing — ~$70/yr standard, ~$120/yr patron — is the reference point for MuttMind's eventual paid tier. Implications for architecture, even before any pricing UI lands:
+
+- Storage decisions (og:image hosting, eventual PDF storage, embedding storage) should pencil out against ~$70/yr/user revenue, not free-tier assumptions.
+- Make per-user / per-Mind storage and LLM cost measurable from day one — instrument early so we can later set tiers honestly.
+- A "patron" tier ($120-ish) is a useful concept to borrow: power users who get early access to new features.
+- Member-supported, no ads, no data resale. Match Are.na's positioning.
+
+This is a future / not-now consideration. No pricing UI work yet — just keep the architecture honest about real costs.
 
 ## Future / not-now
 

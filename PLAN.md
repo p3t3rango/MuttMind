@@ -434,6 +434,13 @@ This should land **after** Feature 1 (Minds foundation) is fully merged and **be
 
 **Why both parts in one feature:** Capture-only loses to Sublime's complete loop. Related-cards-only is a half-built reader. Both together = a desktop reading surface that always knows what your Mind already contains.
 
+## UX polish backlog (gathered intel, slot into chunks as we get there)
+
+- **Empty Mind state — inviter, not void.** Today it's a small composer with placeholder text. Should be three big centered actions: **Paste link / Write / Upload**, plus a secondary line *"not sure where to start? pick from a starter Mind."* Modeled on Sublime's first-save screen. Lands in dashboard polish (after vault rewrite).
+- **Starter Minds / Staff Picks.** Curated example Minds users can clone or browse to see what a mature Mind looks like. Promotes the cold-start path from buried to surfaced. Slots in alongside the empty-state work.
+- **Upload as a capture path.** Files, PDFs, images. Currently we only handle URLs + text. The empty-state inviter should at least foreshadow this even before the underlying handling is built. Real implementation lands with Multi-modal corpus (future).
+- **Persistent install affordances** in the corners (browser extension, iOS app) — surface entry points users would otherwise never find. Lands once those exist.
+
 ## Future / not-now
 
 - Local LLM (Ollama) provider

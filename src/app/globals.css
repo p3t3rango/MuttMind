@@ -2689,13 +2689,13 @@ select:focus {
 
 .onboarding__input {
   min-height: 48px;
-  padding: 0 14px;
+  padding: 8px 14px;
   border: 1px solid rgba(247, 247, 242, 0.28);
   background: #0d0e13;
   color: var(--ink);
   font-family: var(--font-display);
   font-size: 17px;
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
 .onboarding__input:focus {
@@ -2925,14 +2925,14 @@ select:focus {
   appearance: none;
   width: 100%;
   min-height: 44px;
-  padding: 0;
+  padding: 6px 0;
   border: 0;
   border-bottom: 1px solid rgba(247, 247, 242, 0.18);
   background: transparent;
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 18px;
-  line-height: 1.3;
+  line-height: 1.4;
   letter-spacing: -0.005em;
 }
 
@@ -3694,6 +3694,21 @@ select:focus {
   line-height: 1.45;
   letter-spacing: -0.005em;
   resize: vertical;
+  /* Long unbroken URLs must wrap inside the textarea instead of running off
+     the right edge (textareas don't break long strings by default). */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.dash-loading {
+  margin: 0;
+  padding: clamp(40px, 8vw, 80px) 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.35);
 }
 
 .dash-capture__input::placeholder {

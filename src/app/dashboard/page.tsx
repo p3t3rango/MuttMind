@@ -157,6 +157,7 @@ function DashboardContent() {
   const [workspaceId, setWorkspaceId] = useState('');
   const [tags, setTags] = useState<Tag[]>([]);
   const [recentCaptures, setRecentCaptures] = useState<CaptureItem[]>([]);
+  const [capturesLoading, setCapturesLoading] = useState(true);
   const [selectedCapture, setSelectedCapture] = useState<CaptureItem | null>(null);
   const [nodeNotes, setNodeNotes] = useState<NodeNote[]>([]);
   const [status, setStatus] = useState('');
@@ -232,13 +233,16 @@ function DashboardContent() {
   const loadRecentCaptures = useCallback(async () => {
     if (!workspaceId) {
       setRecentCaptures([]);
+      setCapturesLoading(false);
       return [] as CaptureItem[];
     }
 
+    setCapturesLoading(true);
     const r = await authedFetch(`/api/nodes?workspaceId=${workspaceId}`);
     const d = await r.json();
     const nodes = (d.nodes ?? []) as CaptureItem[];
     setRecentCaptures(nodes);
+    setCapturesLoading(false);
     return nodes;
   }, [workspaceId]);
 
@@ -718,7 +722,9 @@ function DashboardContent() {
       </section>
 
       <section className="mind-board" aria-label="Saved captures">
-        {filteredCaptures.length > 0 ? (
+        {capturesLoading && recentCaptures.length === 0 ? (
+          <p className="dash-loading">Loading captures…</p>
+        ) : filteredCaptures.length > 0 ? (
           <div className="masonry-grid">
             {filteredCaptures.map((captureItem, index) => {
               const variant = getCardVariant(captureItem, index);

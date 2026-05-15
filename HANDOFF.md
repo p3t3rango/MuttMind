@@ -110,6 +110,12 @@ Each commit is independently revertable via `git revert <sha>`.
 
 ---
 
+## Post-handoff fixes (after you flagged issues in the morning)
+
+- **Vault graph was useless → fixed.** Click was dead (every press read as a drag); now press = open node, drag = rearrange. Every node is labeled (Obsidian-style, centered below). Graph is much denser — cosine threshold 0.78 → 0.62, tag-shared edges added back, node size scales with connection count.
+- **"Open in dashboard" from a graph node now actually opens that capture.** New `GET /api/nodes/{nodeId}` endpoint; dashboard consumes the `muttmind:focus-capture-id` signal and opens the drawer (works even for captures older than the recent slice).
+- **Settings rebuilt as per-Mind** (`/minds/[id]/settings`) in editorial restraint — Identity / Assistant (Tailor + Privacy) / Members / Tags / Export. `/settings` is now a thin Mind-picker. `/minds` cards got a Settings link. This was the one page skipped in the original cascade.
+
 ## What's NOT done overnight (deliberately)
 
 These were either out of scope, risky without your input, or LLM-costly:

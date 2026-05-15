@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppNav } from '@/components/app-nav';
@@ -7,20 +8,40 @@ import { AuthGate } from '@/components/auth-gate';
 import { NewMindModal } from '@/components/new-mind-modal';
 import { authedFetch } from '@/lib/client-auth';
 
+type RecentCapture = {
+  id: string;
+  title: string | null;
+  original_url: string | null;
+  og_image_url: string | null;
+  created_at: string;
+};
+
 type Mind = {
   role: string;
   workspaces: {
     id: string;
     name: string;
+    description: string | null;
+    privacy: string;
     member_count?: number;
-    system_prompt: string | null;
-    voice_source: string;
-    voice_user_ids: string[];
-    provider: string;
-    model: string | null;
+    capture_count?: number;
+    recent_captures?: RecentCapture[];
     created_at: string;
   };
 };
+
+function relativeTime(iso?: string) {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const diff = (Date.now() - then) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 86400 * 365) return `${Math.floor(diff / (86400 * 30))}mo ago`;
+  return `${Math.floor(diff / (86400 * 365))}y ago`;
+}
 
 function getMindLabel(mind: Mind | undefined) {
   if (!mind) return 'Mind';
@@ -30,14 +51,10 @@ function getMindLabel(mind: Mind | undefined) {
 function MindsContent() {
   const router = useRouter();
   const [minds, setMinds] = useState<Mind[]>([]);
-  const [status, setStatus] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingPrompt, setEditingPrompt] = useState('');
-  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
   const loadMinds = useCallback(async () => {
-    const response = await authedFetch('/api/workspaces');
+    const response = await authedFetch('/api/workspaces?include=recent');
     const data = await response.json();
     setMinds((data.workspaces ?? []) as Mind[]);
   }, []);
@@ -51,115 +68,96 @@ function MindsContent() {
     router.push('/dashboard');
   };
 
-  const beginEdit = (mind: Mind) => {
-    setEditingId(mind.workspaces.id);
-    setEditingPrompt(mind.workspaces.system_prompt ?? '');
-    setStatus('');
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditingPrompt('');
-  };
-
-  const savePrompt = async () => {
-    if (!editingId) return;
-    setIsSavingPrompt(true);
-    setStatus('Saving…');
-    const response = await authedFetch('/api/workspaces', {
-      method: 'PATCH',
-      body: JSON.stringify({
-        workspaceId: editingId,
-        systemPrompt: editingPrompt,
-      }),
-    });
-    const data = await response.json();
-    setIsSavingPrompt(false);
-    if (!response.ok) {
-      setStatus(data.error ?? 'Unable to save prompt.');
-      return;
-    }
-    setStatus('Mind updated.');
-    setEditingId(null);
-    setEditingPrompt('');
-    await loadMinds();
+  const openCapture = (mindId: string) => {
+    // For now, opening any capture lands the user on the Mind's dashboard.
+    // A future hop could deep-link directly to the drawer for that capture id.
+    window.localStorage.setItem('muttmind:active-mind-id', mindId);
+    router.push('/dashboard');
   };
 
   return (
     <main className="app-shell mind-shell">
       <AppNav active="minds" />
 
-      <section className="spaces-page" aria-labelledby="minds-title">
-        <div className="spaces-page__header">
-          <div>
-            <p className="eyebrow">All Minds</p>
-            <h1 id="minds-title">Minds</h1>
-            <p className="lede">
-              A Mind is a focused container for one research project, topic, or interest. Solo by default; share to make it a Shared Mind.
-            </p>
+      <section className="minds-page">
+        <header className="minds-page__top">
+          <div className="minds-page__crumb">
+            <span>you</span>
+            <span className="minds-page__crumb-sep">/</span>
+            <span>{minds.length} {minds.length === 1 ? 'mind' : 'minds'}</span>
           </div>
-          <div className="spaces-page__actions">
-            <button type="button" className="button" onClick={() => setModalOpen(true)}>
-              + New Mind
-            </button>
-          </div>
-        </div>
+          <button type="button" className="minds-page__new" onClick={() => setModalOpen(true)}>
+            New Mind <span aria-hidden="true">+</span>
+          </button>
+        </header>
 
-        {status ? <p className="status">{status}</p> : null}
+        <nav className="minds-page__pivots" aria-label="View">
+          <span className="minds-page__pivot minds-page__pivot--active">Minds</span>
+          <Link href="/dashboard" className="minds-page__pivot">Captures</Link>
+          <Link href="/vault" className="minds-page__pivot">Map</Link>
+        </nav>
 
         {minds.length ? (
-          <div className="spaces-grid">
-            {minds.map((mind) => (
-              <article key={mind.workspaces.id} className="space-card">
-                <button className="space-card__main" onClick={() => openMind(mind)}>
-                  <span className="space-card__name">{mind.workspaces.name}</span>
-                  <span className="space-card__query">{getMindLabel(mind)} · {mind.workspaces.member_count ?? 1} {mind.workspaces.member_count === 1 ? 'member' : 'members'}</span>
-                  <span className="space-card__query">Role: {mind.role}</span>
-                </button>
-                <div className="space-card__row">
-                  <button type="button" className="link-button" onClick={() => beginEdit(mind)}>
-                    {editingId === mind.workspaces.id ? 'Editing prompt' : 'Edit prompt'}
+          <ul className="minds-list" role="list">
+            {minds.map((mind) => {
+              const w = mind.workspaces;
+              const captures = w.recent_captures ?? [];
+              const filledSlots: (RecentCapture | null)[] = [
+                captures[0] ?? null,
+                captures[1] ?? null,
+                captures[2] ?? null,
+                captures[3] ?? null,
+              ];
+              return (
+                <li key={w.id} className="mind-row">
+                  <button type="button" className="mind-row__main" onClick={() => openMind(mind)}>
+                    <span className="mind-row__name">{w.name}</span>
+                    <span className="mind-row__meta">
+                      {w.capture_count ?? 0} {w.capture_count === 1 ? 'capture' : 'captures'} · {getMindLabel(mind)} · {w.privacy}
+                      {w.created_at ? ` · ${relativeTime(w.created_at)}` : ''}
+                    </span>
+                    {w.description ? <span className="mind-row__desc">{w.description}</span> : null}
                   </button>
-                </div>
-                {editingId === mind.workspaces.id ? (
-                  <div className="space-card__editor">
-                    <label className="onboarding__field">
-                      <span className="onboarding__label">System prompt</span>
-                      <textarea
-                        className="onboarding__textarea onboarding__textarea--prompt"
-                        value={editingPrompt}
-                        onChange={(event) => setEditingPrompt(event.target.value)}
-                        rows={12}
-                      />
-                    </label>
-                    <div className="space-card__editor-row">
-                      <button type="button" className="link-button" onClick={cancelEdit}>
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        className="button"
-                        onClick={savePrompt}
-                        disabled={isSavingPrompt || !editingPrompt.trim()}
-                      >
-                        {isSavingPrompt ? 'Saving…' : 'Save Mind'}
-                      </button>
-                    </div>
+                  <div className="mind-row__strip" aria-label="Recent captures">
+                    {filledSlots.map((cap, idx) =>
+                      cap ? (
+                        <button
+                          key={cap.id}
+                          type="button"
+                          className="mind-row__thumb"
+                          onClick={() => openCapture(w.id)}
+                          aria-label={cap.title ?? 'Open capture'}
+                        >
+                          {cap.og_image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={cap.og_image_url} alt="" />
+                          ) : (
+                            <span className="mind-row__thumb-fallback">
+                              {cap.title ?? '◌'}
+                            </span>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          key={`empty-${idx}`}
+                          type="button"
+                          className="mind-row__thumb mind-row__thumb--empty"
+                          onClick={() => openMind(mind)}
+                          aria-label="Add captures to this Mind"
+                        >
+                          {idx === 0 && captures.length === 0 ? <span>+</span> : null}
+                        </button>
+                      ),
+                    )}
                   </div>
-                ) : null}
-              </article>
-            ))}
-          </div>
+                </li>
+              );
+            })}
+          </ul>
         ) : (
-          <div className="mind-empty">
-            <h2>No Minds yet.</h2>
-            <p>Create one to start collecting links and notes around a project or topic.</p>
-            <button
-              type="button"
-              className="button"
-              style={{ marginTop: 16 }}
-              onClick={() => setModalOpen(true)}
-            >
+          <div className="minds-empty">
+            <p className="minds-empty__hint">You have no Minds yet.</p>
+            <button type="button" className="button" onClick={() => setModalOpen(true)}>
               + New Mind
             </button>
           </div>

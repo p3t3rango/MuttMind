@@ -37,9 +37,24 @@ function serializeWorkspace<T extends Record<string, unknown>>(row: T) {
   };
 }
 
+type RecentNodeRow = {
+  id: string;
+  workspace_id: string;
+  title: string | null;
+  original_url: string | null;
+  og_image_url: string | null;
+  created_at: string;
+};
+
 export async function GET(req: Request) {
   try {
     const userId = await requireUserId(req);
+    const url = new URL(req.url);
+    const wantsRecent = (url.searchParams.get('include') ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .includes('recent');
+
     const { data, error } = await getSupabaseAdmin()
       .from('workspace_members')
       .select(`role, workspaces(${WORKSPACE_SELECT})`)
@@ -50,6 +65,8 @@ export async function GET(req: Request) {
       .map((item) => item.workspaces?.id)
       .filter((id: unknown): id is string => typeof id === 'string');
     const memberCounts = new Map<string, number>();
+    const recentByWorkspace = new Map<string, RecentNodeRow[]>();
+    const captureCounts = new Map<string, number>();
 
     if (workspaceIds.length) {
       const { data: members } = await getSupabaseAdmin()
@@ -60,6 +77,41 @@ export async function GET(req: Request) {
       ((members ?? []) as unknown as MemberCountRow[]).forEach((member) => {
         memberCounts.set(member.workspace_id, (memberCounts.get(member.workspace_id) ?? 0) + 1);
       });
+
+      if (wantsRecent) {
+        // Pull a generous slice of recent nodes across all workspaces in one
+        // query, then group client-side. Sized so each workspace has room for
+        // its 4 most recent even if they're skewed in distribution.
+        const { data: nodes } = await getSupabaseAdmin()
+          .from('nodes')
+          .select('id,workspace_id,title,original_url,og_image_url,created_at')
+          .in('workspace_id', workspaceIds)
+          .order('created_at', { ascending: false })
+          .limit(workspaceIds.length * 12);
+
+        ((nodes ?? []) as unknown as RecentNodeRow[]).forEach((node) => {
+          const list = recentByWorkspace.get(node.workspace_id) ?? [];
+          if (list.length < 4) {
+            list.push(node);
+            recentByWorkspace.set(node.workspace_id, list);
+          }
+          captureCounts.set(node.workspace_id, (captureCounts.get(node.workspace_id) ?? 0) + 1);
+        });
+
+        // For accurate total counts (since the limit may have truncated some
+        // workspaces' contributions), do a separate count query per workspace
+        // only when we hit the cap. Cheap heuristic: run a single counts query.
+        const { data: counts } = await getSupabaseAdmin()
+          .from('nodes')
+          .select('workspace_id', { count: 'exact', head: false })
+          .in('workspace_id', workspaceIds);
+        if (counts) {
+          captureCounts.clear();
+          (counts as unknown as { workspace_id: string }[]).forEach((row) => {
+            captureCounts.set(row.workspace_id, (captureCounts.get(row.workspace_id) ?? 0) + 1);
+          });
+        }
+      }
     }
 
     const workspaces = rows.map((item) => ({
@@ -78,6 +130,18 @@ export async function GET(req: Request) {
         model: item.workspaces.model,
         created_at: item.workspaces.created_at,
         member_count: memberCounts.get(item.workspaces.id) ?? 1,
+        ...(wantsRecent
+          ? {
+              capture_count: captureCounts.get(item.workspaces.id) ?? 0,
+              recent_captures: (recentByWorkspace.get(item.workspaces.id) ?? []).map((n) => ({
+                id: n.id,
+                title: n.title,
+                original_url: n.original_url,
+                og_image_url: n.og_image_url,
+                created_at: n.created_at,
+              })),
+            }
+          : {}),
       },
     }));
     return Response.json({ workspaces });

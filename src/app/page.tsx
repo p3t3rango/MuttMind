@@ -76,7 +76,7 @@ export default function Home() {
             <p className="home__step-num">03</p>
             <h2 className="home__step-title">Synthesize</h2>
             <p className="home__step-body">
-              The assistant inside each Mind surfaces resonance across what you've saved — relationships on a map, weekly digests via Telegram, on-demand essays from selected captures.
+              The assistant inside each Mind surfaces resonance across what you&apos;ve saved — relationships on a map, weekly digests via Telegram, on-demand essays from selected captures.
             </p>
           </li>
         </ol>

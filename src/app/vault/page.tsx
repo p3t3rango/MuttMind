@@ -312,7 +312,6 @@ function VaultContent() {
     const handler = (e: WheelEvent) => onWheel(e);
     node.addEventListener('wheel', handler, { passive: false });
     return () => node.removeEventListener('wheel', handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Pointer-down on a node only RECORDS the gesture. Whether it becomes a

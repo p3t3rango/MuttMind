@@ -450,18 +450,24 @@ Sublime treats each external source as a first-class sidebar item: Kindle, Readw
 
 Worth treating as a category of related features rather than one feature. Each connector is a one-time setup that then trickles content into the Mind on a schedule. Overlaps but doesn't replace **Feature 7 (Feeds)** — feeds are public/discovery, connectors are personal/already-saved.
 
-Initial integrations worth scoping (in rough order of likely value):
+**Two paths to ingest, depending on the source's API surface:**
+- **API-based** (Reddit, X, Readwise, Pocket): OAuth or token, sync runs server-side. Cleanest.
+- **Extension-as-scraper** (Instagram, sites with no API): the browser extension runs in the user's authenticated session and harvests their saved/bookmarked content, then posts to MuttMind. This is what Sublime does for Instagram. **Locks the browser extension as foundational infrastructure for the whole connector strategy** — it's not just a capture surface, it's also the only way to get inside walled gardens.
 
-| Connector | Source | Notes |
+Initial integrations worth scoping (in priority order — Pete called out X Bookmarks + Reddit saves as top must-haves):
+
+| Connector | Path | Notes |
 |---|---|---|
-| **X Bookmarks** | bearer-token sync | Already partially scoped via X enrichment. Pulls user's saved tweets. |
-| **Readwise** | OAuth | Free tier user export; rich highlights from books, articles, tweets. |
-| **Kindle highlights** | via Readwise OR direct CSV import | Same data via either path. |
-| **Pocket / Instapaper / Raindrop** | OAuth or CSV | The "saved-for-later" export. Cold-start gold. |
-| **Instagram saves** | requires Instagram API; thorny | Defer — auth fragility. |
+| **X / Twitter Bookmarks** ⭐ | API (bearer token) | Already partially scoped via X enrichment. Top priority. |
+| **Reddit saves** ⭐ | API (OAuth) | Top priority. Rate-limited but workable. |
+| **Readwise** | API (OAuth) | Free tier user export; rich highlights from books, articles, tweets, podcasts. Hugely additive. |
+| **Pocket / Instapaper / Raindrop** | API or CSV | The "saved-for-later" export. Cold-start gold. |
+| **Kindle highlights** | via Readwise OR CSV | Same data via either path. |
+| **Instagram saves** | extension-scraper | Sublime's exact approach — needs the browser extension running in the user's IG session. |
+| **LinkedIn saves** | extension-scraper | Same pattern as Instagram. |
 | **Podcast transcripts** | Whisper + RSS scrape | Big lift; defer to v2. |
 
-Lands as **Feature 8.5 — Connectors** alongside or after Feature 7 (Feeds). Each connector ships individually; they're independent.
+Lands as **Feature 8.5 — Connectors** alongside or after Feature 7 (Feeds). Each connector ships individually; they're independent. The extension-scraper connectors **depend on the browser extension being shipped first**.
 
 ## Future / not-now
 

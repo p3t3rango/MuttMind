@@ -15,6 +15,16 @@ type Mind = {
 
 type Step = 1 | 2 | 3 | 4;
 
+const THINKING_PHASES = [
+  'Reading your answers',
+  'Drawing on the MuttMind ethos',
+  'Anchoring to your stance',
+  'Shaping the voice',
+  'Polishing',
+];
+
+const SPINNER_FRAMES = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
+
 function TailorMindContent() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -28,6 +38,22 @@ function TailorMindContent() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState('');
+  const [tick, setTick] = useState(0);
+
+  // Drive the spinner + phase messages while the LLM is generating. 100ms per
+  // tick gives a smooth braille spin; phase swaps every ~1.4s so each line
+  // gets a moment to register.
+  useEffect(() => {
+    if (!isGenerating) {
+      setTick(0);
+      return;
+    }
+    const id = window.setInterval(() => setTick((t) => t + 1), 100);
+    return () => window.clearInterval(id);
+  }, [isGenerating]);
+
+  const spinnerGlyph = SPINNER_FRAMES[tick % SPINNER_FRAMES.length];
+  const currentPhase = THINKING_PHASES[Math.floor(tick / 14) % THINKING_PHASES.length];
 
   // Load Mind metadata so we can show the name and pass it to the generator.
   useEffect(() => {
@@ -183,7 +209,27 @@ function TailorMindContent() {
         {step === 3 && (
           <div className="onboarding__body">
             {isGenerating ? (
-              <p className="onboarding__hint">Drafting a system prompt from your answers…</p>
+              <div className="thinking" aria-live="polite" aria-busy="true">
+                <div className="thinking__head">
+                  <span className="thinking__spinner" aria-hidden="true">{spinnerGlyph}</span>
+                  <span className="thinking__label">Drafting</span>
+                </div>
+                <div className="thinking__phase" key={currentPhase}>
+                  {currentPhase}
+                  <span className="thinking__ellipsis" aria-hidden="true">…</span>
+                </div>
+                <div className="thinking__bar" aria-hidden="true" />
+                <ul className="thinking__phases-list" aria-hidden="true">
+                  {THINKING_PHASES.map((phase) => (
+                    <li
+                      key={phase}
+                      className={`thinking__phases-item ${phase === currentPhase ? 'thinking__phases-item--active' : ''}`}
+                    >
+                      {phase}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : (
               <>
                 <label className="onboarding__field">

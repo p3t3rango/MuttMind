@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
+import { NewMindModal } from '@/components/new-mind-modal';
 import { authedFetch } from '@/lib/client-auth';
 
 type Mind = {
@@ -34,6 +34,7 @@ function MindsContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPrompt, setEditingPrompt] = useState('');
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const loadMinds = useCallback(async () => {
     const response = await authedFetch('/api/workspaces');
@@ -98,9 +99,9 @@ function MindsContent() {
             </p>
           </div>
           <div className="spaces-page__actions">
-            <Link href="/minds/new" className="button">
+            <button type="button" className="button" onClick={() => setModalOpen(true)}>
               + New Mind
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -153,12 +154,23 @@ function MindsContent() {
           <div className="mind-empty">
             <h2>No Minds yet.</h2>
             <p>Create one to start collecting links and notes around a project or topic.</p>
-            <Link href="/minds/new" className="button" style={{ marginTop: 16 }}>
+            <button
+              type="button"
+              className="button"
+              style={{ marginTop: 16 }}
+              onClick={() => setModalOpen(true)}
+            >
               + New Mind
-            </Link>
+            </button>
           </div>
         )}
       </section>
+
+      <NewMindModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreated={() => loadMinds()}
+      />
     </main>
   );
 }

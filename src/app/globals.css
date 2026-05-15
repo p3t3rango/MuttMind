@@ -2692,6 +2692,317 @@ select:focus {
   letter-spacing: 0;
 }
 
+/* ---------------------------------------------------------------------------
+   Editorial-restraint design system (mm- prefix, scoped per-component)
+   Mono chrome, semantic color, hairline rules, generous vertical rhythm.
+   --------------------------------------------------------------------------- */
+
+.mm-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.5);
+}
+
+/* Modal -------------------------------------------------------------------- */
+
+.mm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(5, 5, 5, 0.7);
+  backdrop-filter: blur(2px);
+  padding: 24px;
+}
+
+.mm-modal {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  background: #0a0a0a;
+  border: 1px solid rgba(247, 247, 242, 0.18);
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.mm-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(247, 247, 242, 0.1);
+}
+
+.mm-modal__close {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: rgba(247, 247, 242, 0.6);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.mm-modal__close:hover {
+  color: var(--ink);
+}
+
+.mm-modal__body {
+  display: grid;
+  gap: 22px;
+  padding: 26px 24px 28px;
+}
+
+/* Field primitives --------------------------------------------------------- */
+
+.mm-field {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.mm-field__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.6);
+}
+
+.mm-field__optional {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: rgba(247, 247, 242, 0.35);
+}
+
+.mm-field__input {
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(247, 247, 242, 0.18);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+}
+
+.mm-field__input::placeholder {
+  color: rgba(247, 247, 242, 0.32);
+}
+
+.mm-field__input:focus {
+  outline: none;
+  border-bottom-color: rgba(247, 247, 242, 0.7);
+}
+
+/* Privacy options ---------------------------------------------------------- */
+
+.mm-options {
+  display: grid;
+  gap: 1px;
+  border: 1px solid rgba(247, 247, 242, 0.18);
+  background: rgba(247, 247, 242, 0.18);
+}
+
+.mm-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 4px 12px;
+  padding: 14px 16px;
+  background: #0a0a0a;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.mm-option input[type='radio'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  overflow: hidden;
+}
+
+.mm-option__name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.85);
+}
+
+.mm-option__hint {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(247, 247, 242, 0.55);
+  grid-column: 1 / -1;
+  line-height: 1.45;
+}
+
+.mm-option:hover {
+  background: rgba(247, 247, 242, 0.04);
+}
+
+.mm-option--selected {
+  background: rgba(247, 247, 242, 0.06);
+}
+
+.mm-option--selected .mm-option__name {
+  color: var(--ink);
+}
+
+.mm-option--selected::after {
+  content: '✓';
+  position: relative;
+  align-self: center;
+  grid-column: 2;
+  grid-row: 1;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+/* Share link --------------------------------------------------------------- */
+
+.mm-share {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid rgba(247, 247, 242, 0.18);
+  background: #050505;
+}
+
+.mm-share__url {
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+
+.mm-share .mm-text-button {
+  border-left: 1px solid rgba(247, 247, 242, 0.18);
+  padding: 0 18px;
+}
+
+/* Buttons ------------------------------------------------------------------ */
+
+.mm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(247, 247, 242, 0.08);
+}
+
+.mm-text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: rgba(247, 247, 242, 0.7);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.mm-text-button:hover {
+  color: var(--ink);
+}
+
+.mm-text-button:disabled {
+  color: rgba(247, 247, 242, 0.3);
+  cursor: not-allowed;
+}
+
+.mm-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 18px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: #050505;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.mm-primary:hover {
+  background: transparent;
+  color: var(--ink);
+}
+
+.mm-primary:disabled {
+  background: transparent;
+  border-color: rgba(247, 247, 242, 0.2);
+  color: rgba(247, 247, 242, 0.4);
+  cursor: not-allowed;
+}
+
+/* Success state ------------------------------------------------------------ */
+
+.mm-success__name {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.mm-success__hint {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: rgba(247, 247, 242, 0.6);
+  line-height: 1.55;
+}
+
+.mm-error {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #f08a8a;
+  letter-spacing: 0.04em;
+}
+
 .button-ghost {
   border-color: rgba(247, 247, 242, 0.28);
   background: transparent;

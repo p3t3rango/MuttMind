@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
+import { NewMindModal } from '@/components/new-mind-modal';
 import { authedFetch, getSupabaseBrowser } from '@/lib/client-auth';
 
 type Workspace = {
@@ -145,6 +146,7 @@ function DashboardContent() {
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [isImproving, setIsImproving] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [newMindModalOpen, setNewMindModalOpen] = useState(false);
 
   const filteredCaptures = useMemo(
     () => recentCaptures.filter((captureItem) => matchesQuery(captureItem, searchQuery)),
@@ -566,9 +568,13 @@ function DashboardContent() {
             <button className="mind-action" type="button" onClick={openTelegramBot}>
               Open Bot
             </button>
-            <Link className="mind-action" href="/minds/new">
+            <button
+              className="mind-action"
+              type="button"
+              onClick={() => setNewMindModalOpen(true)}
+            >
               + New Mind
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -823,6 +829,12 @@ function DashboardContent() {
           </aside>
         </div>
       ) : null}
+
+      <NewMindModal
+        open={newMindModalOpen}
+        onClose={() => setNewMindModalOpen(false)}
+        onCreated={() => loadWorkspaces()}
+      />
     </main>
   );
 }

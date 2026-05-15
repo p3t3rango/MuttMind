@@ -4113,15 +4113,25 @@ select:focus {
 }
 
 .vault-node__label {
-  fill: var(--ink);
+  fill: rgba(247, 247, 242, 0.55);
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.03em;
+  font-size: 10px;
+  letter-spacing: 0.02em;
   pointer-events: none;
   paint-order: stroke;
-  stroke: rgba(5, 5, 5, 0.85);
-  stroke-width: 4;
+  stroke: rgba(5, 5, 5, 0.9);
+  stroke-width: 3.5;
   stroke-linejoin: round;
+  transition: fill 160ms ease;
+}
+
+.vault-node:hover .vault-node__label,
+.vault-node__label--strong {
+  fill: var(--ink);
+}
+
+.vault-node--faded .vault-node__label {
+  fill: rgba(247, 247, 242, 0.14);
 }
 
 /* Detail panel — slides in from the right when a node is selected */

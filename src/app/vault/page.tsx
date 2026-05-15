@@ -79,6 +79,11 @@ function VaultContent() {
   const simNodesRef = useRef<SimNode[]>([]);
   const simEdgesRef = useRef<SimEdge[]>([]);
   const draggedNodeRef = useRef<SimNode | null>(null);
+  // Tracks whether the active node interaction has moved enough to count as a
+  // drag (vs. a click). Set on pointerdown, flipped true once movement exceeds
+  // the threshold. Without this, every node press registered as a drag and
+  // clicks never opened anything.
+  const nodeGestureRef = useRef<{ id: string; startX: number; startY: number; moved: boolean } | null>(null);
   const panRef = useRef<{ active: boolean; startX: number; startY: number } | null>(null);
   const [stageSize, setStageSize] = useState({ width: 1200, height: 800 });
 
@@ -198,12 +203,27 @@ function VaultContent() {
   };
 
   const onSvgPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
-    const dragged = draggedNodeRef.current;
-    if (dragged) {
-      const pt = svgClientToWorld(event.clientX, event.clientY);
-      dragged.fx = pt.x;
-      dragged.fy = pt.y;
-      simulationRef.current?.alphaTarget(0.3).restart();
+    // If a node press is in progress, decide drag-vs-click based on movement.
+    const gesture = nodeGestureRef.current;
+    if (gesture) {
+      const dx = event.clientX - gesture.startX;
+      const dy = event.clientY - gesture.startY;
+      if (!gesture.moved && Math.hypot(dx, dy) > 4) {
+        gesture.moved = true;
+        const node = simNodesRef.current.find((n) => n.id === gesture.id);
+        if (node) {
+          draggedNodeRef.current = node;
+          node.fx = node.x;
+          node.fy = node.y;
+          simulationRef.current?.alphaTarget(0.3).restart();
+        }
+      }
+      const dragged = draggedNodeRef.current;
+      if (dragged) {
+        const pt = svgClientToWorld(event.clientX, event.clientY);
+        dragged.fx = pt.x;
+        dragged.fy = pt.y;
+      }
       return;
     }
     const pan = panRef.current;
@@ -217,11 +237,21 @@ function VaultContent() {
   };
 
   const onSvgPointerUp = (event: ReactPointerEvent<SVGSVGElement>) => {
-    if (draggedNodeRef.current) {
-      draggedNodeRef.current.fx = null;
-      draggedNodeRef.current.fy = null;
-      draggedNodeRef.current = null;
-      simulationRef.current?.alphaTarget(0);
+    const gesture = nodeGestureRef.current;
+    if (gesture) {
+      if (gesture.moved) {
+        // Was a drag — release the fixed position.
+        if (draggedNodeRef.current) {
+          draggedNodeRef.current.fx = null;
+          draggedNodeRef.current.fy = null;
+          draggedNodeRef.current = null;
+          simulationRef.current?.alphaTarget(0);
+        }
+      } else {
+        // No movement — it's a click. Open the node.
+        setSelectedId((current) => (current === gesture.id ? null : gesture.id));
+      }
+      nodeGestureRef.current = null;
     }
     if (panRef.current) panRef.current.active = false;
     try {
@@ -269,18 +299,28 @@ function VaultContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const startNodeDrag = (node: SimNode) => (event: ReactPointerEvent<SVGGElement>) => {
-    event.stopPropagation();
+  // Pointer-down on a node only RECORDS the gesture. Whether it becomes a
+  // drag or a click is decided in onSvgPointerMove / onSvgPointerUp based on
+  // whether the pointer actually moved. Capture stays on the SVG so the
+  // move/up handlers there see the whole gesture.
+  const onNodePointerDown = (node: SimNode) => (event: ReactPointerEvent<SVGGElement>) => {
     if (event.button !== 0) return;
-    draggedNodeRef.current = node;
-    node.fx = node.x;
-    node.fy = node.y;
-    (event.currentTarget as Element).setPointerCapture(event.pointerId);
-    simulationRef.current?.alphaTarget(0.3).restart();
-  };
-
-  const onNodeClick = (id: string) => {
-    setSelectedId((current) => (current === id ? null : id));
+    event.stopPropagation();
+    nodeGestureRef.current = {
+      id: node.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+    };
+    panRef.current = null;
+    const svg = svgRef.current;
+    if (svg) {
+      try {
+        svg.setPointerCapture(event.pointerId);
+      } catch {
+        /* no-op */
+      }
+    }
   };
 
   const openInDashboard = (id: string) => {
@@ -359,40 +399,35 @@ function VaultContent() {
               {simNodesRef.current.map((node) => {
                 if (typeof node.x !== 'number' || typeof node.y !== 'number') return null;
                 const connected = adjacency.get(node.id);
+                const degree = connected?.size ?? 0;
                 const isHovered = hoveredId === node.id;
                 const isNeighbor = hoveredId !== null && (connected?.has(hoveredId) ?? false);
                 const isFaded =
                   (hoveredId !== null && !isHovered && !isNeighbor) ||
                   (matchedIds !== null && !matchedIds.has(node.id));
                 const isSelected = selectedId === node.id;
+                // Radius scales with connection count (Obsidian-style), capped.
+                const baseRadius = 4 + Math.min(degree, 12) * 0.85;
+                const radius = isHovered || isSelected ? baseRadius + 2.5 : baseRadius;
+                const label = node.title?.trim() || getHostLabel(node.original_url);
+                const shortLabel = label.length > 42 ? `${label.slice(0, 42)}…` : label;
                 return (
                   <g
                     key={node.id}
                     transform={`translate(${node.x},${node.y})`}
                     className={`vault-node ${isFaded ? 'vault-node--faded' : ''} ${isSelected ? 'vault-node--selected' : ''}`}
-                    onPointerDown={startNodeDrag(node)}
-                    onPointerUp={(e) => {
-                      e.stopPropagation();
-                      if (panRef.current) panRef.current.active = false;
-                      if (draggedNodeRef.current === node) {
-                        // Was dragged; don't treat as click.
-                        draggedNodeRef.current = null;
-                        node.fx = null;
-                        node.fy = null;
-                        simulationRef.current?.alphaTarget(0);
-                      } else {
-                        onNodeClick(node.id);
-                      }
-                    }}
+                    onPointerDown={onNodePointerDown(node)}
                     onMouseEnter={() => setHoveredId(node.id)}
                     onMouseLeave={() => setHoveredId(null)}
                   >
-                    <circle r={isHovered || isSelected ? 8 : 5} className="vault-node__circle" />
-                    {(isHovered || isSelected) && node.title ? (
-                      <text x={10} y={4} className="vault-node__label">
-                        {node.title.length > 60 ? `${node.title.slice(0, 60)}…` : node.title}
-                      </text>
-                    ) : null}
+                    <circle r={radius} className="vault-node__circle" />
+                    <text
+                      y={radius + 13}
+                      className={`vault-node__label ${isHovered || isSelected ? 'vault-node__label--strong' : ''}`}
+                      textAnchor="middle"
+                    >
+                      {shortLabel}
+                    </text>
                   </g>
                 );
               })}

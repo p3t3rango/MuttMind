@@ -429,34 +429,6 @@ function DashboardContent() {
     [selectedCapture, updateCaptureTags, workspaceId],
   );
 
-  const saveSmartSpace = () => {
-    const query = searchQuery.trim();
-    if (!query || URL_PATTERN.test(query)) {
-      setStatus('Search or filter first, then save that view as a Smart Space.');
-      return;
-    }
-    if (!workspaceId) {
-        setStatus('Choose a Mind first.');
-      return;
-    }
-
-    const fallbackName = query.startsWith('#') ? query.slice(1) : query;
-    const name = window.prompt('Name this Smart Space', fallbackName);
-    if (!name?.trim()) return;
-
-    authedFetch('/api/spaces', {
-      method: 'POST',
-      body: JSON.stringify({
-        workspaceId,
-        name: name.trim(),
-        query,
-        color: '#7c3aed',
-      }),
-    }).then(async (response) => {
-      const data = await response.json();
-      setStatus(response.ok ? `Smart Space saved: ${name.trim()}.` : data.error ?? 'Unable to save Smart Space.');
-    });
-  };
 
   const createSharedMind = async () => {
     const name = workspaceNameDraft.trim();
@@ -599,9 +571,12 @@ function DashboardContent() {
             <button className="mind-action" type="button" onClick={openTelegramBot}>
               Open Bot
             </button>
-            <button className="mind-action" onClick={saveSmartSpace}>
-              Save as Space
-            </button>
+            <Link
+              className="mind-action"
+              href={`/spaces/new${searchQuery.trim() ? `?filter=${encodeURIComponent(searchQuery.trim())}` : ''}`}
+            >
+              + New Space
+            </Link>
           </div>
         </div>
 

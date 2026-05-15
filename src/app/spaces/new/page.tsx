@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
@@ -20,6 +20,8 @@ type Step = 1 | 2 | 3 | 4;
 
 function NewSpaceContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefilledFilter = searchParams.get('filter') ?? '';
   const [minds, setMinds] = useState<Mind[]>([]);
   const [mindId, setMindId] = useState('');
   const [step, setStep] = useState<Step>(1);
@@ -65,7 +67,7 @@ function NewSpaceContent() {
       const body: Record<string, unknown> = {
         workspaceId: mindId,
         name: trimmedName,
-        query: '',
+        query: prefilledFilter.trim(),
         color: '#7c3aed',
       };
       if (systemPrompt && systemPrompt.trim()) {
@@ -84,7 +86,7 @@ function NewSpaceContent() {
       }
       router.push('/spaces');
     },
-    [mindId, name, router],
+    [mindId, name, prefilledFilter, router],
   );
 
   const generatePrompt = useCallback(async () => {
@@ -192,7 +194,9 @@ function NewSpaceContent() {
                 autoFocus
               />
               <span className="onboarding__hint">
-                Spaces start with no filter — every capture in this Mind is in scope. You can add a saved-search filter later from the Space card if you want this Space to also act as a filtered view.
+                {prefilledFilter
+                  ? `This Space will use the filter "${prefilledFilter}" (carried over from your search). You can change or clear it later from the Space card.`
+                  : 'Spaces start with no filter — every capture in this Mind is in scope. You can add a saved-search filter later from the Space card if you want this Space to also act as a filtered view.'}
               </span>
             </label>
           </div>
@@ -276,16 +280,15 @@ function NewSpaceContent() {
           <div className="onboarding__footer-right">
             {step < 4 ? (
               <>
-                {step > 1 ? (
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    onClick={skipToSave}
-                    disabled={isSaving}
-                  >
-                    Skip & save
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={skipToSave}
+                  disabled={isSaving || !name.trim()}
+                  title={!name.trim() ? 'Add a name first' : 'Save with default prompt'}
+                >
+                  Skip & save
+                </button>
                 <button type="button" className="button" onClick={goNext} disabled={isSaving}>
                   {step === 3 ? 'Generate prompt' : 'Next'}
                 </button>

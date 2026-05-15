@@ -37,6 +37,20 @@ type GraphNode = {
   created_at: string;
 };
 
+type NodeDetail = {
+  id: string;
+  title: string | null;
+  original_url: string | null;
+  og_image_url: string | null;
+  ai_summary: string | null;
+  source_description: string | null;
+  source_author: string | null;
+  user_notes: string | null;
+  created_by_label?: string;
+  created_at?: string;
+  tags: string[];
+};
+
 type GraphEdge = {
   from: string;
   to: string;
@@ -67,6 +81,8 @@ function VaultContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<NodeDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [, forceRender] = useState(0);
 
   // Viewport (for the SVG): pan + zoom. Maintained as a ref so we can update
@@ -331,7 +347,32 @@ function VaultContent() {
     router.push('/dashboard');
   };
 
-  const selectedNode = selectedId ? graphNodes.find((n) => n.id === selectedId) ?? null : null;
+  // When a node is selected, fetch its full detail so the map can show the
+  // whole capture (summary, tags, notes) without bouncing to the dashboard.
+  useEffect(() => {
+    if (!selectedId || !workspaceId) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    (async () => {
+      const r = await authedFetch(
+        `/api/nodes/${encodeURIComponent(selectedId)}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      );
+      if (cancelled) return;
+      if (r.ok) {
+        const d = await r.json();
+        setDetail((d.node ?? null) as NodeDetail | null);
+      } else {
+        setDetail(null);
+      }
+      setDetailLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, workspaceId]);
 
   return (
     <main className="app-shell vault-shell">
@@ -434,7 +475,7 @@ function VaultContent() {
             </g>
           </svg>
 
-          {selectedNode ? (
+          {selectedId ? (
             <aside className="vault-detail" role="complementary">
               <button
                 type="button"
@@ -444,27 +485,72 @@ function VaultContent() {
               >
                 ×
               </button>
-              {selectedNode.og_image_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={selectedNode.og_image_url} alt="" className="vault-detail__image" />
-              ) : null}
-              <p className="vault-detail__host">{getHostLabel(selectedNode.original_url)}</p>
-              <h2 className="vault-detail__title">{selectedNode.title ?? 'Untitled'}</h2>
-              <div className="vault-detail__actions">
-                <button type="button" className="vault-detail__action" onClick={() => openInDashboard(selectedNode.id)}>
-                  Open in dashboard
-                </button>
-                {selectedNode.original_url ? (
-                  <a
-                    className="vault-detail__action vault-detail__action--ghost"
-                    href={selectedNode.original_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Visit source
-                  </a>
-                ) : null}
-              </div>
+
+              {detailLoading && !detail ? (
+                <p className="vault-detail__loading">Loading capture…</p>
+              ) : detail ? (
+                <div className="vault-detail__scroll">
+                  {detail.og_image_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={detail.og_image_url} alt="" className="vault-detail__image" />
+                  ) : null}
+                  <p className="vault-detail__host">{getHostLabel(detail.original_url)}</p>
+                  <h2 className="vault-detail__title">{detail.title ?? 'Untitled'}</h2>
+
+                  {detail.ai_summary || detail.source_description ? (
+                    <div className="vault-detail__block">
+                      <p className="vault-detail__kicker">TLDR</p>
+                      <p className="vault-detail__body">
+                        {detail.ai_summary || detail.source_description}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {detail.tags.length ? (
+                    <div className="vault-detail__block">
+                      <p className="vault-detail__kicker">Tags</p>
+                      <div className="vault-detail__tags">
+                        {detail.tags.map((t) => (
+                          <span key={t} className="vault-detail__tag">{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {detail.user_notes ? (
+                    <div className="vault-detail__block">
+                      <p className="vault-detail__kicker">Notes</p>
+                      <p className="vault-detail__body">{detail.user_notes}</p>
+                    </div>
+                  ) : null}
+
+                  <p className="vault-detail__meta">
+                    Added by {detail.created_by_label ?? 'teammate'}
+                  </p>
+
+                  <div className="vault-detail__actions">
+                    {detail.original_url ? (
+                      <a
+                        className="vault-detail__action"
+                        href={detail.original_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Visit source
+                      </a>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="vault-detail__action vault-detail__action--ghost"
+                      onClick={() => openInDashboard(detail.id)}
+                    >
+                      Edit in dashboard
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="vault-detail__loading">Could not load this capture.</p>
+              )}
             </aside>
           ) : null}
 

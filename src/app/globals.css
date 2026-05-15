@@ -1082,11 +1082,14 @@ h3 {
 
 .mind-card__button {
   position: relative;
-  min-height: 178px;
   overflow: hidden;
   border-radius: 7px;
   background: #1d1e27;
   box-shadow: inset 0 0 0 1px rgba(173, 181, 204, 0.08);
+}
+
+.mind-card__button:has(img) {
+  min-height: 0;
 }
 
 .mind-card__button:hover {
@@ -1098,16 +1101,9 @@ h3 {
 .mind-card__button img {
   display: block;
   width: 100%;
-  min-height: 178px;
-  object-fit: cover;
-}
-
-.mind-card--tall .mind-card__button img {
-  min-height: 420px;
-}
-
-.mind-card--wide .mind-card__button img {
-  min-height: 220px;
+  height: auto;
+  object-fit: contain;
+  background: #0d0e13;
 }
 
 .mind-card--note .mind-card__button {

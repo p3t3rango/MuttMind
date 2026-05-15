@@ -11,6 +11,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
     "cheerio": "^1.0.0",
+    "d3-force": "^3.0.0",
+    "d3-zoom": "^3.0.0",
     "jszip": "^3.10.1",
     "next": "15.5.15",
     "react": "19.0.0",

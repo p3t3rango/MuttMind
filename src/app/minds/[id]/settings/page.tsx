@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { Dropdown } from '@/components/dropdown';
-import { authedFetch, getAccessToken } from '@/lib/client-auth';
+import { authedFetch, getAccessToken, getSupabaseBrowser } from '@/lib/client-auth';
 
 type Mind = {
   id: string;
@@ -46,6 +46,8 @@ function SettingsContent() {
   const [tagName, setTagName] = useState('');
   const [tagDescription, setTagDescription] = useState('');
   const [digestOptIn, setDigestOptIn] = useState(false);
+  const [myUserId, setMyUserId] = useState('');
+  const [myRole, setMyRole] = useState('');
 
   const loadMind = useCallback(async () => {
     const r = await authedFetch('/api/workspaces');
@@ -53,6 +55,7 @@ function SettingsContent() {
     const found = (d.workspaces ?? []).find(
       (row: { workspaces?: { id: string } }) => row.workspaces?.id === mindId,
     );
+    if (found) setMyRole(found.role ?? '');
     if (found?.workspaces) {
       const w = found.workspaces;
       setMind({
@@ -99,7 +102,36 @@ function SettingsContent() {
     loadTags();
     loadMembers();
     loadDigest();
+    getSupabaseBrowser()
+      .auth.getUser()
+      .then(({ data }) => setMyUserId(data.user?.id ?? ''));
   }, [loadMind, loadTags, loadMembers, loadDigest]);
+
+  const removeMember = async (target: Member) => {
+    const isSelf = target.user.id === myUserId;
+    const label = target.user.displayName || target.user.email || 'this member';
+    const confirmMsg = isSelf
+      ? 'Leave this Mind? You will lose access to its captures.'
+      : `Remove ${label} from this Mind?`;
+    if (!confirm(confirmMsg)) return;
+    const r = await authedFetch(
+      `/api/members?workspaceId=${mindId}&userId=${encodeURIComponent(target.user.id)}`,
+      { method: 'DELETE' },
+    );
+    const d = await r.json();
+    if (!r.ok) {
+      setStatus(d.error ?? 'Could not remove member.');
+      return;
+    }
+    if (isSelf) {
+      window.location.href = '/minds';
+      return;
+    }
+    setStatus(`${label} removed.`);
+    loadMembers();
+  };
+
+  const canManageMembers = ['owner', 'admin'].includes(myRole);
 
   const toggleDigest = async () => {
     const next = !digestOptIn;
@@ -329,12 +361,38 @@ function SettingsContent() {
             Members <span className="ms-section__count">{members.length}</span>
           </h2>
           <div className="ms-members">
-            {members.map((m) => (
-              <div key={m.user.id} className="ms-member">
-                <span className="ms-member__name">{m.user.displayName || m.user.email || 'Member'}</span>
-                <span className="ms-member__role">{m.role}</span>
-              </div>
-            ))}
+            {members.map((m) => {
+              const isSelf = m.user.id === myUserId;
+              const isOwner = m.role === 'owner';
+              const showRemove = !isOwner && canManageMembers && !isSelf;
+              const showLeave = isSelf && !isOwner;
+              return (
+                <div key={m.user.id} className="ms-member">
+                  <span className="ms-member__name">
+                    {m.user.displayName || m.user.email || 'Member'}
+                    {isSelf ? <span className="ms-member__you"> you</span> : null}
+                  </span>
+                  <span className="ms-member__role">{m.role}</span>
+                  {showRemove ? (
+                    <button
+                      type="button"
+                      className="ms-member__remove"
+                      onClick={() => removeMember(m)}
+                    >
+                      Remove
+                    </button>
+                  ) : showLeave ? (
+                    <button
+                      type="button"
+                      className="ms-member__remove"
+                      onClick={() => removeMember(m)}
+                    >
+                      Leave
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
             {pendingInvites.map((i) => (
               <div key={i.id} className="ms-member ms-member--pending">
                 <span className="ms-member__name">{i.email || 'Share link'}</span>

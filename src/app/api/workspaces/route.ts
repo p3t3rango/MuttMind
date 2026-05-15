@@ -141,7 +141,7 @@ export async function PATCH(req: Request) {
       'provider' in body ||
       'model' in body;
     if (wantsMindEdit) {
-      const canManage = await userCan(userId, workspaceId, 'manage_spaces');
+      const canManage = await userCan(userId, workspaceId, 'manage_mind');
       if (!canManage) return Response.json({ error: 'Not allowed to edit this Mind' }, { status: 403 });
     }
 

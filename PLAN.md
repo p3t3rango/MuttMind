@@ -101,7 +101,7 @@ Each feature is its own branch off `main`. Each ends with: a working demo, a sho
   - `system_prompt text`, `voice_source` (`system_prompt` | `user_notes` | `mind_notes`), `voice_user_ids uuid[]`, `provider text`, `model text`.
   - **Permissions system:**
     - Table `workspace_member_permissions(workspace_id, user_id, permission_key, granted_by, granted_at)`.
-    - Initial enum of permission keys: `manage_spaces`, `manage_voice`, `manage_members`. Extended in later features (`manage_api_keys` in Feature 9, `manage_feeds` in Feature 7). Note: `manage_spaces` keeps its name for now and gates Mind-level edits — minor naming wart, not worth a migration.
+    - Initial enum of permission keys: `manage_mind`, `manage_voice`, `manage_members`. Extended in later features (`manage_api_keys` in Feature 9, `manage_feeds` in Feature 7).
     - Helper: `userCan(userId, workspaceId, permissionKey)` — owner/admin always true; members true with explicit grant.
 - LLM adapter (`src/lib/llm/`): provider-agnostic interface + Gemini implementation + `generateText()` helper for arbitrary completions.
 - Mind onboarding (`/minds/new`): 4-step flow — name → purpose → primer → review/edit generated system prompt. Skip & save available from any step (after name is filled).
@@ -122,7 +122,7 @@ Each feature is its own branch off `main`. Each ends with: a working demo, a sho
 **Test plan:**
 - [ ] Create a new Mind via onboarding; verify generated prompt is editable and saved
 - [ ] Create a new Mind via skip path; verify generic prompt is applied
-- [ ] Edit a Mind's prompt later from `/minds`; verify it persists and that non-admins without `manage_spaces` are blocked
+- [ ] Edit a Mind's prompt later from `/minds`; verify it persists and that non-admins without `manage_mind` are blocked
 - [ ] After creating a Mind, the dashboard switches to it automatically (via `muttmind:active-mind-id` localStorage signal)
 
 **Success:** A user can spin up a new Mind in under a minute (skip path) or with a tailored prompt in under three minutes (onboarding path). The dashboard's Mind dropdown is the everyday switcher.

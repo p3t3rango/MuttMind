@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from './supabase';
 
-export type PermissionKey = 'manage_spaces' | 'manage_voice' | 'manage_members';
+export type PermissionKey = 'manage_mind' | 'manage_voice' | 'manage_members';
 
 const PRIVILEGED_ROLES = new Set(['owner', 'admin']);
 

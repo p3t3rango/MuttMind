@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppNav } from '@/components/app-nav';
@@ -22,7 +23,14 @@ type SmartSpace = {
   workspaceId: string;
   color: string;
   createdAt: string;
+  createdBy: string;
   createdByLabel?: string;
+  systemPrompt: string | null;
+  voiceSource: string;
+  voiceUserIds: string[];
+  modeType: string;
+  provider: string;
+  model: string | null;
 };
 
 function getMindLabel(mind: Mind | undefined) {
@@ -35,9 +43,10 @@ function SpacesContent() {
   const [minds, setMinds] = useState<Mind[]>([]);
   const [mindId, setMindId] = useState('');
   const [spaces, setSpaces] = useState<SmartSpace[]>([]);
-  const [queryDraft, setQueryDraft] = useState('');
-  const [nameDraft, setNameDraft] = useState('');
   const [status, setStatus] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingPrompt, setEditingPrompt] = useState('');
+  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
   const currentMind = minds.find((mind) => mind.workspaces.id === mindId);
 
@@ -49,15 +58,18 @@ function SpacesContent() {
     setMindId((current) => current || nextMinds[0]?.workspaces?.id || '');
   }, []);
 
-  const loadSpaces = useCallback(async (nextMindId = mindId) => {
-    if (!nextMindId) {
-      setSpaces([]);
-      return;
-    }
-    const response = await authedFetch(`/api/spaces?workspaceId=${nextMindId}`);
-    const data = await response.json();
-    setSpaces(data.spaces ?? []);
-  }, [mindId]);
+  const loadSpaces = useCallback(
+    async (nextMindId = mindId) => {
+      if (!nextMindId) {
+        setSpaces([]);
+        return;
+      }
+      const response = await authedFetch(`/api/spaces?workspaceId=${nextMindId}`);
+      const data = await response.json();
+      setSpaces(data.spaces ?? []);
+    },
+    [mindId],
+  );
 
   useEffect(() => {
     loadMinds();
@@ -67,33 +79,6 @@ function SpacesContent() {
     loadSpaces();
   }, [loadSpaces]);
 
-  const createSpace = async () => {
-    const query = queryDraft.trim();
-    const name = nameDraft.trim() || query;
-    if (!mindId) {
-      setStatus('Choose a Mind first.');
-      return;
-    }
-    if (!query || !name) {
-      setStatus('Add a search like #music, type:video, by:pete, or site:example.com.');
-      return;
-    }
-
-    const response = await authedFetch('/api/spaces', {
-      method: 'POST',
-      body: JSON.stringify({ workspaceId: mindId, name, query, color: '#7c3aed' }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      setStatus(data.error ?? 'Unable to save Smart Space.');
-      return;
-    }
-    setQueryDraft('');
-    setNameDraft('');
-    setStatus('Smart Space saved for this Mind.');
-    await loadSpaces();
-  };
-
   const openSpace = (space: SmartSpace) => {
     window.localStorage.setItem('muttmind:active-space-query', space.query);
     window.localStorage.setItem('muttmind:active-mind-id', space.workspaceId);
@@ -102,12 +87,48 @@ function SpacesContent() {
 
   const deleteSpace = async (spaceId: string) => {
     if (!mindId) return;
+    if (!confirm('Delete this Space? Captures stay in the Mind.')) return;
     const response = await authedFetch(`/api/spaces?workspaceId=${mindId}&spaceId=${spaceId}`, { method: 'DELETE' });
     const data = await response.json();
     if (!response.ok) {
-      setStatus(data.error ?? 'Unable to delete Smart Space.');
+      setStatus(data.error ?? 'Unable to delete Space.');
       return;
     }
+    await loadSpaces();
+  };
+
+  const beginEdit = (space: SmartSpace) => {
+    setEditingId(space.id);
+    setEditingPrompt(space.systemPrompt ?? '');
+    setStatus('');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingPrompt('');
+  };
+
+  const savePrompt = async () => {
+    if (!editingId || !mindId) return;
+    setIsSavingPrompt(true);
+    setStatus('Saving prompt…');
+    const response = await authedFetch('/api/spaces', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        workspaceId: mindId,
+        spaceId: editingId,
+        systemPrompt: editingPrompt,
+      }),
+    });
+    const data = await response.json();
+    setIsSavingPrompt(false);
+    if (!response.ok) {
+      setStatus(data.error ?? 'Unable to save prompt.');
+      return;
+    }
+    setStatus('Prompt saved.');
+    setEditingId(null);
+    setEditingPrompt('');
     await loadSpaces();
   };
 
@@ -118,13 +139,13 @@ function SpacesContent() {
       <section className="spaces-page" aria-labelledby="spaces-title">
         <div className="spaces-page__header">
           <div>
-            <p className="eyebrow">{getMindLabel(currentMind)} / Saved filters</p>
-            <h1 id="spaces-title">Smart Spaces</h1>
+            <p className="eyebrow">{getMindLabel(currentMind)} / Spaces</p>
+            <h1 id="spaces-title">Spaces</h1>
             <p className="lede">
-              Save searches like tags, source domains, media types, or contributors as shared views for this Mind.
+              A Space is a focused research project inside this Mind. It has its own filter, system prompt, and voice.
             </p>
           </div>
-          <div className="spaces-page__create" aria-label="Create Smart Space">
+          <div className="spaces-page__actions">
             <select value={mindId} onChange={(event) => setMindId(event.target.value)} aria-label="Choose Mind">
               <option value="">Choose Mind</option>
               {minds.map((mind) => (
@@ -133,28 +154,13 @@ function SpacesContent() {
                 </option>
               ))}
             </select>
-            <input
-              aria-label="Smart Space name"
-              placeholder="Name"
-              value={nameDraft}
-              onChange={(event) => setNameDraft(event.target.value)}
-            />
-            <input
-              aria-label="Smart Space query"
-              placeholder="#tag, type:image, by:pete, site:example.com"
-              value={queryDraft}
-              onChange={(event) => setQueryDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') createSpace();
-              }}
-            />
-            <button className="button" onClick={createSpace}>
-              Create Smart Space
-            </button>
+            <Link href="/spaces/new" className="button">
+              + New Space
+            </Link>
           </div>
         </div>
 
-        <p className="status">{status || 'Smart Spaces are shared saved searches inside the selected Mind.'}</p>
+        {status ? <p className="status">{status}</p> : null}
 
         {spaces.length ? (
           <div className="spaces-grid">
@@ -166,16 +172,51 @@ function SpacesContent() {
                   <span className="space-card__query">{space.query}</span>
                   <span className="space-card__query">Created by {space.createdByLabel ?? 'teammate'}</span>
                 </button>
-                <button className="space-card__delete" onClick={() => deleteSpace(space.id)}>
-                  Delete
-                </button>
+                <div className="space-card__row">
+                  <button type="button" className="link-button" onClick={() => beginEdit(space)}>
+                    {editingId === space.id ? 'Editing prompt' : 'Edit prompt'}
+                  </button>
+                  <button
+                    type="button"
+                    className="link-button link-button--danger"
+                    onClick={() => deleteSpace(space.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+                {editingId === space.id ? (
+                  <div className="space-card__editor">
+                    <textarea
+                      className="onboarding__textarea onboarding__textarea--prompt"
+                      value={editingPrompt}
+                      onChange={(event) => setEditingPrompt(event.target.value)}
+                      rows={12}
+                    />
+                    <div className="space-card__editor-row">
+                      <button type="button" className="link-button" onClick={cancelEdit}>
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={savePrompt}
+                        disabled={isSavingPrompt || !editingPrompt.trim()}
+                      >
+                        {isSavingPrompt ? 'Saving…' : 'Save prompt'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
         ) : (
           <div className="mind-empty">
-            <h2>No Smart Spaces yet.</h2>
-            <p>Save filtered views like #creative-direction, type:video, by:pete, or site:peterarango.com.</p>
+            <h2>No Spaces yet.</h2>
+            <p>Create one to focus the assistant on a research thread or topic.</p>
+            <Link href="/spaces/new" className="button" style={{ marginTop: 16 }}>
+              + New Space
+            </Link>
           </div>
         )}
       </section>

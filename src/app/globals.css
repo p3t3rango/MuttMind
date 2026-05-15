@@ -2499,6 +2499,199 @@ select:focus {
   color: #f08a8a;
 }
 
+/* ---------------------------------------------------------------------------
+   Spaces onboarding (Are.na-minimal: single column, generous whitespace)
+   --------------------------------------------------------------------------- */
+
+.onboarding {
+  display: grid;
+  gap: 32px;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: clamp(40px, 6vw, 80px) clamp(20px, 4vw, 32px) 80px;
+}
+
+.onboarding__header {
+  display: grid;
+  gap: 12px;
+}
+
+.onboarding__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.onboarding__progress {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.5);
+}
+
+.onboarding__body {
+  display: grid;
+  gap: 24px;
+}
+
+.onboarding__field {
+  display: grid;
+  gap: 8px;
+}
+
+.onboarding__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.55);
+}
+
+.onboarding__input {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid rgba(247, 247, 242, 0.28);
+  background: #0d0e13;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.onboarding__input:focus {
+  outline: none;
+  border-color: rgba(247, 247, 242, 0.7);
+}
+
+.onboarding__textarea {
+  width: 100%;
+  min-height: 140px;
+  padding: 14px;
+  border: 1px solid rgba(247, 247, 242, 0.28);
+  background: #0d0e13;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.onboarding__textarea--prompt {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  min-height: 320px;
+}
+
+.onboarding__textarea:focus {
+  outline: none;
+  border-color: rgba(247, 247, 242, 0.7);
+}
+
+.onboarding__hint {
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: rgba(247, 247, 242, 0.55);
+  line-height: 1.45;
+}
+
+.onboarding__status {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: rgba(247, 247, 242, 0.7);
+}
+
+.onboarding__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(247, 247, 242, 0.12);
+}
+
+.onboarding__footer-left,
+.onboarding__footer-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.onboarding__footer .button,
+.onboarding__footer .button-secondary {
+  min-height: 44px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Spaces page additions: actions row + per-card edit affordance
+   --------------------------------------------------------------------------- */
+
+.spaces-page__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.spaces-page__actions select {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(247, 247, 242, 0.28);
+  background: #0d0e13;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.spaces-page__actions .button {
+  min-height: 44px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.space-card__row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 18px;
+  padding: 12px 0 0;
+}
+
+.space-card__editor {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.space-card__editor-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+}
+
+.space-card__editor-row .button {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
 .button-ghost {
   border-color: rgba(247, 247, 242, 0.28);
   background: transparent;

@@ -103,15 +103,15 @@ main {
   display: flex;
   align-items: center;
   width: 100%;
-  height: 40px;
+  height: 36px;
   padding: 0 12px;
-  border: 1px solid rgba(247, 247, 242, 0.14);
+  border: 1px solid rgba(247, 247, 242, 0.12);
   background: rgba(247, 247, 242, 0.02);
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: border-color 220ms ease, background 220ms ease;
 }
 
 .nav-search:focus-within {
-  border-color: rgba(247, 247, 242, 0.5);
+  border-color: rgba(247, 247, 242, 0.32);
   background: rgba(247, 247, 242, 0.04);
 }
 
@@ -119,22 +119,33 @@ main {
   display: inline-flex;
   width: 16px;
   font-family: var(--font-mono);
-  font-size: 16px;
-  color: rgba(247, 247, 242, 0.5);
+  font-size: 14px;
+  color: rgba(247, 247, 242, 0.45);
   margin-right: 8px;
 }
 
 .nav-search__input {
   appearance: none;
+  -webkit-appearance: none;
   flex: 1;
   min-width: 0;
+  height: 100%;
   border: 0;
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
   background: transparent;
   color: var(--ink);
   font-family: var(--font-mono);
   font-size: 13px;
   letter-spacing: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-search__input:focus,
+.nav-search__input:focus-visible {
   outline: none;
+  box-shadow: none;
 }
 
 .nav-search__input::placeholder {
@@ -900,12 +911,12 @@ h3 {
   min-height: 100vh;
   margin: 0;
   border: 0;
-  background: #111218;
+  background: var(--paper);
 }
 
 .mind-shell .topbar {
   border-color: transparent;
-  background: #111218;
+  background: var(--paper);
   padding-inline: clamp(28px, 4vw, 72px);
 }
 
@@ -1339,7 +1350,7 @@ h3 {
   margin: 0;
   overflow: hidden;
   border: 0;
-  border-right: 12px solid #111218;
+  border-right: 12px solid var(--paper);
   background: #0d0e13;
 }
 
@@ -1720,7 +1731,7 @@ select {
 }
 
 option {
-  background: #111218;
+  background: var(--paper);
   color: var(--ink);
 }
 
@@ -2335,19 +2346,19 @@ select:focus {
 
 .settings-shell {
   max-width: none;
-  background: #111218;
+  background: var(--paper);
 }
 
 .settings-shell .topbar,
 .settings-shell .section-header,
 .settings-shell .section-header--compact {
-  background: #111218;
+  background: var(--paper);
 }
 
 .settings-panel {
   border-right: 0;
   border-left: 0;
-  background: #111218;
+  background: var(--paper);
   padding: 0;
 }
 
@@ -2360,13 +2371,13 @@ select:focus {
 .settings-layout {
   grid-template-columns: minmax(250px, 340px) minmax(0, 1fr);
   border-top: 0;
-  background: #111218;
+  background: var(--paper);
 }
 
 .settings-sidebar,
 .settings-main {
   align-content: start;
-  background: #111218;
+  background: var(--paper);
 }
 
 .settings-sidebar {
@@ -3440,6 +3451,7 @@ select:focus {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
   font-family: var(--font-mono);
   font-size: 13px;
   color: rgba(247, 247, 242, 0.85);
@@ -3452,6 +3464,7 @@ select:focus {
 
 .dash-crumb__count {
   color: rgba(247, 247, 242, 0.55);
+  white-space: nowrap;
 }
 
 .dash-mind-select {
@@ -3986,7 +3999,7 @@ select:focus {
     height: 46px;
     border: 1.5px solid rgba(247, 247, 242, 0.72);
     border-radius: 50%;
-    background: #111218;
+    background: var(--paper);
     color: rgba(247, 247, 242, 0.92);
     padding: 0;
     box-shadow: 0 0 0 5px rgba(247, 247, 242, 0.03);

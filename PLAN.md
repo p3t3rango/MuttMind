@@ -189,6 +189,56 @@ Each feature is its own branch off `main`. Each ends with: a working demo, a sho
 
 ---
 
+### Feature 3.5 — Mind memory layer
+
+**Branch:** `feature/mind-memory`
+
+**Scope:** Per-Mind persistent memory the synthesis agent can read from and write to over time. Without this, every essay is one-shot and the agent never accumulates a sense of what the Mind has been about.
+
+Architecture in three layers:
+
+- **Soul** — the Mind's `system_prompt` (already exists from Feature 1). Static, deliberately edited.
+- **Memory** — new `mind_memory` table; the LLM writes salient facts and observations here, reads them as context on every synthesis run.
+- **Corpus** — the captures themselves (already exist).
+
+Schema:
+
+```sql
+create table public.mind_memory (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  kind text not null check (kind in ('fact', 'essay_summary', 'observation')),
+  content text not null,
+  embedding vector(768),
+  source_node_id uuid references public.nodes(id) on delete set null,
+  source_essay_id uuid references public.essays(id) on delete set null,
+  weight float not null default 1.0,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz
+);
+```
+
+Three loops keep memory current:
+
+1. **At capture time** — embedding update naturally shifts the Mind's centroid; no LLM call.
+2. **Weekly extraction** — small LLM pass over the week's new captures + current memory; emits new facts to add and stale ones to invalidate. ~1 LLM call per Mind per week.
+3. **At synthesis time** — top-N memory entries (by recency × cosine relevance) join the prompt context.
+
+Per-Mind, memory is **shared** — a Shared Mind has one memory authored across all members. That's the move that earns the "Shared" in Shared Mind.
+
+Inspired by [MemPalace](https://github.com/MemPalace/mempalace) but scoped per-Mind rather than per-user.
+
+**Test plan:**
+- [ ] Generate an essay; verify a brief memory entry is written for it
+- [ ] Run synthesis a second time; verify the new prompt includes recent memory
+- [ ] Trigger weekly extraction manually; verify new facts surface in memory
+- [ ] In a Shared Mind, two members generate essays; verify both contribute to the same shared memory
+- [ ] Edit/delete a memory entry from settings; verify it stops appearing in synthesis prompts
+
+**Why this slot:** Synthesis (Feature 3) needs to ship first to know what memory is most worth holding onto. Memory then sits between Feature 3 and Feature 4 (Telegram digest) so that delivered essays already feel like the Mind is *learning* about itself.
+
+---
+
 ### Feature 4 — Telegram delivery (weekly digest)
 
 **Branch:** `feature/telegram-digest`

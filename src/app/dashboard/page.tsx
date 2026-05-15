@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
@@ -142,9 +143,10 @@ function getNoteAuthorLabel(note: NodeNote) {
 }
 
 function DashboardContent() {
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get('q') ?? '';
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [tags, setTags] = useState<Tag[]>([]);
   const [recentCaptures, setRecentCaptures] = useState<CaptureItem[]>([]);
   const [selectedCapture, setSelectedCapture] = useState<CaptureItem | null>(null);
@@ -277,7 +279,6 @@ function DashboardContent() {
         return false;
       }
 
-      setSearchQuery('');
       setStatus(
         d.warnings?.length
           ? `Saved, but processing needs attention: ${d.warnings[0]}`
@@ -620,25 +621,11 @@ function DashboardContent() {
               </div>
             </form>
 
-            <div className="dash-filter-row">
-              <label className="dash-search">
-                <span className="sr-only">Filter captures</span>
-                <input
-                  value={searchQuery}
-                  placeholder={isMobileViewport ? 'Filter…' : 'Filter captures: #tag, type:video, by:pete, site:domain.com'}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(event) => {
-                    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                      event.preventDefault();
-                      void saveCapture(searchQuery);
-                    }
-                  }}
-                />
-              </label>
-              <span className="dash-status" aria-live="polite">
-                {status || (tags.length ? `${tags.length} tags` : 'auto-tagging on')}
-              </span>
-            </div>
+            {status || tags.length ? (
+              <p className="dash-status" aria-live="polite">
+                {status || `${tags.length} tags`}
+              </p>
+            ) : null}
           </>
         )}
       </section>

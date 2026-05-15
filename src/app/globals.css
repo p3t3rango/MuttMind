@@ -83,7 +83,7 @@ main {
 
 .topbar {
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.5fr) auto;
+  grid-template-columns: auto minmax(180px, 380px) minmax(0, 1fr) auto;
   align-items: center;
   gap: 24px;
   min-height: 84px;
@@ -91,6 +91,69 @@ main {
   border-top: 1.5px solid var(--line);
   border-bottom: 1.5px solid var(--line);
   background: var(--paper);
+}
+
+/* Without an authenticated search slot, fall back to a 3-col grid. */
+.topbar:not(:has(.nav-search)) {
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.5fr) auto;
+}
+
+.nav-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid rgba(247, 247, 242, 0.14);
+  background: rgba(247, 247, 242, 0.02);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.nav-search:focus-within {
+  border-color: rgba(247, 247, 242, 0.5);
+  background: rgba(247, 247, 242, 0.04);
+}
+
+.nav-search__icon {
+  display: inline-flex;
+  width: 16px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: rgba(247, 247, 242, 0.5);
+  margin-right: 8px;
+}
+
+.nav-search__input {
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0;
+  outline: none;
+}
+
+.nav-search__input::placeholder {
+  color: rgba(247, 247, 242, 0.4);
+}
+
+.nav-search__input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.nav-search__hint {
+  margin-left: 8px;
+  padding: 2px 6px;
+  border: 1px solid rgba(247, 247, 242, 0.14);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(247, 247, 242, 0.4);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .brand {
@@ -3773,6 +3836,10 @@ select:focus {
     padding: 18px;
   }
 
+  .nav-search {
+    width: 100%;
+  }
+
   .nav {
     justify-content: start;
     gap: 14px 22px;
@@ -3892,6 +3959,12 @@ select:focus {
     gap: 14px;
     padding: 14px 16px;
     overflow: visible;
+  }
+
+  /* Hide global search on small screens; per-page actions or in-menu search
+     handle this case. */
+  .nav-search {
+    display: none;
   }
 
   .brand {

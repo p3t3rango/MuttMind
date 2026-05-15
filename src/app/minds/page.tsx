@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { NewMindModal } from '@/components/new-mind-modal';
@@ -50,6 +50,8 @@ function getMindLabel(mind: Mind | undefined) {
 
 function MindsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const query = (searchParams.get('q') ?? '').trim().toLowerCase();
   const [minds, setMinds] = useState<Mind[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -62,6 +64,15 @@ function MindsContent() {
   useEffect(() => {
     loadMinds();
   }, [loadMinds]);
+
+  const visibleMinds = useMemo(() => {
+    if (!query) return minds;
+    return minds.filter((mind) => {
+      const w = mind.workspaces;
+      const haystack = [w.name, w.description ?? ''].join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [minds, query]);
 
   const openMind = (mind: Mind) => {
     window.localStorage.setItem('muttmind:active-mind-id', mind.workspaces.id);
@@ -84,7 +95,11 @@ function MindsContent() {
           <div className="minds-page__crumb">
             <span>you</span>
             <span className="minds-page__crumb-sep">/</span>
-            <span>{minds.length} {minds.length === 1 ? 'mind' : 'minds'}</span>
+            <span>
+              {query
+                ? `${visibleMinds.length} of ${minds.length} ${minds.length === 1 ? 'mind' : 'minds'}`
+                : `${minds.length} ${minds.length === 1 ? 'mind' : 'minds'}`}
+            </span>
           </div>
           <button type="button" className="minds-page__new" onClick={() => setModalOpen(true)}>
             New Mind <span aria-hidden="true">+</span>
@@ -99,7 +114,7 @@ function MindsContent() {
 
         {minds.length ? (
           <ul className="minds-list" role="list">
-            {minds.map((mind) => {
+            {visibleMinds.map((mind) => {
               const w = mind.workspaces;
               const captures = w.recent_captures ?? [];
               const filledSlots: (RecentCapture | null)[] = [

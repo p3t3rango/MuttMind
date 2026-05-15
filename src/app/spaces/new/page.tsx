@@ -185,7 +185,7 @@ function NewSpaceContent() {
                 className="onboarding__input"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="AI safety reading"
+                placeholder="Q3 brand refresh research"
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') goNext();
                 }}
@@ -206,7 +206,7 @@ function NewSpaceContent() {
                 className="onboarding__textarea"
                 value={purpose}
                 onChange={(event) => setPurpose(event.target.value)}
-                placeholder="e.g. Tracking practical AI safety research I might draw from in essays. Lean toward technical alignment work over policy discussion. Open question I'm chasing: what does verifiable-by-default look like for agent systems?"
+                placeholder="e.g. Collecting references and arguments for our brand refresh. We're leaning toward something quieter and more typographic. Open question I'm chasing: what does 'serious without being corporate' look like in 2026?"
                 rows={6}
                 autoFocus
               />
@@ -223,7 +223,7 @@ function NewSpaceContent() {
                 className="onboarding__textarea"
                 value={primer}
                 onChange={(event) => setPrimer(event.target.value)}
-                placeholder="e.g. I tend to disagree with most foom-style framings. I take Christiano's writing seriously. I'm a practitioner, not an academic — examples and code over abstract claims."
+                placeholder="e.g. I have a strong bias toward Swiss design and away from playful illustration. Take Pentagram and Wim Crouwel seriously; politely ignore most agency rebrand case studies. We're a small team, not a Fortune 500."
                 rows={6}
                 autoFocus
               />

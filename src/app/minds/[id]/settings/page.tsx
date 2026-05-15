@@ -260,6 +260,9 @@ function SettingsContent() {
             <Link href={`/minds/${mind.id}/essays`} className="ms-btn ms-btn--ghost">
               Synthesis essays →
             </Link>
+            <Link href={`/minds/${mind.id}/ask`} className="ms-btn ms-btn--ghost">
+              Ask this Mind →
+            </Link>
           </div>
           <div className="ms-field" style={{ marginTop: 18 }}>
             <span className="ms-field__label">Privacy</span>

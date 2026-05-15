@@ -131,11 +131,6 @@ function matchesQuery(captureItem: CaptureItem, query: string) {
   });
 }
 
-function getMindLabel(workspace: Workspace | undefined) {
-  if (!workspace) return 'Choose Mind';
-  return (workspace.workspaces.member_count ?? 1) > 1 ? 'Shared Mind' : 'Mind';
-}
-
 function formatMindName(name: string) {
   return name.replace(/\s+workspace$/i, '');
 }
@@ -164,7 +159,6 @@ function DashboardContent() {
   const [selectedCapture, setSelectedCapture] = useState<CaptureItem | null>(null);
   const [nodeNotes, setNodeNotes] = useState<NodeNote[]>([]);
   const [status, setStatus] = useState('');
-  const [workspaceNameDraft, setWorkspaceNameDraft] = useState('');
   const [captureDraft, setCaptureDraft] = useState('');
   const [tagDraft, setTagDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
@@ -173,7 +167,6 @@ function DashboardContent() {
   const [isNoteSaving, setIsNoteSaving] = useState(false);
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [isImproving, setIsImproving] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [lensOutputs, setLensOutputs] = useState<Record<string, string>>({});
   const [lensRunning, setLensRunning] = useState<string | null>(null);
   const [lensDormant, setLensDormant] = useState(false);
@@ -462,29 +455,6 @@ function DashboardContent() {
   );
 
 
-  const createSharedMind = async () => {
-    const name = workspaceNameDraft.trim();
-    if (!name) {
-      setStatus('Name the Mind first.');
-      return;
-    }
-
-    setStatus('Creating Mind...');
-    const r = await authedFetch('/api/workspaces', {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    });
-    const d = await r.json();
-    if (!r.ok) {
-      setStatus(d.error ?? 'Unable to create Mind.');
-      return;
-    }
-
-    setWorkspaceNameDraft('');
-    setWorkspaceId(d.workspace?.id ?? '');
-    setStatus('Mind created.');
-    await loadWorkspaces();
-  };
 
   const deleteCapture = async (nodeId: string) => {
     if (!workspaceId || nodeId.startsWith('pending-')) return;
@@ -508,13 +478,6 @@ function DashboardContent() {
     getSupabaseBrowser().auth.getSession().then(loadWorkspaces);
   }, [loadWorkspaces]);
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 700px)');
-    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
-    updateViewport();
-    mediaQuery.addEventListener('change', updateViewport);
-    return () => mediaQuery.removeEventListener('change', updateViewport);
-  }, []);
 
   useEffect(() => {
     loadTags();
@@ -655,7 +618,7 @@ function DashboardContent() {
 
         {!workspaces.length ? (
           <div className="dash-empty-setup">
-            <p className="dash-empty-setup__hint">You don't have a Mind yet.</p>
+            <p className="dash-empty-setup__hint">You don&apos;t have a Mind yet.</p>
             <button type="button" className="button" onClick={() => setNewMindModalOpen(true)}>
               + New Mind
             </button>

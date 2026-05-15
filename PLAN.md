@@ -524,6 +524,17 @@ Initial integrations worth scoping (in priority order — Pete called out X Book
 
 Lands as **Feature 8.5 — Connectors** alongside or after Feature 7 (Feeds). Each connector ships individually; they're independent. The extension-scraper connectors **depend on the browser extension being shipped first**.
 
+## Known gaps — must address
+
+- **Member removal from Shared Minds.** There is currently NO way to remove or
+  kick a member. The members API only has GET + invite (POST); no DELETE. This
+  is a real safety/privacy gap for shared workspaces — someone invited can
+  never be removed. Needs: `DELETE /api/members` (owner/admin or
+  `manage_members` permission), a confirm step, RLS-safe deletion of the
+  `workspace_members` row, and a "Remove" affordance per member in per-Mind
+  settings. Owners can't be removed; admins can remove members; last owner
+  guard. **Prioritize before any external launch.**
+
 ## Future / not-now
 
 - Local LLM (Ollama) provider

@@ -437,9 +437,31 @@ This should land **after** Feature 1 (Minds foundation) is fully merged and **be
 ## UX polish backlog (gathered intel, slot into chunks as we get there)
 
 - **Empty Mind state — inviter, not void.** Today it's a small composer with placeholder text. Should be three big centered actions: **Paste link / Write / Upload**, plus a secondary line *"not sure where to start? pick from a starter Mind."* Modeled on Sublime's first-save screen. Lands in dashboard polish (after vault rewrite).
+- **Capture surface — link is the hero, structure is opt-in.** Sublime's pre-save state shows just the pasted link with og:image inline; chip-style optional actions (`+ Add note` / `# Add to Mind` / `★ Favorite` / `🔒 Private`) appear below only after paste. Big `Save` in the corner. Don't show every field at once — let the user opt into structure. Worth refactoring our capture composer toward this.
+- **Post-save toast** — subtle "Saved to your library — View — ×" auto-dismissing toast top-right after save. Confirms without breaking flow.
+- **Activation-checklist widget.** Persistent dismissible "Finish setup" panel that tracks activation milestones: ✓ Create first Mind / Save first capture / Connect Telegram / Tailor assistant / Invite collaborator / Generate first synthesis. Real growth-product pattern. Re-openable from account settings.
 - **Starter Minds / Staff Picks.** Curated example Minds users can clone or browse to see what a mature Mind looks like. Promotes the cold-start path from buried to surfaced. Slots in alongside the empty-state work.
 - **Upload as a capture path.** Files, PDFs, images. Currently we only handle URLs + text. The empty-state inviter should at least foreshadow this even before the underlying handling is built. Real implementation lands with Multi-modal corpus (future).
 - **Persistent install affordances** in the corners (browser extension, iOS app) — surface entry points users would otherwise never find. Lands once those exist.
+
+## Imports / Connectors (strategic feature category)
+
+Sublime treats each external source as a first-class sidebar item: Kindle, Readwise, X Bookmarks, Instagram saves, Podcast Magic. They're not asking users to manually add — they hook into where users already read/save/listen. This is a much bigger surface area than "browser extension" and a real moat once built up.
+
+Worth treating as a category of related features rather than one feature. Each connector is a one-time setup that then trickles content into the Mind on a schedule. Overlaps but doesn't replace **Feature 7 (Feeds)** — feeds are public/discovery, connectors are personal/already-saved.
+
+Initial integrations worth scoping (in rough order of likely value):
+
+| Connector | Source | Notes |
+|---|---|---|
+| **X Bookmarks** | bearer-token sync | Already partially scoped via X enrichment. Pulls user's saved tweets. |
+| **Readwise** | OAuth | Free tier user export; rich highlights from books, articles, tweets. |
+| **Kindle highlights** | via Readwise OR direct CSV import | Same data via either path. |
+| **Pocket / Instapaper / Raindrop** | OAuth or CSV | The "saved-for-later" export. Cold-start gold. |
+| **Instagram saves** | requires Instagram API; thorny | Defer — auth fragility. |
+| **Podcast transcripts** | Whisper + RSS scrape | Big lift; defer to v2. |
+
+Lands as **Feature 8.5 — Connectors** alongside or after Feature 7 (Feeds). Each connector ships individually; they're independent.
 
 ## Future / not-now
 

@@ -58,7 +58,7 @@ function NewMindContent() {
   const generatePrompt = useCallback(async () => {
     if (!name.trim()) return;
     setIsGenerating(true);
-    setStatus('Drafting a system prompt from your answers…');
+    setStatus('');
     const response = await authedFetch('/api/workspaces/generate-prompt', {
       method: 'POST',
       body: JSON.stringify({

@@ -1259,6 +1259,64 @@ h3 {
 }
 
 .mind-card__title,
+.mind-card__connected {
+  color: rgba(170, 230, 180, 0.85);
+  font-family: var(--font-mono);
+}
+
+/* Connect-to-Mind picker in the capture drawer (Feature 1.5) */
+.connect-box {
+  display: grid;
+  gap: 10px;
+}
+
+.connect-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.connect-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(247, 247, 242, 0.2);
+  background: transparent;
+  color: rgba(247, 247, 242, 0.7);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.connect-pill:hover:not(:disabled) {
+  border-color: rgba(247, 247, 242, 0.5);
+  color: var(--ink);
+}
+
+.connect-pill:disabled {
+  cursor: default;
+}
+
+.connect-pill--on {
+  border-color: rgba(170, 230, 180, 0.4);
+  color: rgb(170, 230, 180);
+}
+
+.connect-pill__check {
+  font-size: 11px;
+}
+
+.connect-pill__home {
+  margin-left: 4px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.4);
+}
+
 .mind-card__attribution {
   position: absolute;
   top: 0;

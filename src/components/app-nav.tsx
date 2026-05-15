@@ -2,24 +2,91 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/client-auth';
 
 type AppNavProps = {
   active?: 'home' | 'dashboard' | 'minds' | 'vault' | 'settings' | 'login';
 };
 
-export function AppNav({ active = 'home' }: AppNavProps) {
+/**
+ * Global search box. Isolated into its own component (and wrapped in Suspense
+ * by AppNav) because useSearchParams() triggers a static-generation bailout —
+ * keeping it here means /login and / can still be prerendered.
+ */
+function NavSearch() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get('q') ?? '';
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    setSearchQuery(searchParams.get('q') ?? '');
+  }, [searchParams]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && document.activeElement === searchInputRef.current) {
+        searchInputRef.current?.blur();
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+      if (event.key === '/') {
+        const target = event.target as HTMLElement | null;
+        const isTyping = Boolean(
+          target &&
+            (target.tagName === 'INPUT' ||
+              target.tagName === 'TEXTAREA' ||
+              target.tagName === 'SELECT' ||
+              target.isContentEditable),
+        );
+        if (!isTyping) {
+          event.preventDefault();
+          searchInputRef.current?.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const updateSearch = (next: string) => {
+    setSearchQuery(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next.trim()) params.set('q', next);
+    else params.delete('q');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+
+  return (
+    <label className="nav-search">
+      <span className="sr-only">Search MuttMind</span>
+      <span className="nav-search__icon" aria-hidden="true">⌕</span>
+      <input
+        ref={searchInputRef}
+        type="search"
+        className="nav-search__input"
+        placeholder="Search MuttMind"
+        value={searchQuery}
+        onChange={(e) => updateSearch(e.target.value)}
+        autoComplete="off"
+        spellCheck={false}
+      />
+      {!searchQuery ? <span className="nav-search__hint" aria-hidden="true">⌘K</span> : null}
+    </label>
+  );
+}
+
+export function AppNav({ active = 'home' }: AppNavProps) {
   const [isAuthed, setIsAuthed] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const homeHref = isAuthed ? '/dashboard' : '/';
 
   useEffect(() => {
@@ -42,68 +109,17 @@ export function AppNav({ active = 'home' }: AppNavProps) {
     setMenuOpen(false);
   }, [active]);
 
-  // Stay in sync with the URL when it changes externally (e.g. user clicks a
-  // Mind row that navigates with no q param — we should clear local state).
-  useEffect(() => {
-    setSearchQuery(searchParams.get('q') ?? '');
-  }, [searchParams]);
-
   useEffect(() => {
     document.body.style.overflow = menuOpen ? 'hidden' : '';
-
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        if (document.activeElement === searchInputRef.current) {
-          searchInputRef.current?.blur();
-          return;
-        }
-        setMenuOpen(false);
-      }
-
-      // Cmd/Ctrl + K opens search from anywhere.
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-      }
-
-      // `/` focuses search when not already typing in another field.
-      if (event.key === '/') {
-        const target = event.target as HTMLElement | null;
-        const isTyping = Boolean(
-          target &&
-            (target.tagName === 'INPUT' ||
-              target.tagName === 'TEXTAREA' ||
-              target.tagName === 'SELECT' ||
-              target.isContentEditable),
-        );
-        if (!isTyping) {
-          event.preventDefault();
-          searchInputRef.current?.focus();
-        }
-      }
+      if (event.key === 'Escape') setMenuOpen(false);
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       document.body.style.overflow = '';
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [menuOpen]);
-
-  // Push the search to the URL (replace, no scroll). Pages read `?q=` and
-  // filter accordingly. On unauthed routes, search is hidden so this is a no-op.
-  const updateSearch = (next: string) => {
-    setSearchQuery(next);
-    const params = new URLSearchParams(searchParams.toString());
-    if (next.trim()) {
-      params.set('q', next);
-    } else {
-      params.delete('q');
-    }
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  };
 
   async function signOut() {
     await getSupabaseBrowser().auth.signOut();
@@ -117,21 +133,9 @@ export function AppNav({ active = 'home' }: AppNavProps) {
       </Link>
 
       {isAuthed ? (
-        <label className="nav-search">
-          <span className="sr-only">Search MuttMind</span>
-          <span className="nav-search__icon" aria-hidden="true">⌕</span>
-          <input
-            ref={searchInputRef}
-            type="search"
-            className="nav-search__input"
-            placeholder="Search MuttMind"
-            value={searchQuery}
-            onChange={(e) => updateSearch(e.target.value)}
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {!searchQuery ? <span className="nav-search__hint" aria-hidden="true">⌘K</span> : null}
-        </label>
+        <Suspense fallback={<span className="nav-search" aria-hidden="true" />}>
+          <NavSearch />
+        </Suspense>
       ) : null}
 
       <button

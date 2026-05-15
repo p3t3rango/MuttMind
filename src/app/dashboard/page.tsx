@@ -671,9 +671,61 @@ function DashboardContent() {
             })}
           </div>
         ) : (
-          <div className="mind-empty">
-            <h2>{searchQuery ? 'No matches yet.' : 'Paste a link to begin.'}</h2>
-            <p>{searchQuery ? 'Clear the search or refine it.' : 'MuttMind will create a visual card, summarize it, and tag it automatically.'}</p>
+          <div className="dash-empty">
+            {searchQuery ? (
+              <>
+                <p className="dash-empty__title">No matches yet.</p>
+                <p className="dash-empty__hint">Clear the search to see everything.</p>
+              </>
+            ) : (
+              <>
+                <p className="dash-empty__title">Save your first capture to start this Mind.</p>
+                <div className="dash-empty__paths" role="list">
+                  <button
+                    type="button"
+                    className="dash-empty__path"
+                    onClick={() => {
+                      const composer = document.querySelector<HTMLTextAreaElement>('.dash-capture__input');
+                      composer?.focus();
+                    }}
+                    role="listitem"
+                  >
+                    <span className="dash-empty__path-icon" aria-hidden="true">⎘</span>
+                    <span className="dash-empty__path-name">Paste link</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="dash-empty__path"
+                    onClick={() => {
+                      const composer = document.querySelector<HTMLTextAreaElement>('.dash-capture__input');
+                      composer?.focus();
+                    }}
+                    role="listitem"
+                  >
+                    <span className="dash-empty__path-icon" aria-hidden="true">≡</span>
+                    <span className="dash-empty__path-name">Write a note</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="dash-empty__path dash-empty__path--soon"
+                    disabled
+                    title="Upload — coming soon"
+                    role="listitem"
+                  >
+                    <span className="dash-empty__path-icon" aria-hidden="true">⤒</span>
+                    <span className="dash-empty__path-name">Upload</span>
+                    <span className="dash-empty__path-soon">soon</span>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="dash-empty__bot"
+                  onClick={openTelegramBot}
+                >
+                  or save from anywhere — open the Telegram bot →
+                </button>
+              </>
+            )}
           </div>
         )}
       </section>

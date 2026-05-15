@@ -5244,6 +5244,87 @@ select:focus {
 }
 
 /* ---------------------------------------------------------------------------
+   Insight lenses — inside the capture drawer
+   --------------------------------------------------------------------------- */
+
+.lens-box {
+  display: grid;
+  gap: 12px;
+}
+
+.lens-box__catalog {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lens-chip {
+  border: 1px solid rgba(247, 247, 242, 0.2);
+  background: transparent;
+  color: rgba(247, 247, 242, 0.78);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.lens-chip:hover:not(:disabled) {
+  border-color: rgba(247, 247, 242, 0.5);
+  color: var(--ink);
+  background: rgba(247, 247, 242, 0.04);
+}
+
+.lens-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lens-box__dormant {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(247, 247, 242, 0.55);
+}
+
+.lens-box__dormant code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink);
+  background: rgba(247, 247, 242, 0.08);
+  padding: 1px 5px;
+  margin: 0 2px;
+}
+
+.lens-result {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-left: 1px solid rgba(247, 247, 242, 0.2);
+  background: rgba(247, 247, 242, 0.03);
+}
+
+.lens-result__label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.5);
+}
+
+.lens-result__body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(247, 247, 242, 0.85);
+  white-space: pre-wrap;
+}
+
+/* ---------------------------------------------------------------------------
    Thinking — animated loading state for LLM generation. Editorial restraint
    with motion: braille spinner, cycling phases, indeterminate progress bar.
    --------------------------------------------------------------------------- */

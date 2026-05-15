@@ -2914,11 +2914,49 @@ select:focus {
   border-bottom-color: rgba(247, 247, 242, 0.7);
 }
 
-/* Privacy custom dropdown -------------------------------------------------- */
+/* Custom dropdown — used for privacy in modal + Mind picker on toolbar ----- */
 
 .mm-select {
   position: relative;
   width: 100%;
+}
+
+.mm-select--inline {
+  width: auto;
+  display: inline-flex;
+}
+
+.mm-select--inline .mm-select__trigger {
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: rgba(247, 247, 242, 0.85);
+  font-weight: normal;
+}
+
+.mm-select--inline .mm-select__trigger:hover,
+.mm-select--inline .mm-select__trigger:focus-visible,
+.mm-select--inline[data-open='true'] .mm-select__trigger {
+  color: var(--ink);
+  border-color: transparent;
+}
+
+.mm-select--inline .mm-select__trigger-label {
+  margin-right: 6px;
+}
+
+.mm-select--inline .mm-select__chevron {
+  font-size: 9px;
+}
+
+.mm-select--inline .mm-select__menu {
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .mm-select__trigger {

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
+import { Dropdown } from '@/components/dropdown';
 import { NewMindModal } from '@/components/new-mind-modal';
 import { authedFetch, getSupabaseBrowser } from '@/lib/client-auth';
 
@@ -549,19 +550,19 @@ function DashboardContent() {
 
         <header className="dash-header">
           <div className="dash-crumb">
-            <select
-              className="dash-mind-select"
-              aria-label="Active Mind"
+            <Dropdown
               value={workspaceId}
-              onChange={(e) => setWorkspaceId(e.target.value)}
-            >
-              <option value="">no mind selected</option>
-              {workspaces.map((workspace) => (
-                <option key={workspace.workspaces.id} value={workspace.workspaces.id}>
-                  {formatMindName(workspace.workspaces.name)}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', name: 'no mind selected' },
+                ...workspaces.map((workspace) => ({
+                  value: workspace.workspaces.id,
+                  name: formatMindName(workspace.workspaces.name),
+                })),
+              ]}
+              onChange={(v) => setWorkspaceId(v)}
+              ariaLabel="Active Mind"
+              size="inline"
+            />
             <span className="dash-crumb__sep">/</span>
             <span className="dash-crumb__count">
               {filteredCaptures.length} {filteredCaptures.length === 1 ? 'capture' : 'captures'}

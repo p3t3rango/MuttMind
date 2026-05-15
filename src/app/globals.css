@@ -5013,6 +5013,15 @@ select:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.ms-member__you {
+  color: rgba(247, 247, 242, 0.4);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 10px;
 }
 
 .ms-member__role {
@@ -5021,6 +5030,24 @@ select:focus {
   text-transform: uppercase;
   font-size: 11px;
   flex-shrink: 0;
+}
+
+.ms-member__remove {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(240, 138, 138, 0.7);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.ms-member__remove:hover {
+  color: #f08a8a;
 }
 
 .ms-member--pending .ms-member__name {

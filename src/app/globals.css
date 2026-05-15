@@ -2813,6 +2813,33 @@ select:focus {
   border-bottom-color: rgba(247, 247, 242, 0.7);
 }
 
+.mm-field__textarea {
+  appearance: none;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 56px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(247, 247, 242, 0.18);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+  resize: vertical;
+}
+
+.mm-field__textarea::placeholder {
+  color: rgba(247, 247, 242, 0.32);
+}
+
+.mm-field__textarea:focus {
+  outline: none;
+  border-bottom-color: rgba(247, 247, 242, 0.7);
+}
+
 /* Privacy custom dropdown -------------------------------------------------- */
 
 .mm-select {

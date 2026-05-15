@@ -253,12 +253,12 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
 
             <label className="mm-field">
               <span className="mm-field__label">Description <span className="mm-field__optional">— optional</span></span>
-              <input
-                className="mm-field__input"
+              <textarea
+                className="mm-field__textarea"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="A one-liner about what this Mind is for"
-                autoComplete="off"
+                rows={2}
                 disabled={mode === 'creating'}
               />
             </label>

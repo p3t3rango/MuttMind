@@ -521,6 +521,37 @@ function DashboardContent() {
     }
   }, []);
 
+  // Deep-link: opening a capture from the vault graph (or anywhere) sets
+  // muttmind:focus-capture-id. Once the workspace is known, fetch that single
+  // capture and open its drawer — it may be older than the recent slice, so
+  // we fetch it directly rather than searching the loaded list.
+  useEffect(() => {
+    if (!workspaceId) return;
+    const focusId = window.localStorage.getItem('muttmind:focus-capture-id');
+    if (!focusId) return;
+    window.localStorage.removeItem('muttmind:focus-capture-id');
+
+    let cancelled = false;
+    (async () => {
+      const existing = recentCaptures.find((c) => c.id === focusId);
+      if (existing) {
+        if (!cancelled) setSelectedCapture(existing);
+        return;
+      }
+      const r = await authedFetch(
+        `/api/nodes/${encodeURIComponent(focusId)}?workspaceId=${encodeURIComponent(workspaceId)}`,
+      );
+      if (!r.ok) return;
+      const d = await r.json();
+      if (!cancelled && d.node) setSelectedCapture(d.node as CaptureItem);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId]);
+
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
       const target = event.target as HTMLElement | null;

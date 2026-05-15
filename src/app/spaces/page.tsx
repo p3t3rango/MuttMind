@@ -46,6 +46,7 @@ function SpacesContent() {
   const [status, setStatus] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPrompt, setEditingPrompt] = useState('');
+  const [editingQuery, setEditingQuery] = useState('');
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
   const currentMind = minds.find((mind) => mind.workspaces.id === mindId);
@@ -100,35 +101,39 @@ function SpacesContent() {
   const beginEdit = (space: SmartSpace) => {
     setEditingId(space.id);
     setEditingPrompt(space.systemPrompt ?? '');
+    setEditingQuery(space.query ?? '');
     setStatus('');
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditingPrompt('');
+    setEditingQuery('');
   };
 
   const savePrompt = async () => {
     if (!editingId || !mindId) return;
     setIsSavingPrompt(true);
-    setStatus('Saving prompt…');
+    setStatus('Saving…');
     const response = await authedFetch('/api/spaces', {
       method: 'PATCH',
       body: JSON.stringify({
         workspaceId: mindId,
         spaceId: editingId,
         systemPrompt: editingPrompt,
+        query: editingQuery,
       }),
     });
     const data = await response.json();
     setIsSavingPrompt(false);
     if (!response.ok) {
-      setStatus(data.error ?? 'Unable to save prompt.');
+      setStatus(data.error ?? 'Unable to save Space.');
       return;
     }
-    setStatus('Prompt saved.');
+    setStatus('Space updated.');
     setEditingId(null);
     setEditingPrompt('');
+    setEditingQuery('');
     await loadSpaces();
   };
 
@@ -186,12 +191,27 @@ function SpacesContent() {
                 </div>
                 {editingId === space.id ? (
                   <div className="space-card__editor">
-                    <textarea
-                      className="onboarding__textarea onboarding__textarea--prompt"
-                      value={editingPrompt}
-                      onChange={(event) => setEditingPrompt(event.target.value)}
-                      rows={12}
-                    />
+                    <label className="onboarding__field">
+                      <span className="onboarding__label">Filter (optional saved search)</span>
+                      <input
+                        className="onboarding__input"
+                        value={editingQuery}
+                        onChange={(event) => setEditingQuery(event.target.value)}
+                        placeholder="Leave empty to include every capture in this Mind"
+                      />
+                      <span className="onboarding__hint">
+                        Use #tag, type:video, by:pete, or site:example.com to scope this Space to matching captures only.
+                      </span>
+                    </label>
+                    <label className="onboarding__field">
+                      <span className="onboarding__label">System prompt</span>
+                      <textarea
+                        className="onboarding__textarea onboarding__textarea--prompt"
+                        value={editingPrompt}
+                        onChange={(event) => setEditingPrompt(event.target.value)}
+                        rows={12}
+                      />
+                    </label>
                     <div className="space-card__editor-row">
                       <button type="button" className="link-button" onClick={cancelEdit}>
                         Cancel
@@ -202,7 +222,7 @@ function SpacesContent() {
                         onClick={savePrompt}
                         disabled={isSavingPrompt || !editingPrompt.trim()}
                       >
-                        {isSavingPrompt ? 'Saving…' : 'Save prompt'}
+                        {isSavingPrompt ? 'Saving…' : 'Save Space'}
                       </button>
                     </div>
                   </div>

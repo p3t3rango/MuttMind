@@ -120,6 +120,27 @@ Each feature is its own branch off `main`. Each ends with: a working demo, a sho
 
 ---
 
+### Feature 1.5 — Manual collection ("Add to Space")
+
+**Branch:** `feature/manual-collection`
+
+**Scope:** Are.na-style explicit collection. Today a Space can have a saved-search filter that automatically pulls matching captures into view. This adds the ability to *manually* add any capture to a Space — independent of the filter — so Spaces can act as curated channels, not only as saved searches.
+
+- Schema: `node_spaces(node_id, space_id, added_by, added_at)` junction table with PK on `(node_id, space_id)`.
+- Dashboard / drawer affordance: "Add to Space" button on a capture, opens a small picker of the Mind's Spaces.
+- Spaces page: each Space shows both filter-matched captures and manually-added captures in one list (deduped). Visual indicator on which is which.
+- A capture can live in many Spaces without duplication — block-style.
+
+**Test plan:**
+- [ ] From a capture's drawer, add it to a Space; verify it appears on opening that Space
+- [ ] Add the same capture to two Spaces; verify it shows in both with no duplication of the underlying node
+- [ ] A Space with a filter + manual additions shows both sets, deduped
+- [ ] Removing from a Space doesn't delete the capture
+
+**Success:** A user can deliberately curate captures into a Space without depending on tag/filter syntax.
+
+---
+
 ### Feature 2 — Cosine-based graph edges (cleanup)
 
 **Branch:** `feature/cosine-graph`

@@ -24,7 +24,6 @@ function NewSpaceContent() {
   const [mindId, setMindId] = useState('');
   const [step, setStep] = useState<Step>(1);
   const [name, setName] = useState('');
-  const [query, setQuery] = useState('');
   const [purpose, setPurpose] = useState('');
   const [primer, setPrimer] = useState('');
   const [generatedPrompt, setGeneratedPrompt] = useState('');
@@ -55,9 +54,8 @@ function NewSpaceContent() {
         return;
       }
       const trimmedName = name.trim();
-      const trimmedQuery = query.trim();
-      if (!trimmedName || !trimmedQuery) {
-        setStatus('Name and query are both required.');
+      if (!trimmedName) {
+        setStatus('Name is required.');
         setStep(1);
         return;
       }
@@ -67,7 +65,7 @@ function NewSpaceContent() {
       const body: Record<string, unknown> = {
         workspaceId: mindId,
         name: trimmedName,
-        query: trimmedQuery,
+        query: '',
         color: '#7c3aed',
       };
       if (systemPrompt && systemPrompt.trim()) {
@@ -86,7 +84,7 @@ function NewSpaceContent() {
       }
       router.push('/spaces');
     },
-    [mindId, name, query, router],
+    [mindId, name, router],
   );
 
   const generatePrompt = useCallback(async () => {
@@ -116,8 +114,8 @@ function NewSpaceContent() {
   const goNext = () => {
     setStatus('');
     if (step === 1) {
-      if (!name.trim() || !query.trim()) {
-        setStatus('Name and query are both required.');
+      if (!name.trim()) {
+        setStatus('Name is required.');
         return;
       }
       setStep(2);
@@ -155,7 +153,7 @@ function NewSpaceContent() {
         <header className="onboarding__header">
           <p className="eyebrow">New Space</p>
           <h1 id="new-space-title" className="onboarding__title">
-            {step === 1 && 'Name and what to filter for.'}
+            {step === 1 && 'Name your Space.'}
             {step === 2 && 'What is this Space for?'}
             {step === 3 && 'Anything to prime the assistant with?'}
             {step === 4 && 'Review the generated system prompt.'}
@@ -188,23 +186,13 @@ function NewSpaceContent() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="AI safety reading"
-                autoFocus
-              />
-            </label>
-
-            <label className="onboarding__field">
-              <span className="onboarding__label">Filter</span>
-              <input
-                className="onboarding__input"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="#ai-safety, type:article, by:pete, site:lesswrong.com"
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') goNext();
                 }}
+                autoFocus
               />
               <span className="onboarding__hint">
-                A search like a tag (#tag), type (type:video), author (by:pete), or domain (site:example.com).
+                Spaces start with no filter — every capture in this Mind is in scope. You can add a saved-search filter later from the Space card if you want this Space to also act as a filtered view.
               </span>
             </label>
           </div>

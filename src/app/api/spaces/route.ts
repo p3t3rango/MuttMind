@@ -82,9 +82,10 @@ export async function POST(req: Request) {
     const userId = await requireUserId(req);
     const body = await req.json();
     const { workspaceId, name, query, color } = body ?? {};
-    if (!workspaceId || !name || !query) {
-      return Response.json({ error: 'workspaceId, name, and query required' }, { status: 400 });
+    if (!workspaceId || !name) {
+      return Response.json({ error: 'workspaceId and name required' }, { status: 400 });
     }
+    const queryValue = typeof query === 'string' ? query.trim() : '';
 
     await assertWorkspaceMember(workspaceId, userId);
 
@@ -115,7 +116,7 @@ export async function POST(req: Request) {
       workspace_id: workspaceId,
       created_by: userId,
       name: String(name).trim(),
-      query: String(query).trim(),
+      query: queryValue,
       color: typeof color === 'string' && color.trim() ? color.trim() : '#7c3aed',
       system_prompt: systemPrompt,
       voice_source: voiceSource,
@@ -173,7 +174,7 @@ export async function PATCH(req: Request) {
 
     const updatePayload: Record<string, unknown> = {};
     if (typeof body.name === 'string' && body.name.trim()) updatePayload.name = body.name.trim();
-    if (typeof body.query === 'string' && body.query.trim()) updatePayload.query = body.query.trim();
+    if (typeof body.query === 'string') updatePayload.query = body.query.trim();
     if (typeof body.color === 'string' && body.color.trim()) updatePayload.color = body.color.trim();
     if (typeof body.systemPrompt === 'string') updatePayload.system_prompt = body.systemPrompt;
     if (typeof body.voiceSource === 'string' && (VOICE_SOURCES as readonly string[]).includes(body.voiceSource))

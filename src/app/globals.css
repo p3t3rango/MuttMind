@@ -1167,59 +1167,56 @@ h3 {
   line-height: 1.45;
 }
 
-.mind-card__title {
+/* Title slot below the image. Two stacked spans (title + attribution) cross-fade
+   on hover so the slot stays the same height and nothing shifts. */
+.mind-card__meta {
+  position: relative;
+  width: 100%;
   margin-top: 10px;
-  color: rgba(247, 247, 242, 0.6);
-  font-family: var(--font-body);
-  font-size: 13px;
-  line-height: 1.35;
+  border: 0;
+  background: transparent;
+  padding: 0;
   text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  cursor: pointer;
+  display: block;
+  min-height: 36px;
+}
+
+.mind-card__title,
+.mind-card__attribution {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-}
-
-.mind-card__button:hover .mind-card__title,
-.mind-card:hover .mind-card__title {
-  color: rgba(247, 247, 242, 0.85);
-}
-
-/* Hover overlay: appears on the image, fades in. Shows author + when. */
-.mind-card__hover {
-  position: absolute;
-  inset: auto 0 0 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.78) 100%);
-  color: rgba(247, 247, 242, 0.92);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0;
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.35;
   transition: opacity 140ms ease;
+}
+
+.mind-card__title {
+  position: relative;
+  color: rgba(247, 247, 242, 0.6);
+}
+
+.mind-card__attribution {
+  position: absolute;
+  inset: 0;
+  color: rgba(247, 247, 242, 0.85);
+  opacity: 0;
   pointer-events: none;
 }
 
-.mind-card__button:hover .mind-card__hover,
-.mind-card__button:focus-visible .mind-card__hover {
+.mind-card:hover .mind-card__title,
+.mind-card__meta:focus-visible .mind-card__title,
+.mind-card__button:focus-visible ~ .mind-card__meta .mind-card__title {
+  opacity: 0;
+}
+
+.mind-card:hover .mind-card__attribution,
+.mind-card__meta:focus-visible .mind-card__attribution,
+.mind-card__button:focus-visible ~ .mind-card__meta .mind-card__attribution {
   opacity: 1;
-}
-
-.mind-card__hover-by {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mind-card__hover-when {
-  flex-shrink: 0;
-  color: rgba(247, 247, 242, 0.65);
 }
 
 .mind-empty {
@@ -3622,17 +3619,14 @@ select:focus {
     text-align: center;
   }
 
-  .mind-card__title {
+  .mind-card__title,
+  .mind-card__attribution {
     padding: 0 6px;
     overflow-wrap: anywhere;
   }
 
-  /* On touch devices, the hover overlay is unreachable. Show it as a thin
-     persistent footer instead so author/time are still legible. */
-  .mind-card__hover {
-    opacity: 1;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 100%);
-  }
+  /* On touch where hover is unreachable, the title stays as the title.
+     Tap the card to open the drawer for full attribution + tags. */
 
   .soft-pill {
     max-width: 100%;

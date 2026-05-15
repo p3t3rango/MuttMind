@@ -678,16 +678,14 @@ function DashboardContent() {
                     ) : (
                       <span className="mind-card__fallback">{getHostLabel(captureItem.original_url)}</span>
                     )}
-                    <span className="mind-card__hover" aria-hidden="true">
-                      <span className="mind-card__hover-by">{captureItem.created_by_label ?? 'teammate'}</span>
-                      {relativeTimeFrom(captureItem.created_at) ? (
-                        <span className="mind-card__hover-when">{relativeTimeFrom(captureItem.created_at)}</span>
-                      ) : null}
-                    </span>
                   </button>
 
-                  <button type="button" className="mind-card__title" onClick={() => setSelectedCapture(captureItem)}>
-                    {captureItem.title ?? 'Untitled capture'}
+                  <button type="button" className="mind-card__meta" onClick={() => setSelectedCapture(captureItem)}>
+                    <span className="mind-card__title">{captureItem.title ?? 'Untitled capture'}</span>
+                    <span className="mind-card__attribution" aria-hidden="true">
+                      Added by {captureItem.created_by_label ?? 'teammate'}
+                      {relativeTimeFrom(captureItem.created_at) ? ` · ${relativeTimeFrom(captureItem.created_at)}` : ''}
+                    </span>
                   </button>
                 </article>
               );

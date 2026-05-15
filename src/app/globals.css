@@ -5112,6 +5112,362 @@ select:focus {
 }
 
 /* ---------------------------------------------------------------------------
+   Essays — synthesis reader (/minds/[id]/essays)
+   --------------------------------------------------------------------------- */
+
+.essays-page {
+  max-width: 920px;
+}
+
+.essays-dormant {
+  display: grid;
+  gap: 8px;
+  padding: 28px 0;
+  border-bottom: 1px solid rgba(247, 247, 242, 0.1);
+}
+
+.essays-dormant__title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.essays-dormant__body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(247, 247, 242, 0.6);
+  max-width: 60ch;
+}
+
+.essays-dormant__body code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: rgba(247, 247, 242, 0.08);
+  padding: 1px 5px;
+  margin: 0 2px;
+}
+
+.essays-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 32px;
+  padding-top: 24px;
+  align-items: start;
+}
+
+.essays-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  position: sticky;
+  top: 16px;
+}
+
+.essays-list__item {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  padding: 12px 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-left: 1px solid rgba(247, 247, 242, 0.12);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.essays-list__item:hover {
+  background: rgba(247, 247, 242, 0.03);
+}
+
+.essays-list__item--active {
+  border-left-color: var(--ink);
+  background: rgba(247, 247, 242, 0.05);
+}
+
+.essays-list__title {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: rgba(247, 247, 242, 0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.essays-list__item--active .essays-list__title {
+  color: var(--ink);
+}
+
+.essays-list__meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(247, 247, 242, 0.4);
+}
+
+.essays-reader {
+  min-width: 0;
+}
+
+.essays-reader__meta {
+  margin: 0 0 24px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: rgba(247, 247, 242, 0.4);
+}
+
+.essay-body {
+  max-width: 64ch;
+}
+
+.essay-h1 {
+  margin: 0 0 24px;
+  font-family: var(--font-body);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.essay-h2 {
+  margin: 36px 0 12px;
+  font-family: var(--font-body);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.essay-h3 {
+  margin: 28px 0 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.6);
+}
+
+.essay-p {
+  margin: 0 0 20px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.7;
+  color: rgba(247, 247, 242, 0.82);
+}
+
+.essay-ul {
+  margin: 0 0 20px;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+
+.essay-ul li {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: rgba(247, 247, 242, 0.78);
+}
+
+.essay-cite {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink);
+  background: rgba(247, 247, 242, 0.12);
+  padding: 1px 4px;
+  margin-left: 2px;
+  border-radius: 2px;
+  vertical-align: super;
+}
+
+@media (max-width: 720px) {
+  .essays-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .essays-list {
+    position: static;
+    grid-auto-flow: row;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Insight lenses — inside the capture drawer
+   --------------------------------------------------------------------------- */
+
+.lens-box {
+  display: grid;
+  gap: 12px;
+}
+
+.lens-box__catalog {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lens-chip {
+  border: 1px solid rgba(247, 247, 242, 0.2);
+  background: transparent;
+  color: rgba(247, 247, 242, 0.78);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.lens-chip:hover:not(:disabled) {
+  border-color: rgba(247, 247, 242, 0.5);
+  color: var(--ink);
+  background: rgba(247, 247, 242, 0.04);
+}
+
+.lens-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lens-box__dormant {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(247, 247, 242, 0.55);
+}
+
+.lens-box__dormant code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink);
+  background: rgba(247, 247, 242, 0.08);
+  padding: 1px 5px;
+  margin: 0 2px;
+}
+
+.lens-result {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-left: 1px solid rgba(247, 247, 242, 0.2);
+  background: rgba(247, 247, 242, 0.03);
+}
+
+.lens-result__label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.5);
+}
+
+.lens-result__body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(247, 247, 242, 0.85);
+  white-space: pre-wrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Ask — Q&A over a Mind (/minds/[id]/ask)
+   --------------------------------------------------------------------------- */
+
+.ask-input {
+  display: grid;
+  gap: 10px;
+  padding: 20px 0 8px;
+}
+
+.ask-input__row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.ask-input__hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: rgba(247, 247, 242, 0.4);
+}
+
+.ask-thread {
+  display: grid;
+  gap: 0;
+}
+
+.ask-exchange {
+  padding: 28px 0;
+  border-top: 1px solid rgba(247, 247, 242, 0.1);
+  display: grid;
+  gap: 16px;
+}
+
+.ask-exchange__q {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+}
+
+.ask-exchange__a {
+  max-width: 64ch;
+}
+
+.ask-citations {
+  list-style: none;
+  margin: 0;
+  padding: 14px 0 0;
+  border-top: 1px solid rgba(247, 247, 242, 0.08);
+  display: grid;
+  gap: 6px;
+}
+
+.ask-citation {
+  display: flex;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: rgba(247, 247, 242, 0.6);
+}
+
+.ask-citation__idx {
+  color: rgba(247, 247, 242, 0.4);
+  flex-shrink: 0;
+}
+
+.ask-citation__link {
+  color: rgba(247, 247, 242, 0.7);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ask-citation__link:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------------------
    Thinking — animated loading state for LLM generation. Editorial restraint
    with motion: braille spinner, cycling phases, indeterminate progress bar.
    --------------------------------------------------------------------------- */

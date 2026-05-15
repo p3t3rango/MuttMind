@@ -140,6 +140,16 @@ function getNoteAuthorLabel(note: NodeNote) {
   return note.users?.display_name || note.users?.email || 'teammate';
 }
 
+const LENS_CATALOG: { key: string; label: string }[] = [
+  { key: 'gist', label: 'The Gist' },
+  { key: 'eli5', label: "Explain Like I'm 5" },
+  { key: 'contrarian', label: 'Contrarian Take' },
+  { key: 'analogy', label: 'Analogy' },
+  { key: 'hot-take', label: 'Hot Take' },
+  { key: 'why-saved', label: 'Why I saved this' },
+  { key: 'whats-missing', label: "What's missing" },
+];
+
 function DashboardContent() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('q') ?? '';
@@ -158,6 +168,9 @@ function DashboardContent() {
   const [isNoteSaving, setIsNoteSaving] = useState(false);
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [isImproving, setIsImproving] = useState(false);
+  const [lensOutputs, setLensOutputs] = useState<Record<string, string>>({});
+  const [lensRunning, setLensRunning] = useState<string | null>(null);
+  const [lensDormant, setLensDormant] = useState(false);
   const [newMindModalOpen, setNewMindModalOpen] = useState(false);
   const [connectHome, setConnectHome] = useState('');
   const [connectIds, setConnectIds] = useState<string[]>([]);
@@ -477,6 +490,9 @@ function DashboardContent() {
 
   useEffect(() => {
     setNoteDraft('');
+    setLensOutputs({});
+    setLensRunning(null);
+    setLensDormant(false);
     void loadSelectedNotes();
   }, [loadSelectedNotes, selectedCapture?.id]);
 
@@ -528,6 +544,27 @@ function DashboardContent() {
       );
     },
     [selectedCapture, workspaceId, connectIds],
+  );
+
+  const runLens = useCallback(
+    async (lensKey: string) => {
+      if (!selectedCapture || !workspaceId || selectedCapture.id.startsWith('pending-')) return;
+      setLensRunning(lensKey);
+      const r = await authedFetch(`/api/nodes/${encodeURIComponent(selectedCapture.id)}/lens`, {
+        method: 'POST',
+        body: JSON.stringify({ workspaceId, lens: lensKey }),
+      });
+      setLensRunning(null);
+      if (r.status === 503) {
+        setLensDormant(true);
+        return;
+      }
+      const d = await r.json();
+      if (r.ok && d.output?.output) {
+        setLensOutputs((current) => ({ ...current, [lensKey]: d.output.output as string }));
+      }
+    },
+    [selectedCapture, workspaceId],
   );
 
   useEffect(() => {
@@ -874,6 +911,35 @@ function DashboardContent() {
                       );
                     })}
                   </div>
+                </div>
+              ) : null}
+              {!selectedCapture.id.startsWith('pending-') && !selectedCapture.is_processing ? (
+                <div className="lens-box">
+                  <p className="kicker">Insight lenses</p>
+                  <div className="lens-box__catalog">
+                    {LENS_CATALOG.map((lens) => (
+                      <button
+                        key={lens.key}
+                        type="button"
+                        className="lens-chip"
+                        onClick={() => runLens(lens.key)}
+                        disabled={lensRunning !== null}
+                      >
+                        {lensRunning === lens.key ? 'Thinking…' : lens.label}
+                      </button>
+                    ))}
+                  </div>
+                  {lensDormant ? (
+                    <p className="lens-box__dormant">
+                      Lenses are dormant. Set <code>MUTTMIND_LENSES_ENABLED=1</code> in <code>.env.local</code> and restart to enable.
+                    </p>
+                  ) : null}
+                  {LENS_CATALOG.filter((l) => lensOutputs[l.key]).map((l) => (
+                    <div key={l.key} className="lens-result">
+                      <p className="lens-result__label">{l.label}</p>
+                      <p className="lens-result__body">{lensOutputs[l.key]}</p>
+                    </div>
+                  ))}
                 </div>
               ) : null}
               <div>

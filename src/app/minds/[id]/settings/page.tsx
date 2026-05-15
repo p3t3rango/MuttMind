@@ -253,9 +253,17 @@ function SettingsContent() {
             The system prompt defines how this Mind&apos;s assistant behaves. Tailor it through the guided flow,
             or hand-edit it there.
           </p>
-          <Link href={`/minds/${mind.id}/tailor`} className="ms-btn">
-            Tailor the assistant →
-          </Link>
+          <div className="ms-invite__actions">
+            <Link href={`/minds/${mind.id}/tailor`} className="ms-btn">
+              Tailor the assistant →
+            </Link>
+            <Link href={`/minds/${mind.id}/essays`} className="ms-btn ms-btn--ghost">
+              Synthesis essays →
+            </Link>
+            <Link href={`/minds/${mind.id}/ask`} className="ms-btn ms-btn--ghost">
+              Ask this Mind →
+            </Link>
+          </div>
           <div className="ms-field" style={{ marginTop: 18 }}>
             <span className="ms-field__label">Privacy</span>
             <Dropdown

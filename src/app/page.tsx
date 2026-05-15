@@ -32,76 +32,60 @@ export default function Home() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell home-shell">
       <AppNav active="home" />
 
-      <section className="hero" aria-labelledby="home-title">
-        <div className="hero-copy">
-          <div className="hero-content">
-            <p className="eyebrow">§ MuttMind brief</p>
-            <h1 id="home-title" className="display-title">Capture the links your team keeps revisiting.</h1>
-            <p className="lede">
-              MuttMind turns links, notes, and source context into a shared Mind.
-              Capture from Telegram or the browser, let AI organize it, then watch
-              connections surface across what your team has saved.
+      <section className="home" aria-labelledby="home-title">
+        <header className="home__head">
+          <p className="home__crumb">muttmind · a shared mind</p>
+          <h1 id="home-title" className="home__title">
+            Save links across the day. <br />
+            Watch a Mind come together.
+          </h1>
+          <p className="home__lede">
+            MuttMind turns the links your team shares into a curated body of work.
+            Capture from Telegram or the browser; the assistant organizes,
+            connects, and surfaces what would otherwise go to die in the chat.
+          </p>
+          <div className="home__actions">
+            <Link href="/login" className="home__cta home__cta--primary">
+              Sign in
+            </Link>
+            <a href="#how" className="home__cta home__cta--ghost">
+              How it works
+            </a>
+          </div>
+        </header>
+
+        <ol className="home__steps" id="how">
+          <li className="home__step">
+            <p className="home__step-num">01</p>
+            <h2 className="home__step-title">Capture</h2>
+            <p className="home__step-body">
+              Send a link from Telegram, paste it into the dashboard, or right-click an image. The capture lands in your active Mind with title, summary, og:image, and tags auto-filled.
             </p>
-            <div className="hero-actions">
-              <Link href="/login" className="button">
-                Sign In
-              </Link>
-              <a href="#how-it-works" className="button-secondary">
-                How It Works
-              </a>
-            </div>
-          </div>
-        </div>
+          </li>
+          <li className="home__step">
+            <p className="home__step-num">02</p>
+            <h2 className="home__step-title">Organize</h2>
+            <p className="home__step-body">
+              Each Mind is a focused container — one research project, topic, or interest. Solo by default; share to make it a Shared Mind. Each Mind has its own system prompt and voice.
+            </p>
+          </li>
+          <li className="home__step">
+            <p className="home__step-num">03</p>
+            <h2 className="home__step-title">Synthesize</h2>
+            <p className="home__step-body">
+              The assistant inside each Mind surfaces resonance across what you've saved — relationships on a map, weekly digests via Telegram, on-demand essays from selected captures.
+            </p>
+          </li>
+        </ol>
 
-        <div className="workspace">
-          <div className="panel">
-            <p className="kicker">WHAT YOU GET</p>
-            <h2>A working memory for your team.</h2>
-            <div className="settings-list">
-              <div className="list-item">
-                <span className="metric-value">CAPTURE</span>
-                <span className="metric-label">Save URLs, notes, and source context in one place.</span>
-              </div>
-              <div className="list-item">
-                <span className="metric-value">ORGANIZE</span>
-                <span className="metric-label">Group captures by Mind, uploader, type, and tags.</span>
-              </div>
-              <div className="list-item">
-                <span className="metric-value">REVIEW</span>
-                <span className="metric-label">Inspect thumbnails, the relationship map, and synthesis essays.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="surface-grid" id="how-it-works" aria-label="How MuttMind works">
-        <article className="panel">
-          <p className="eyebrow">01 Capture</p>
-          <h3>Send a link, keep the context.</h3>
-          <p className="lede">
-            Telegram and the browser feed the same Mind, so the signal, the note, and the
-            source all land together.
+        <footer className="home__foot">
+          <p className="home__foot-line">
+            Member-supported. No ads. <Link href="/login">Get started.</Link>
           </p>
-        </article>
-        <article className="panel">
-          <p className="eyebrow">02 Organize</p>
-          <h3>Work by Mind.</h3>
-          <p className="lede">
-            Each personal or shared Mind gets its own tags, members, system prompt, and capture history.
-          </p>
-        </article>
-        <article className="panel">
-          <p className="eyebrow">03 Review</p>
-          <h3>See the shape of the work.</h3>
-          <p className="lede">
-            Use the main Mind view for scanning and the map for relationships between
-            captured items.
-          </p>
-        </article>
+        </footer>
       </section>
     </main>
   );

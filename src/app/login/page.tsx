@@ -103,153 +103,122 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell auth-shell">
       <AppNav active="login" />
 
-      <section className="login-shell" aria-labelledby="login-title">
-        <div className="hero-copy">
-          <div className="hero-content">
-            <p className="eyebrow">§ Secure access / MuttMind entrance</p>
-            <h1 id="login-title" className="auth-title">Sign in to MuttMind.</h1>
-            <p className="lede">
-              Use your account to reach your Minds and the Telegram capture flow.
+      <section className="auth-page" aria-labelledby="login-title">
+        <header className="auth-page__head">
+          <p className="auth-page__crumb">
+            {nextPath.startsWith('/invite/') ? 'invite · sign up to join' : 'account'}
+          </p>
+          <h1 id="login-title" className="auth-page__title">
+            {confirmationEmail ? 'Check your email' : mode === 'signin' ? 'Sign in to MuttMind' : 'Create your account'}
+          </h1>
+        </header>
+
+        {confirmationEmail ? (
+          <div className="auth-confirm" role="status">
+            <p className="auth-confirm__body">
+              We sent a confirmation link to <span className="auth-confirm__email">{confirmationEmail}</span>.
             </p>
+            {message ? <p className="auth-confirm__hint">{message}</p> : null}
+            <button
+              type="button"
+              className="auth-link"
+              onClick={() => {
+                setConfirmationEmail('');
+                setMode('signin');
+                setMessage('');
+              }}
+            >
+              ← Back to sign in
+            </button>
           </div>
-          <div className="login-features" aria-label="Authenticated areas">
-            <article className="login-feature">
-              <span className="kicker">Minds</span>
-              <p>Switch between personal and shared Minds, each with its own focus and voice.</p>
-            </article>
-            <article className="login-feature">
-              <span className="kicker">Capture</span>
-              <p>Save links, notes, and thumbnails as they arrive.</p>
-            </article>
-            <article className="login-feature">
-              <span className="kicker">Synthesis</span>
-              <p>The assistant in each Mind surfaces connections across what you've saved.</p>
-            </article>
-          </div>
-        </div>
-
-        <div className="panel login-panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">Account</p>
-              <h2>{confirmationEmail ? 'Check your email' : mode === 'signin' ? 'Sign in' : 'Create account'}</h2>
-            </div>
-          </div>
-
-          {confirmationEmail ? (
-            <div className="auth-confirmation" role="status">
-              <p className="kicker">Confirmation sent</p>
-              <p className="lede">
-                We sent a confirmation link to <span>{confirmationEmail}</span>.
-              </p>
-              <p className="meta">{message}</p>
+        ) : (
+          <>
+            <div className="auth-tabs" role="tablist" aria-label="Authentication mode">
               <button
-                className="button-secondary"
                 type="button"
+                role="tab"
+                className={`auth-tab ${mode === 'signin' ? 'auth-tab--active' : ''}`}
                 onClick={() => {
-                  setConfirmationEmail('');
                   setMode('signin');
                   setMessage('');
                 }}
               >
-                Back to Sign In
+                Sign in
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className={`auth-tab ${mode === 'signup' ? 'auth-tab--active' : ''}`}
+                onClick={() => {
+                  setMode('signup');
+                  setMessage('');
+                }}
+              >
+                Sign up
               </button>
             </div>
-          ) : (
-            <>
-              <div className="auth-mode-tabs" role="tablist" aria-label="Authentication mode">
-                <button
-                  type="button"
-                  className={mode === 'signin' ? 'auth-mode-tab active' : 'auth-mode-tab'}
-                  onClick={() => {
-                    setMode('signin');
-                    setMessage('');
-                  }}
-                >
-                  Sign in
-                </button>
-                <button
-                  type="button"
-                  className={mode === 'signup' ? 'auth-mode-tab active' : 'auth-mode-tab'}
-                  onClick={() => {
-                    setMode('signup');
-                    setMessage('');
-                  }}
-                >
-                  Sign up
-                </button>
-              </div>
 
-              <form className="form-grid" onSubmit={mode === 'signin' ? signIn : signUp}>
-                {mode === 'signup' ? (
-                  <label className="form-row">
-                    <span className="field-label">Name</span>
-                    <input
-                      type="text"
-                      autoComplete="name"
-                      placeholder="Your name"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                    />
-                  </label>
-                ) : null}
-                <label className="form-row">
-                  <span className="field-label">Email</span>
+            <form className="auth-form" onSubmit={mode === 'signin' ? signIn : signUp}>
+              {mode === 'signup' ? (
+                <label className="auth-field">
+                  <span className="auth-field__label">Name</span>
                   <input
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Your name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
                   />
                 </label>
-                <label className="form-row">
-                  <span className="field-label">Password</span>
+              ) : null}
+              <label className="auth-field">
+                <span className="auth-field__label">Email</span>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </label>
+              <label className="auth-field">
+                <span className="auth-field__label">Password</span>
+                <input
+                  type="password"
+                  autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                  placeholder="At least 8 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </label>
+              {mode === 'signup' ? (
+                <label className="auth-field">
+                  <span className="auth-field__label">Confirm password</span>
                   <input
                     type="password"
-                    autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                    placeholder="Your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder="Repeat password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                   />
                 </label>
-                {mode === 'signup' ? (
-                  <label className="form-row">
-                    <span className="field-label">Confirm password</span>
-                    <input
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="Repeat password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                    />
-                  </label>
-                ) : null}
-                <div className="button-row">
-                  <button className="button" type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Working' : mode === 'signin' ? 'Sign In' : 'Create Account'}
-                  </button>
-                  {mode === 'signin' ? (
-                    <button className="button-secondary" type="button" onClick={() => setMode('signup')}>
-                      Need an account?
-                    </button>
-                  ) : (
-                    <button className="button-secondary" type="button" onClick={() => setMode('signin')}>
-                      Already have one?
-                    </button>
-                  )}
-                </div>
-                {nextPath.startsWith('/invite/') ? (
-                  <p className="meta">After signing in, this invite will open again so you can join the Shared Mind.</p>
-                ) : null}
-                <p className="status">{message}</p>
-              </form>
-            </>
-          )}
-        </div>
+              ) : null}
+
+              {message ? <p className="auth-error">{message}</p> : null}
+
+              <button type="submit" className="auth-submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Working…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+              </button>
+
+              {nextPath.startsWith('/invite/') ? (
+                <p className="auth-hint">After signing in, this invite will open again so you can join the Shared Mind.</p>
+              ) : null}
+            </form>
+          </>
+        )}
       </section>
     </main>
   );

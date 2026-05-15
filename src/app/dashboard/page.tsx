@@ -22,6 +22,7 @@ type CaptureItem = {
   id: string;
   is_processing?: boolean;
   created_by_label?: string;
+  created_at?: string;
   title: string | null;
   original_url: string | null;
   og_image_url: string | null;
@@ -54,6 +55,19 @@ function getHostLabel(url: string | null) {
   } catch {
     return 'source';
   }
+}
+
+function relativeTimeFrom(iso?: string) {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const diff = (Date.now() - then) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 86400 * 365) return `${Math.floor(diff / (86400 * 30))}mo ago`;
+  return `${Math.floor(diff / (86400 * 365))}y ago`;
 }
 
 function getCaptureType(captureItem: CaptureItem) {
@@ -664,21 +678,17 @@ function DashboardContent() {
                     ) : (
                       <span className="mind-card__fallback">{getHostLabel(captureItem.original_url)}</span>
                     )}
-                    {captureItem.original_url ? <span className="mind-card__source">{getHostLabel(captureItem.original_url)}</span> : null}
+                    <span className="mind-card__hover" aria-hidden="true">
+                      <span className="mind-card__hover-by">{captureItem.created_by_label ?? 'teammate'}</span>
+                      {relativeTimeFrom(captureItem.created_at) ? (
+                        <span className="mind-card__hover-when">{relativeTimeFrom(captureItem.created_at)}</span>
+                      ) : null}
+                    </span>
                   </button>
 
                   <button type="button" className="mind-card__title" onClick={() => setSelectedCapture(captureItem)}>
                     {captureItem.title ?? 'Untitled capture'}
                   </button>
-                  <p className="mind-card__creator">Added by {captureItem.created_by_label ?? 'teammate'}</p>
-
-                  {captureItem.tags?.length ? (
-                    <div className="mind-card__tags">
-                      {captureItem.tags.slice(0, 4).map((tag) => (
-                        <span key={tag}>{tag}</span>
-                      ))}
-                    </div>
-                  ) : null}
                 </article>
               );
             })}

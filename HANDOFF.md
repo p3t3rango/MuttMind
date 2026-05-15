@@ -110,6 +110,18 @@ Each commit is independently revertable via `git revert <sha>`.
 
 ---
 
+## AI surfaces shipped (branch `feature/synthesis-ui`, off main)
+
+The three gated AI features now have UI. All still dormant until their flag is set — the UI shows a clear "dormant, set X=1" card instead of erroring.
+
+- **Synthesis essays** — `/minds/[id]/essays`. "Synthesize" button → essay reader (list + rendered markdown w/ citations). Flag: `MUTTMIND_SYNTHESIS_ENABLED=1`.
+- **Insight Lenses** — in the capture drawer. Chip row (Gist / ELI5 / Contrarian / Analogy / Hot Take / Why I saved this / What's missing) → inline output. Flag: `MUTTMIND_LENSES_ENABLED=1`.
+- **Ask this Mind** — `/minds/[id]/ask`. Question box → grounded answer + numbered citations. Flag: `MUTTMIND_ASK_ENABLED=1`.
+
+All three reachable from per-Mind settings → Assistant section. New `EssayMarkdown` component renders synthesis/answer markdown safely (no dangerouslySetInnerHTML).
+
+`feature/minds-foundation` was merged to `main` (`112d447`) and pushed. `feature/synthesis-ui` (AI surfaces) is separate, **not yet merged to main** — awaiting your test/approve.
+
 ## Post-handoff fixes (after you flagged issues in the morning)
 
 - **Vault graph was useless → fixed.** Click was dead (every press read as a drag); now press = open node, drag = rearrange. Every node is labeled (Obsidian-style, centered below). Graph is much denser — cosine threshold 0.78 → 0.62, tag-shared edges added back, node size scales with connection count.

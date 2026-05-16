@@ -25,5 +25,8 @@ export const env = {
   lensesEnabled: process.env.MUTTMIND_LENSES_ENABLED === '1',
   askEnabled: process.env.MUTTMIND_ASK_ENABLED === '1',
   digestEnabled: process.env.MUTTMIND_DIGEST_ENABLED === '1',
+  // Stage 2: per-passage chunk embeddings at capture. Default OFF — flip to '1'
+  // before re-capturing so each node also gets node_chunks for retrieval.
+  chunkingEnabled: process.env.MUTTMIND_CHUNKING_ENABLED === '1',
   cronSecret: process.env.CRON_SECRET ?? '',
 };

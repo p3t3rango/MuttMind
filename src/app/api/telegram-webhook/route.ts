@@ -15,6 +15,9 @@ import {
   unlinkTelegramUser,
 } from '@/lib/telegram';
 
+export const runtime = 'nodejs';
+export const maxDuration = 300;
+
 export async function POST(req: Request) {
   const secret = req.headers.get('x-telegram-bot-api-secret-token');
   if (!isTelegramSecretValid(secret)) {

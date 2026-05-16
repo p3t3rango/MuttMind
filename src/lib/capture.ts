@@ -1,3 +1,6 @@
+import { chunkText } from './chunk';
+import { buildEmbeddingInput } from './embedding-input';
+import { env } from './env';
 import { aiProcess, embeddingProcess } from './llm';
 import { scrapeUrl } from './scrape';
 import { getSupabaseAdmin } from './supabase';
@@ -52,13 +55,17 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
     .eq('workspace_id', workspaceId);
 
   const warnings: string[] = [];
+  // raw_text can now be a full article/PDF. The summary doesn't need the whole
+  // body to be good, and Gemini cost scales with input — cap what we feed it.
+  const SUMMARY_TEXT_CAP = 24_000;
+  const rawForSummary = (node.raw_text ?? '').slice(0, SUMMARY_TEXT_CAP);
   const sourceText = [
     `Title: ${node.title ?? ''}`,
     `URL: ${node.original_url ?? ''}`,
     `Author: ${node.source_author ?? ''}`,
     `Description: ${node.source_description ?? ''}`,
     `User notes: ${node.user_notes ?? ''}`,
-    `Text: ${node.raw_text ?? ''}`,
+    `Text: ${rawForSummary}`,
   ]
     .join('\n')
     .trim();
@@ -78,18 +85,17 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
   const { error: summaryError } = await getSupabaseAdmin().from('nodes').update({ ai_summary: ai.summary }).eq('id', node.id);
   if (summaryError) warnings.push(summaryError.message);
 
-  const embeddingText = [
-    node.title,
-    node.original_url,
-    node.source_description,
-    node.user_notes,
+  const embeddingText = buildEmbeddingInput(
+    [
+      node.title,
+      node.original_url,
+      node.source_description,
+      node.user_notes,
+      ai.summary,
+      ai.tags.join(' '),
+    ],
     node.raw_text,
-    ai.summary,
-    ai.tags.join(' '),
-  ]
-    .filter(Boolean)
-    .join('\n')
-    .trim();
+  );
 
   if (embeddingText) {
     try {
@@ -126,6 +132,61 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
         { onConflict: 'node_id,tag_id' },
       );
       if (nodeTagsError) warnings.push(nodeTagsError.message);
+    }
+  }
+
+  // Stage 2: per-passage embeddings. Gated so the extra N embed calls/capture
+  // only happen deliberately. Never fails the capture — chunks are additive;
+  // node-level embedding above is the always-available fallback.
+  if (env.chunkingEnabled) {
+    try {
+      const chunks = chunkText(node.raw_text ?? '');
+      if (chunks.length) {
+        const CONCURRENCY = 3;
+        const rows: {
+          node_id: string;
+          workspace_id: string;
+          chunk_index: number;
+          content: string;
+          token_estimate: number;
+          embedding: number[];
+        }[] = [];
+        for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+          const batch = chunks.slice(i, i + CONCURRENCY);
+          const embedded = await Promise.all(
+            batch.map(async (c) => {
+              try {
+                const embedding = await embeddingProcess({ text: c.content });
+                return embedding.length ? { c, embedding } : null;
+              } catch {
+                return null;
+              }
+            }),
+          );
+          for (const r of embedded) {
+            if (!r) continue;
+            rows.push({
+              node_id: node.id,
+              workspace_id: workspaceId,
+              chunk_index: r.c.index,
+              content: r.c.content,
+              token_estimate: r.c.tokenEstimate,
+              embedding: r.embedding,
+            });
+          }
+        }
+        if (rows.length) {
+          const { error: chunkError } = await getSupabaseAdmin()
+            .from('node_chunks')
+            .upsert(rows, { onConflict: 'node_id,chunk_index' });
+          if (chunkError) warnings.push(chunkError.message);
+        }
+        if (rows.length < chunks.length) {
+          warnings.push(`Chunking: embedded ${rows.length}/${chunks.length} passages.`);
+        }
+      }
+    } catch (error) {
+      warnings.push(error instanceof Error ? error.message : 'Chunking failed.');
     }
   }
 

@@ -1,3 +1,4 @@
+import { buildEmbeddingInput } from './embedding-input';
 import { aiProcess, embeddingProcess } from './llm';
 import { getSupabaseAdmin } from './supabase';
 
@@ -47,7 +48,7 @@ export async function improveNodeSummary(nodeId: string, workspaceId: string) {
     `Metadata description: ${typedNode.source_description ?? ''}`,
     `Initial capture note: ${typedNode.user_notes ?? ''}`,
     `Saved notes:\n${savedNotes}`,
-    `Text: ${typedNode.raw_text ?? ''}`,
+    `Text: ${(typedNode.raw_text ?? '').slice(0, 24_000)}`,
   ]
     .join('\n')
     .trim();
@@ -72,19 +73,18 @@ export async function improveNodeSummary(nodeId: string, workspaceId: string) {
   const { error: summaryError } = await supabase.from('nodes').update({ ai_summary: ai.summary }).eq('id', nodeId);
   if (summaryError) warnings.push(summaryError.message);
 
-  const embeddingText = [
-    typedNode.title,
-    typedNode.original_url,
-    typedNode.source_description,
-    typedNode.user_notes,
-    savedNotes,
+  const embeddingText = buildEmbeddingInput(
+    [
+      typedNode.title,
+      typedNode.original_url,
+      typedNode.source_description,
+      typedNode.user_notes,
+      savedNotes,
+      ai.summary,
+      ai.tags.join(' '),
+    ],
     typedNode.raw_text,
-    ai.summary,
-    ai.tags.join(' '),
-  ]
-    .filter(Boolean)
-    .join('\n')
-    .trim();
+  );
 
   if (embeddingText) {
     try {

@@ -394,6 +394,11 @@ function VaultContent() {
             <Link href="/minds" className="vault-page__pivot">Minds</Link>
             <Link href="/dashboard" className="vault-page__pivot">Captures</Link>
             <span className="vault-page__pivot vault-page__pivot--active">Map</span>
+            {workspaceId ? (
+              <Link href={`/minds/${workspaceId}/essays`} className="vault-page__pivot">
+                Insights
+              </Link>
+            ) : null}
           </nav>
         </header>
 

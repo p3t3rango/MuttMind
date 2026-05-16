@@ -1,6 +1,6 @@
 import { requireUserId } from '@/lib/auth';
 import { env } from '@/lib/env';
-import { synthesizeEssay } from '@/lib/synthesis';
+import { synthesizeEssay, type SynthesisMode } from '@/lib/synthesis';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { assertWorkspaceMember } from '@/lib/workspace';
 
@@ -51,15 +51,19 @@ export async function POST(req: Request) {
   try {
     const userId = await requireUserId(req);
     const body = await req.json();
-    const { workspaceId, sourceNodeIds, prompt } = body ?? {};
+    const { workspaceId, sourceNodeIds, prompt, mode } = body ?? {};
     if (!workspaceId) return Response.json({ error: 'workspaceId required' }, { status: 400 });
     await assertWorkspaceMember(workspaceId, userId);
+
+    const validModes: SynthesisMode[] = ['essay', 'brief', 'questions'];
+    const resolvedMode = validModes.includes(mode) ? (mode as SynthesisMode) : 'essay';
 
     const result = await synthesizeEssay({
       workspaceId,
       generatedBy: userId,
       sourceNodeIds: Array.isArray(sourceNodeIds) ? sourceNodeIds : undefined,
       prompt: typeof prompt === 'string' ? prompt : undefined,
+      mode: resolvedMode,
     });
 
     if (!result.ok) {
@@ -68,5 +72,48 @@ export async function POST(req: Request) {
     return Response.json({ essay: result.essay });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : 'unknown' }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/essays?workspaceId=X&id=Y
+ * Remove a generated essay. The person who generated it, or a Mind
+ * owner/admin, may delete.
+ */
+export async function DELETE(req: Request) {
+  try {
+    const userId = await requireUserId(req);
+    const url = new URL(req.url);
+    const workspaceId = url.searchParams.get('workspaceId');
+    const id = url.searchParams.get('id');
+    if (!workspaceId || !id) {
+      return Response.json({ error: 'workspaceId and id required' }, { status: 400 });
+    }
+    const role = await assertWorkspaceMember(workspaceId, userId);
+
+    const { data: essay, error: fetchError } = await getSupabaseAdmin()
+      .from('essays')
+      .select('generated_by')
+      .eq('id', id)
+      .eq('workspace_id', workspaceId)
+      .maybeSingle();
+    if (fetchError) return Response.json({ error: fetchError.message }, { status: 500 });
+    if (!essay) return Response.json({ ok: true });
+    if (essay.generated_by !== userId && !['owner', 'admin'].includes(role)) {
+      return Response.json(
+        { error: 'Only the person who generated this, or a Mind admin, can delete it.' },
+        { status: 403 },
+      );
+    }
+
+    const { error } = await getSupabaseAdmin()
+      .from('essays')
+      .delete()
+      .eq('id', id)
+      .eq('workspace_id', workspaceId);
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ ok: true });
+  } catch (e) {
+    return Response.json({ error: e instanceof Error ? e.message : 'unknown' }, { status: 401 });
   }
 }

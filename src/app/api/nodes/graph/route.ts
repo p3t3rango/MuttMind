@@ -1,6 +1,6 @@
 import { requireUserId } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { parseEmbedding } from '@/lib/vector';
+import { cosineSimilarity, parseEmbedding } from '@/lib/vector';
 import { assertWorkspaceMember } from '@/lib/workspace';
 
 type NodeTagRow = {
@@ -16,20 +16,6 @@ type RawNode = {
   created_at: string;
   node_tags?: NodeTagRow[] | null;
 };
-
-function cosineSimilarity(a: number[], b: number[]) {
-  if (!a.length || !b.length || a.length !== b.length) return 0;
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
-  return denom > 0 ? dot / denom : 0;
-}
 
 /**
  * Returns nodes + cosine-similarity edges for a workspace's graph view.

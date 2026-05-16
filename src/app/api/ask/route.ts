@@ -1,10 +1,11 @@
 import { requireUserId } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { embeddingProcess, generateText } from '@/lib/llm';
+import { formatInsightsForPrompt, listInsights } from '@/lib/insights';
 import { formatMemoryForPrompt, listMindMemory } from '@/lib/mind-memory';
 import { buildRuntimeSystemPrompt } from '@/lib/minds-prompts';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { parseEmbedding } from '@/lib/vector';
+import { cosineSimilarity, parseEmbedding } from '@/lib/vector';
 import { assertWorkspaceMember } from '@/lib/workspace';
 
 type WorkspaceRow = {
@@ -24,20 +25,6 @@ type NodeRow = {
   user_notes: string | null;
   embedding: unknown;
 };
-
-function cosineSimilarity(a: number[], b: number[]) {
-  if (!a.length || !b.length || a.length !== b.length) return 0;
-  let dot = 0;
-  let na = 0;
-  let nb = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
-  }
-  const denom = Math.sqrt(na) * Math.sqrt(nb);
-  return denom > 0 ? dot / denom : 0;
-}
 
 /**
  * POST /api/ask
@@ -116,6 +103,9 @@ export async function POST(req: Request) {
 
     const memory = await listMindMemory({ workspaceId, limit: 8 });
     const memoryFragment = formatMemoryForPrompt(memory);
+    const insightsFragment = formatInsightsForPrompt(
+      await listInsights({ workspaceId, limit: 20 }),
+    );
 
     const sourcesFragment = ranked
       .map((n, i) => {
@@ -129,6 +119,7 @@ export async function POST(req: Request) {
       .join('\n\n---\n\n');
 
     const userPrompt = [
+      insightsFragment ? `${insightsFragment}\n\n---\n\n` : '',
       memoryFragment ? `${memoryFragment}\n\n---\n\n` : '',
       `Sources from the Mind "${workspace.name}", ranked by relevance to the question:\n\n${sourcesFragment}`,
       '\n\n---\n\n',

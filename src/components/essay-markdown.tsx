@@ -6,13 +6,20 @@ import { Fragment, type ReactNode } from 'react';
  * Minimal, safe markdown renderer for synthesis essays. No
  * dangerouslySetInnerHTML — we parse a small, predictable subset of what the
  * LLM emits: ATX headings, paragraphs, bullet lists, bold, italic, and inline
- * [n] citations (rendered as small superscript chips).
+ * [n] / [n, m] citations rendered as clickable superscript chips that jump to
+ * a Sources list.
  */
 
-function renderInline(text: string, keyPrefix: string): ReactNode[] {
+export type EssaySource = { n: number; title: string; url: string | null };
+
+function renderInline(
+  text: string,
+  keyPrefix: string,
+  sources: Map<number, EssaySource>,
+): ReactNode[] {
   const nodes: ReactNode[] = [];
-  // Tokenize on **bold**, *italic*, and [12] citations.
-  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*|\[\d+\])/g;
+  // **bold**, *italic*, and [12] / [1, 2] / [1,2] citation groups.
+  const pattern = /(\*\*[^*]+\*\*|\*[^*]+\*|\[\s*\d+(?:\s*,\s*\d+)*\s*\])/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let i = 0;
@@ -27,11 +34,30 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     } else if (token.startsWith('*')) {
       nodes.push(<em key={`${keyPrefix}-i${i}`}>{token.slice(1, -1)}</em>);
     } else {
-      nodes.push(
-        <sup key={`${keyPrefix}-c${i}`} className="essay-cite">
-          {token.slice(1, -1)}
-        </sup>,
-      );
+      const numbers = token
+        .slice(1, -1)
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => Number.isFinite(n));
+      numbers.forEach((num, idx) => {
+        const known = sources.has(num);
+        nodes.push(
+          known ? (
+            <a
+              key={`${keyPrefix}-c${i}-${idx}`}
+              href={`#essay-src-${num}`}
+              className="essay-cite essay-cite--link"
+              aria-label={`Source ${num}: ${sources.get(num)?.title ?? ''}`}
+            >
+              {num}
+            </a>
+          ) : (
+            <sup key={`${keyPrefix}-c${i}-${idx}`} className="essay-cite">
+              {num}
+            </sup>
+          ),
+        );
+      });
     }
     i += 1;
     lastIndex = pattern.lastIndex;
@@ -42,7 +68,14 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   return nodes;
 }
 
-export function EssayMarkdown({ source }: { source: string }) {
+export function EssayMarkdown({
+  source,
+  sources = [],
+}: {
+  source: string;
+  sources?: EssaySource[];
+}) {
+  const sourceMap = new Map(sources.map((s) => [s.n, s]));
   const lines = source.replace(/\r\n/g, '\n').split('\n');
   const blocks: ReactNode[] = [];
   let paragraph: string[] = [];
@@ -55,7 +88,7 @@ export function EssayMarkdown({ source }: { source: string }) {
     if (text) {
       blocks.push(
         <p key={`p${key}`} className="essay-p">
-          {renderInline(text, `p${key}`)}
+          {renderInline(text, `p${key}`, sourceMap)}
         </p>,
       );
       key += 1;
@@ -68,7 +101,7 @@ export function EssayMarkdown({ source }: { source: string }) {
     blocks.push(
       <ul key={`ul${key}`} className="essay-ul">
         {list.map((item, idx) => (
-          <li key={idx}>{renderInline(item, `ul${key}-${idx}`)}</li>
+          <li key={idx}>{renderInline(item, `ul${key}-${idx}`, sourceMap)}</li>
         ))}
       </ul>,
     );
@@ -89,7 +122,7 @@ export function EssayMarkdown({ source }: { source: string }) {
       const cls = level <= 1 ? 'essay-h1' : level === 2 ? 'essay-h2' : 'essay-h3';
       blocks.push(
         <p key={`h${key}`} className={cls}>
-          {renderInline(content, `h${key}`)}
+          {renderInline(content, `h${key}`, sourceMap)}
         </p>,
       );
       key += 1;
@@ -114,5 +147,30 @@ export function EssayMarkdown({ source }: { source: string }) {
   flushParagraph();
   flushList();
 
-  return <div className="essay-body">{blocks}</div>;
+  return (
+    <div className="essay-body">
+      {blocks}
+      {sources.length ? (
+        <ol className="essay-sources">
+          {sources.map((s) => (
+            <li key={s.n} id={`essay-src-${s.n}`} className="essay-sources__item">
+              <span className="essay-sources__n">{s.n}</span>
+              {s.url ? (
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="essay-sources__link"
+                >
+                  {s.title || s.url}
+                </a>
+              ) : (
+                <span className="essay-sources__title">{s.title || 'Untitled'}</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </div>
+  );
 }

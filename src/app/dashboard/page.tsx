@@ -8,6 +8,7 @@ import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { Dropdown } from '@/components/dropdown';
 import { NewMindModal } from '@/components/new-mind-modal';
+import { SynthesizeModal } from '@/components/synthesize-modal';
 import { authedFetch, getSupabaseBrowser } from '@/lib/client-auth';
 
 type Workspace = {
@@ -154,6 +155,7 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('q') ?? '';
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [workspacesLoading, setWorkspacesLoading] = useState(true);
   const [workspaceId, setWorkspaceId] = useState('');
   const [tags, setTags] = useState<Tag[]>([]);
   const [recentCaptures, setRecentCaptures] = useState<CaptureItem[]>([]);
@@ -173,6 +175,7 @@ function DashboardContent() {
   const [lensRunning, setLensRunning] = useState<string | null>(null);
   const [lensDormant, setLensDormant] = useState(false);
   const [newMindModalOpen, setNewMindModalOpen] = useState(false);
+  const [synthModalOpen, setSynthModalOpen] = useState(false);
   const [connectHome, setConnectHome] = useState('');
   const [connectIds, setConnectIds] = useState<string[]>([]);
   const [connectBusy, setConnectBusy] = useState<string | null>(null);
@@ -213,11 +216,15 @@ function DashboardContent() {
   }, [telegramBotUrl]);
 
   const loadWorkspaces = useCallback(async () => {
-    const r = await authedFetch('/api/workspaces');
-    const d = await r.json();
-    const nextWorkspaces = d.workspaces ?? [];
-    setWorkspaces(nextWorkspaces);
-    setWorkspaceId((current) => current || nextWorkspaces[0]?.workspaces?.id || '');
+    try {
+      const r = await authedFetch('/api/workspaces');
+      const d = await r.json();
+      const nextWorkspaces = d.workspaces ?? [];
+      setWorkspaces(nextWorkspaces);
+      setWorkspaceId((current) => current || nextWorkspaces[0]?.workspaces?.id || '');
+    } finally {
+      setWorkspacesLoading(false);
+    }
   }, []);
 
   const loadTags = useCallback(async () => {
@@ -659,6 +666,15 @@ function DashboardContent() {
             </span>
           </div>
           <div className="dash-actions">
+            {workspaceId ? (
+              <button
+                type="button"
+                className="dash-action"
+                onClick={() => setSynthModalOpen(true)}
+              >
+                Synthesize
+              </button>
+            ) : null}
             <button type="button" className="dash-action" onClick={openTelegramBot}>
               Open Bot
             </button>
@@ -672,9 +688,16 @@ function DashboardContent() {
           <Link href="/minds" className="dash-pivot">Minds</Link>
           <span className="dash-pivot dash-pivot--active">Captures</span>
           <Link href="/vault" className="dash-pivot">Map</Link>
+          {workspaceId ? (
+            <Link href={`/minds/${workspaceId}/essays`} className="dash-pivot">
+              Insights
+            </Link>
+          ) : null}
         </nav>
 
-        {!workspaces.length ? (
+        {workspacesLoading ? (
+          <p className="dash-loading">Loading…</p>
+        ) : !workspaces.length ? (
           <div className="dash-empty-setup">
             <p className="dash-empty-setup__hint">You don&apos;t have a Mind yet.</p>
             <button type="button" className="button" onClick={() => setNewMindModalOpen(true)}>
@@ -1025,6 +1048,16 @@ function DashboardContent() {
         open={newMindModalOpen}
         onClose={() => setNewMindModalOpen(false)}
         onCreated={() => loadWorkspaces()}
+      />
+
+      <SynthesizeModal
+        open={synthModalOpen}
+        onClose={() => setSynthModalOpen(false)}
+        workspaceId={workspaceId}
+        mindName={
+          workspaces.find((w) => w.workspaces.id === workspaceId)?.workspaces.name
+        }
+        captureCount={recentCaptures.length}
       />
 
       <ActivationChecklist

@@ -53,12 +53,17 @@ function MindsContent() {
   const searchParams = useSearchParams();
   const query = (searchParams.get('q') ?? '').trim().toLowerCase();
   const [minds, setMinds] = useState<Mind[]>([]);
+  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
 
   const loadMinds = useCallback(async () => {
-    const response = await authedFetch('/api/workspaces?include=recent');
-    const data = await response.json();
-    setMinds((data.workspaces ?? []) as Mind[]);
+    try {
+      const response = await authedFetch('/api/workspaces?include=recent');
+      const data = await response.json();
+      setMinds((data.workspaces ?? []) as Mind[]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -96,9 +101,11 @@ function MindsContent() {
             <span>you</span>
             <span className="minds-page__crumb-sep">/</span>
             <span>
-              {query
-                ? `${visibleMinds.length} of ${minds.length} ${minds.length === 1 ? 'mind' : 'minds'}`
-                : `${minds.length} ${minds.length === 1 ? 'mind' : 'minds'}`}
+              {loading
+                ? '…'
+                : query
+                  ? `${visibleMinds.length} of ${minds.length} ${minds.length === 1 ? 'mind' : 'minds'}`
+                  : `${minds.length} ${minds.length === 1 ? 'mind' : 'minds'}`}
             </span>
           </div>
           <button type="button" className="minds-page__new" onClick={() => setModalOpen(true)}>
@@ -112,7 +119,11 @@ function MindsContent() {
           <Link href="/vault" className="minds-page__pivot">Map</Link>
         </nav>
 
-        {minds.length ? (
+        {loading ? (
+          <p className="minds-empty__hint" style={{ paddingTop: 24, opacity: 0.35 }}>
+            Loading your Minds…
+          </p>
+        ) : minds.length ? (
           <ul className="minds-list" role="list">
             {visibleMinds.map((mind) => {
               const w = mind.workspaces;

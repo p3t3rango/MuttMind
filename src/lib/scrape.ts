@@ -130,6 +130,46 @@ function youtubeVideoId(url: URL): string {
   return url.searchParams.get('v') ?? '';
 }
 
+/**
+ * Free, unofficial: the syndication/embed JSON endpoint react-tweet uses.
+ * Returns full tweet text + quoted-tweet text without auth. Not contractually
+ * stable and won't serve protected/age-gated tweets, but materially richer
+ * than the oEmbed blockquote for the common case.
+ */
+function syndicationToken(id: string): string {
+  return ((Number(id) / 1e15) * Math.PI).toString(36).replace(/(0+|\.)/g, '');
+}
+
+async function tweetSyndication(
+  tweetId: string,
+): Promise<{ text: string; author: string; image: string } | null> {
+  try {
+    const token = syndicationToken(tweetId);
+    const res = await fetch(
+      `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en&token=${token}`,
+      { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(10_000) },
+    );
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (!d || d.__typename === 'TweetTombstone' || typeof d.text !== 'string') return null;
+
+    const author = d.user?.name || d.user?.screen_name || '';
+    const parts = [d.text as string];
+    if (d.quoted_tweet?.text) {
+      const qa = d.quoted_tweet.user?.name || d.quoted_tweet.user?.screen_name || '';
+      parts.push(`\n\nQuoting${qa ? ` ${qa}` : ''}: ${d.quoted_tweet.text}`);
+    }
+    const image =
+      d.mediaDetails?.find((m: { media_url_https?: string }) => m?.media_url_https)
+        ?.media_url_https ||
+      d.photos?.[0]?.url ||
+      '';
+    return { text: normalizeText(parts.join('')), author, image };
+  } catch {
+    return null;
+  }
+}
+
 async function extractTweet(url: string, parsed: URL): Promise<ScrapeResult> {
   const warnings: string[] = [];
   const base: ScrapeResult = {
@@ -171,7 +211,24 @@ async function extractTweet(url: string, parsed: URL): Promise<ScrapeResult> {
     }
   }
 
-  // Fallback: public oEmbed (no auth). Fails for protected/deleted/age-gated.
+  // Free, richer than oEmbed: the syndication JSON endpoint.
+  if (/^\d+$/.test(tweetId)) {
+    const syn = await tweetSyndication(tweetId);
+    if (syn && syn.text) {
+      // Extraction succeeded — don't surface earlier paid-API attempt noise.
+      return {
+        ...base,
+        title: syn.author ? `${syn.author} on X` : base.title,
+        author: syn.author,
+        image: syn.image,
+        text: syn.text,
+        extractionWarnings: base.extractionWarnings,
+      };
+    }
+    warnings.push('Syndication endpoint returned nothing; trying oEmbed.');
+  }
+
+  // Last resort: public oEmbed (no auth). Thin; fails for protected/deleted.
   try {
     const res = await fetch(
       `https://publish.twitter.com/oembed?omit_script=1&dnt=true&url=${encodeURIComponent(url)}`,

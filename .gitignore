@@ -6,3 +6,4 @@ tsconfig.tsbuildinfo
 supabase/.temp
 STATUS.md
 .claude
+.vercel

@@ -643,7 +643,7 @@ function DashboardContent() {
       <AppNav active="dashboard" />
 
       <section className="dash-page" aria-labelledby="dashboard-title">
-        <h1 id="dashboard-title" className="sr-only">Captures</h1>
+        <h1 id="dashboard-title" className="sr-only">Dashboard</h1>
 
         <header className="dash-header">
           <div className="dash-crumb">
@@ -686,7 +686,7 @@ function DashboardContent() {
 
         <nav className="dash-pivots" aria-label="View">
           <Link href="/minds" className="dash-pivot">Minds</Link>
-          <span className="dash-pivot dash-pivot--active">Captures</span>
+          <span className="dash-pivot dash-pivot--active">Dashboard</span>
           <Link href="/vault" className="dash-pivot">Map</Link>
           {workspaceId ? (
             <Link href={`/minds/${workspaceId}/essays`} className="dash-pivot">

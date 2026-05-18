@@ -259,7 +259,7 @@ function EssaysContent() {
 
         <nav className="dash-pivots" aria-label="View">
           <Link href="/minds" className="dash-pivot">Minds</Link>
-          <Link href="/dashboard" className="dash-pivot">Captures</Link>
+          <Link href="/dashboard" className="dash-pivot">Dashboard</Link>
           <Link href="/vault" className="dash-pivot">Map</Link>
           <span className="dash-pivot dash-pivot--active">Insights</span>
         </nav>

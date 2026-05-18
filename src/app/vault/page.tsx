@@ -392,7 +392,7 @@ function VaultContent() {
           </div>
           <nav className="vault-page__pivots" aria-label="View">
             <Link href="/minds" className="vault-page__pivot">Minds</Link>
-            <Link href="/dashboard" className="vault-page__pivot">Captures</Link>
+            <Link href="/dashboard" className="vault-page__pivot">Dashboard</Link>
             <span className="vault-page__pivot vault-page__pivot--active">Map</span>
             {workspaceId ? (
               <Link href={`/minds/${workspaceId}/essays`} className="vault-page__pivot">

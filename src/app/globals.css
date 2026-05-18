@@ -3787,6 +3787,27 @@ select:focus {
   animation: dash-mic-pulse 1.2s ease-in-out infinite;
 }
 
+.dash-mic--save {
+  color: #050505;
+  background: var(--ink);
+  border-color: var(--ink);
+  text-decoration: none;
+}
+
+.dash-mic--save:hover {
+  background: transparent;
+  color: var(--ink);
+}
+
+.dash-wave {
+  align-self: center;
+  display: block;
+  width: 140px;
+  height: 26px;
+  border: 1px solid rgba(247, 247, 242, 0.18);
+  background: rgba(247, 247, 242, 0.03);
+}
+
 @keyframes dash-mic-pulse {
   0%,
   100% {

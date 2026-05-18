@@ -188,6 +188,10 @@ function DashboardContent() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const [recoveryUrl, setRecoveryUrl] = useState('');
   const [tagDraft, setTagDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -287,6 +291,10 @@ function DashboardContent() {
       setStatus('Create or choose a Mind first.');
       return;
     }
+    if (recoveryUrl) {
+      URL.revokeObjectURL(recoveryUrl);
+      setRecoveryUrl('');
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const rec = new MediaRecorder(stream);
@@ -294,8 +302,52 @@ function DashboardContent() {
       rec.ondataavailable = (e) => {
         if (e.data.size) chunksRef.current.push(e.data);
       };
+
+      // Live waveform off the same stream.
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        const audioCtx = new AudioCtx();
+        audioCtxRef.current = audioCtx;
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 512;
+        audioCtx.createMediaStreamSource(stream).connect(analyser);
+        const data = new Uint8Array(analyser.fftSize);
+        const draw = () => {
+          rafRef.current = requestAnimationFrame(draw);
+          const canvas = canvasRef.current;
+          const ctx = canvas?.getContext('2d');
+          if (!canvas || !ctx) return;
+          analyser.getByteTimeDomainData(data);
+          const w = canvas.width;
+          const h = canvas.height;
+          ctx.clearRect(0, 0, w, h);
+          ctx.strokeStyle = '#f7f7f2';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          const slice = w / data.length;
+          for (let i = 0; i < data.length; i += 1) {
+            const y = (data[i] / 128) * (h / 2);
+            const x = i * slice;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        };
+        rafRef.current = requestAnimationFrame(draw);
+      }
+
+      const stopWave = () => {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+        audioCtxRef.current?.close().catch(() => {});
+        audioCtxRef.current = null;
+      };
+
       rec.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
+        stopWave();
         setRecording(false);
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
         if (!blob.size) return;
@@ -313,13 +365,16 @@ function DashboardContent() {
           });
           const d = await r.json();
           if (!r.ok) {
-            setStatus(d.error ?? 'Could not save voice memo.');
+            // Keep the recording recoverable so a long memo isn't lost.
+            setRecoveryUrl(URL.createObjectURL(blob));
+            setStatus(d.error ?? 'Upload failed — download your recording below.');
             return;
           }
           setStatus('Voice memo transcribed and saved.');
           loadRecentCaptures();
         } catch {
-          setStatus('Voice capture failed.');
+          setRecoveryUrl(URL.createObjectURL(blob));
+          setStatus('Upload failed (network?) — download your recording below.');
         } finally {
           setVoiceBusy(false);
         }
@@ -883,6 +938,15 @@ function DashboardContent() {
                 >
                   {recording ? '● Stop' : voiceBusy ? 'Transcribing…' : '🎙 Record'}
                 </button>
+                {recording ? (
+                  <canvas
+                    ref={canvasRef}
+                    className="dash-wave"
+                    width={140}
+                    height={26}
+                    aria-hidden="true"
+                  />
+                ) : null}
                 <button
                   type="button"
                   className="dash-mic"
@@ -900,6 +964,16 @@ function DashboardContent() {
                   onChange={onPickFile}
                   hidden
                 />
+                {recoveryUrl ? (
+                  <a
+                    href={recoveryUrl}
+                    download="voice-memo.webm"
+                    className="dash-mic dash-mic--save"
+                    title="Upload failed — download the recording so you don't lose it"
+                  >
+                    ⤓ Recording
+                  </a>
+                ) : null}
                 </div>
                 <span className="dash-capture__hint">⌘ + Enter to save</span>
                 <button type="submit" className="dash-capture__submit" disabled={isSaving || !captureDraft.trim()}>

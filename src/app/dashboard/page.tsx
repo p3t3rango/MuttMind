@@ -191,6 +191,7 @@ function DashboardContent() {
   const [isImproving, setIsImproving] = useState(false);
   const [lensOutputs, setLensOutputs] = useState<Record<string, string>>({});
   const [lensRunning, setLensRunning] = useState<string | null>(null);
+  const [lensSaved, setLensSaved] = useState<Record<string, boolean>>({});
   const [lensDormant, setLensDormant] = useState(false);
   const [newMindModalOpen, setNewMindModalOpen] = useState(false);
   const [synthModalOpen, setSynthModalOpen] = useState(false);
@@ -596,6 +597,19 @@ function DashboardContent() {
     [selectedCapture, workspaceId],
   );
 
+  const saveLensToInsights = useCallback(
+    async (lensKey: string, lensLabel: string, body: string) => {
+      if (!workspaceId || !body.trim()) return;
+      const title = `${lensLabel}${selectedCapture?.title ? ` · ${selectedCapture.title}` : ''}`;
+      const r = await authedFetch('/api/insights', {
+        method: 'POST',
+        body: JSON.stringify({ workspaceId, title, body }),
+      });
+      if (r.ok) setLensSaved((s) => ({ ...s, [lensKey]: true }));
+    },
+    [workspaceId, selectedCapture],
+  );
+
   useEffect(() => {
     const storedMindId = window.localStorage.getItem('muttmind:active-mind-id');
     if (storedMindId) {
@@ -996,6 +1010,14 @@ function DashboardContent() {
                     <div key={l.key} className="lens-result">
                       <p className="lens-result__label">{l.label}</p>
                       <p className="lens-result__body">{lensOutputs[l.key]}</p>
+                      <button
+                        type="button"
+                        className="insight-link"
+                        onClick={() => saveLensToInsights(l.key, l.label, lensOutputs[l.key])}
+                        disabled={lensSaved[l.key]}
+                      >
+                        {lensSaved[l.key] ? 'Saved to Insights ✓' : 'Save to Insights'}
+                      </button>
                     </div>
                   ))}
                 </div>

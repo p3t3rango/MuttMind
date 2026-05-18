@@ -179,6 +179,18 @@ function EssaysContent() {
     }
   };
 
+  const [savedEssayId, setSavedEssayId] = useState<string | null>(null);
+  const saveEssayToInsights = async (id: string, title: string | null, body: string) => {
+    const r = await authedFetch('/api/insights', {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId: mindId, title: title || 'Synthesis', body }),
+    });
+    if (r.ok) {
+      setSavedEssayId(id);
+      loadInsights();
+    }
+  };
+
   const stopPhases = useCallback(() => {
     if (phaseTimer.current) {
       clearInterval(phaseTimer.current);
@@ -484,6 +496,16 @@ function EssaysContent() {
                       {openEssay.model ? ` · ${openEssay.model}` : ''}
                     </p>
                     <span className="insight-item__actions">
+                      <button
+                        type="button"
+                        className="insight-link"
+                        onClick={() =>
+                          saveEssayToInsights(openEssay.id, openEssay.title, openEssay.body_md)
+                        }
+                        disabled={savedEssayId === openEssay.id}
+                      >
+                        {savedEssayId === openEssay.id ? 'Saved to Yours ✓' : 'Save to Yours'}
+                      </button>
                       {confirmDeleteEssayId === openEssay.id ? (
                         <>
                           <button

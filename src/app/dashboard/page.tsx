@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivationChecklist } from '@/components/activation-checklist';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { Dropdown } from '@/components/dropdown';
 import { NewMindModal } from '@/components/new-mind-modal';
 import { SynthesizeModal } from '@/components/synthesize-modal';
-import { authedFetch, getSupabaseBrowser } from '@/lib/client-auth';
+import { authedFetch, getAccessToken, getSupabaseBrowser } from '@/lib/client-auth';
 import { detectUrlKind } from '@/lib/detect';
 
 type Workspace = {
@@ -182,6 +182,10 @@ function DashboardContent() {
   const [status, setStatus] = useState('');
   const [captureDraft, setCaptureDraft] = useState('');
   const detection = useMemo(() => detectUrlKind(captureDraft), [captureDraft]);
+  const [recording, setRecording] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const [tagDraft, setTagDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -271,6 +275,61 @@ function DashboardContent() {
     setCapturesLoading(false);
     return nodes;
   }, [workspaceId]);
+
+  const toggleRecord = async () => {
+    if (recording) {
+      recorderRef.current?.stop();
+      return;
+    }
+    if (!workspaceId) {
+      setStatus('Create or choose a Mind first.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size) chunksRef.current.push(e.data);
+      };
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        if (!blob.size) return;
+        setVoiceBusy(true);
+        setStatus('Transcribing voice memo…');
+        try {
+          const token = await getAccessToken();
+          const fd = new FormData();
+          fd.append('workspaceId', workspaceId);
+          fd.append('audio', blob, 'memo.webm');
+          const r = await fetch('/api/capture/voice', {
+            method: 'POST',
+            headers: { authorization: `Bearer ${token}` },
+            body: fd,
+          });
+          const d = await r.json();
+          if (!r.ok) {
+            setStatus(d.error ?? 'Could not save voice memo.');
+            return;
+          }
+          setStatus('Voice memo transcribed and saved.');
+          loadRecentCaptures();
+        } catch {
+          setStatus('Voice capture failed.');
+        } finally {
+          setVoiceBusy(false);
+        }
+      };
+      recorderRef.current = rec;
+      rec.start();
+      setRecording(true);
+      setStatus('Recording… tap again to stop.');
+    } catch {
+      setStatus('Microphone access denied.');
+    }
+  };
 
   const saveCapture = useCallback(
     async (text: string) => {
@@ -777,6 +836,16 @@ function DashboardContent() {
                 </p>
               ) : null}
               <div className="dash-capture__row">
+                <button
+                  type="button"
+                  className={`dash-mic ${recording ? 'dash-mic--rec' : ''}`}
+                  onClick={toggleRecord}
+                  disabled={voiceBusy}
+                  aria-label={recording ? 'Stop recording' : 'Record a voice memo'}
+                  title="Voice memo (transcribed)"
+                >
+                  {recording ? '● Stop' : voiceBusy ? 'Transcribing…' : '🎙 Record'}
+                </button>
                 <span className="dash-capture__hint">⌘ + Enter to save</span>
                 <button type="submit" className="dash-capture__submit" disabled={isSaving || !captureDraft.trim()}>
                   {isSaving ? 'Saving…' : 'Save'}

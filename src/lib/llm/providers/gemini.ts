@@ -164,3 +164,40 @@ export async function geminiGenerateText(input: GeminiGenerateTextInput): Promis
   const data = await response.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
+
+export type GeminiTranscribeInput = {
+  base64: string;
+  mimeType: string;
+  model?: string;
+};
+
+export async function geminiTranscribe(input: GeminiTranscribeInput): Promise<string> {
+  if (!env.geminiApiKey) throw new Error('GEMINI_API_KEY is required');
+  const model = input.model ?? env.geminiModel;
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.geminiApiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { inline_data: { mime_type: input.mimeType, data: input.base64 } },
+              {
+                text: 'Transcribe this audio verbatim into clean readable text. Return only the transcript — no preamble, no timestamps, no speaker labels unless multiple speakers are clearly distinct.',
+              },
+            ],
+          },
+        ],
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini transcription failed: ${response.status} ${errorText.slice(0, 180)}`);
+  }
+  const data = await response.json();
+  return (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim();
+}

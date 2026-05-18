@@ -3752,6 +3752,46 @@ select:focus {
   color: rgba(247, 247, 242, 0.4);
 }
 
+.dash-mic {
+  margin-right: auto;
+  appearance: none;
+  background: none;
+  border: 1px solid rgba(247, 247, 242, 0.2);
+  color: rgba(247, 247, 242, 0.6);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.dash-mic:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: rgba(247, 247, 242, 0.45);
+}
+
+.dash-mic:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dash-mic--rec {
+  color: #f0867f;
+  border-color: #d9706a;
+  animation: dash-mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dash-mic-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 .dash-detect {
   display: flex;
   align-items: center;

@@ -6,32 +6,60 @@ import { scrapeUrl } from './scrape';
 import { getSupabaseAdmin } from './supabase';
 import { assertWorkspaceMember } from './workspace';
 
+type Prefetched = {
+  kind: string;
+  title?: string;
+  text?: string;
+  image?: string;
+  description?: string;
+  author?: string;
+};
+
 type CaptureInput = {
   userId: string;
   workspaceId: string;
   url?: string;
   rawText?: string;
+  /** Supplied by upload/voice paths: content already extracted, skip scrapeUrl. */
+  prefetched?: Prefetched;
 };
 
-export async function captureSignal({ userId, workspaceId, url, rawText }: CaptureInput) {
-  if (!workspaceId || (!url && !rawText)) {
-    throw new Error('workspaceId and url/rawText required');
+export async function captureSignal({
+  userId,
+  workspaceId,
+  url,
+  rawText,
+  prefetched,
+}: CaptureInput) {
+  if (!workspaceId || (!url && !rawText && !prefetched?.text)) {
+    throw new Error('workspaceId and url/rawText/prefetched required');
   }
 
   await assertWorkspaceMember(workspaceId, userId);
 
   const scrape = url
     ? await scrapeUrl(url)
-    : {
-        title: '',
-        description: '',
-        image: '',
-        author: '',
-        text: '',
-        kind: 'note' as const,
-        truncated: false,
-        extractionWarnings: [] as string[],
-      };
+    : prefetched
+      ? {
+          title: prefetched.title ?? '',
+          description: prefetched.description ?? '',
+          image: prefetched.image ?? '',
+          author: prefetched.author ?? '',
+          text: prefetched.text ?? '',
+          kind: prefetched.kind,
+          truncated: false,
+          extractionWarnings: [] as string[],
+        }
+      : {
+          title: '',
+          description: '',
+          image: '',
+          author: '',
+          text: '',
+          kind: 'note' as const,
+          truncated: false,
+          extractionWarnings: [] as string[],
+        };
   const normalizedRawText = rawText?.trim() ?? '';
   const normalizedUrl = url?.trim() ?? '';
   const userNote = normalizedRawText && normalizedRawText !== normalizedUrl ? normalizedRawText : '';

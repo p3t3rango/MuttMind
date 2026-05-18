@@ -10,6 +10,7 @@ import { Dropdown } from '@/components/dropdown';
 import { NewMindModal } from '@/components/new-mind-modal';
 import { SynthesizeModal } from '@/components/synthesize-modal';
 import { authedFetch, getSupabaseBrowser } from '@/lib/client-auth';
+import { detectUrlKind } from '@/lib/detect';
 
 type Workspace = {
   role: string;
@@ -37,6 +38,7 @@ type CaptureItem = {
   ai_summary: string | null;
   tags: string[];
   connected?: boolean;
+  scrape_kind?: string | null;
 };
 
 type NodeNote = {
@@ -76,6 +78,21 @@ function relativeTimeFrom(iso?: string) {
 }
 
 function getCaptureType(captureItem: CaptureItem) {
+  // Prefer the extractor's persisted classification when available; fall back
+  // to URL-pattern guessing for older captures / before scrape_kind is set.
+  switch (captureItem.scrape_kind) {
+    case 'youtube':
+      return 'video';
+    case 'image':
+      return 'image';
+    case 'pdf':
+      return 'pdf';
+    case 'tweet':
+    case 'article':
+    case 'file':
+      return 'link';
+  }
+
   const url = captureItem.original_url ?? '';
   const lower = url.toLowerCase();
 
@@ -164,6 +181,7 @@ function DashboardContent() {
   const [nodeNotes, setNodeNotes] = useState<NodeNote[]>([]);
   const [status, setStatus] = useState('');
   const [captureDraft, setCaptureDraft] = useState('');
+  const detection = useMemo(() => detectUrlKind(captureDraft), [captureDraft]);
   const [tagDraft, setTagDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -727,6 +745,17 @@ function DashboardContent() {
                 }}
                 rows={2}
               />
+              {captureDraft.trim() ? (
+                <p
+                  className={`dash-detect dash-detect--${detection.kind}`}
+                  aria-live="polite"
+                >
+                  <span className="dash-detect__dot" aria-hidden="true" />
+                  {detection.provider && detection.kind !== 'note'
+                    ? `${detection.provider} · ${detection.label}`
+                    : detection.label}
+                </p>
+              ) : null}
               <div className="dash-capture__row">
                 <span className="dash-capture__hint">⌘ + Enter to save</span>
                 <button type="submit" className="dash-capture__submit" disabled={isSaving || !captureDraft.trim()}>

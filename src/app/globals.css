@@ -3734,6 +3734,38 @@ select:focus {
   color: rgba(247, 247, 242, 0.4);
 }
 
+.dash-detect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: rgba(247, 247, 242, 0.55);
+}
+
+.dash-detect__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  background: rgba(247, 247, 242, 0.4);
+}
+
+.dash-detect--note .dash-detect__dot {
+  background: rgba(247, 247, 242, 0.3);
+}
+
+.dash-detect--youtube .dash-detect__dot,
+.dash-detect--tweet .dash-detect__dot,
+.dash-detect--music .dash-detect__dot,
+.dash-detect--pdf .dash-detect__dot,
+.dash-detect--image .dash-detect__dot,
+.dash-detect--article .dash-detect__dot {
+  background: var(--ink);
+}
+
 .dash-capture__submit {
   min-height: 32px;
   padding: 0 18px;

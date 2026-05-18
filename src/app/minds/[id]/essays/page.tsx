@@ -24,8 +24,16 @@ type Insight = {
   body: string;
   created_at: string;
   updated_at: string;
+  source_kind?: string | null;
   author?: { display_name: string | null; email: string | null } | null;
 };
+
+function sourceLabel(kind?: string | null): string {
+  if (!kind) return '';
+  if (kind === 'essay') return 'from a synthesis';
+  if (kind.startsWith('lens:')) return `from the ${kind.slice(5).replace(/-/g, ' ')} lens`;
+  return `from ${kind}`;
+}
 
 type Mode = 'essay' | 'brief' | 'questions';
 
@@ -179,6 +187,23 @@ function EssaysContent() {
     }
   };
 
+  const [savedEssayId, setSavedEssayId] = useState<string | null>(null);
+  const saveEssayToInsights = async (id: string, title: string | null, body: string) => {
+    const r = await authedFetch('/api/insights', {
+      method: 'POST',
+      body: JSON.stringify({
+        workspaceId: mindId,
+        title: title || 'Synthesis',
+        body,
+        sourceKind: 'essay',
+      }),
+    });
+    if (r.ok) {
+      setSavedEssayId(id);
+      loadInsights();
+    }
+  };
+
   const stopPhases = useCallback(() => {
     if (phaseTimer.current) {
       clearInterval(phaseTimer.current);
@@ -259,7 +284,7 @@ function EssaysContent() {
 
         <nav className="dash-pivots" aria-label="View">
           <Link href="/minds" className="dash-pivot">Minds</Link>
-          <Link href="/dashboard" className="dash-pivot">Captures</Link>
+          <Link href="/dashboard" className="dash-pivot">Dashboard</Link>
           <Link href="/vault" className="dash-pivot">Map</Link>
           <span className="dash-pivot dash-pivot--active">Insights</span>
         </nav>
@@ -338,6 +363,7 @@ function EssaysContent() {
                           {' · '}
                           {relativeTime(it.updated_at)}
                           {it.updated_at !== it.created_at ? ' · edited' : ''}
+                          {it.source_kind ? ` · ${sourceLabel(it.source_kind)}` : ''}
                         </span>
                         <span className="insight-item__actions">
                           <button
@@ -484,6 +510,16 @@ function EssaysContent() {
                       {openEssay.model ? ` · ${openEssay.model}` : ''}
                     </p>
                     <span className="insight-item__actions">
+                      <button
+                        type="button"
+                        className="insight-link"
+                        onClick={() =>
+                          saveEssayToInsights(openEssay.id, openEssay.title, openEssay.body_md)
+                        }
+                        disabled={savedEssayId === openEssay.id}
+                      >
+                        {savedEssayId === openEssay.id ? 'Saved to Yours ✓' : 'Save to Yours'}
+                      </button>
                       {confirmDeleteEssayId === openEssay.id ? (
                         <>
                           <button

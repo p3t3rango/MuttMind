@@ -3186,6 +3186,24 @@ select:focus {
 
 /* Buttons ------------------------------------------------------------------ */
 
+.mm-event-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.mm-event-opt input {
+  margin-top: 3px;
+  accent-color: var(--ink);
+  flex: none;
+}
+
+.mm-event-opt > span {
+  display: grid;
+  gap: 2px;
+}
+
 .mm-actions {
   display: flex;
   align-items: center;
@@ -3732,6 +3750,83 @@ select:focus {
   font-size: 11px;
   letter-spacing: 0.06em;
   color: rgba(247, 247, 242, 0.4);
+}
+
+.dash-tools {
+  margin-right: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.dash-mic {
+  appearance: none;
+  background: none;
+  border: 1px solid rgba(247, 247, 242, 0.2);
+  color: rgba(247, 247, 242, 0.6);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.dash-mic:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: rgba(247, 247, 242, 0.45);
+}
+
+.dash-mic:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dash-mic--rec {
+  color: #f0867f;
+  border-color: #d9706a;
+  animation: dash-mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dash-mic-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.dash-detect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: rgba(247, 247, 242, 0.55);
+}
+
+.dash-detect__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  background: rgba(247, 247, 242, 0.4);
+}
+
+.dash-detect--note .dash-detect__dot {
+  background: rgba(247, 247, 242, 0.3);
+}
+
+.dash-detect--youtube .dash-detect__dot,
+.dash-detect--tweet .dash-detect__dot,
+.dash-detect--music .dash-detect__dot,
+.dash-detect--pdf .dash-detect__dot,
+.dash-detect--image .dash-detect__dot,
+.dash-detect--article .dash-detect__dot {
+  background: var(--ink);
 }
 
 .dash-capture__submit {
@@ -4795,6 +4890,31 @@ select:focus {
   text-underline-offset: 4px;
 }
 
+@media (max-width: 560px) {
+  .home {
+    gap: 40px;
+    padding: 56px 20px 64px;
+  }
+  /* Stack the step number above its content so the body always gets full
+     width — never the squeezed single-word column. */
+  .home__step {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 22px 0;
+  }
+  .home__step-body,
+  .home__lede {
+    max-width: none;
+  }
+  .home__actions {
+    display: grid;
+    gap: 10px;
+  }
+  .home__cta {
+    width: 100%;
+  }
+}
+
 /* ---------------------------------------------------------------------------
    Per-Mind settings — /minds/[id]/settings, editorial restraint
    --------------------------------------------------------------------------- */
@@ -5100,6 +5220,13 @@ select:focus {
 .ms-share .ms-btn {
   border: 0;
   border-left: 1px solid rgba(247, 247, 242, 0.18);
+}
+
+.ms-qr {
+  display: block;
+  margin-top: 14px;
+  border: 1px solid rgba(247, 247, 242, 0.14);
+  image-rendering: pixelated;
 }
 
 .ms-tag-add {

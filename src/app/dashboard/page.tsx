@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivationChecklist } from '@/components/activation-checklist';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { Dropdown } from '@/components/dropdown';
 import { NewMindModal } from '@/components/new-mind-modal';
 import { SynthesizeModal } from '@/components/synthesize-modal';
-import { authedFetch, getSupabaseBrowser } from '@/lib/client-auth';
+import { authedFetch, getAccessToken, getSupabaseBrowser } from '@/lib/client-auth';
+import { detectUrlKind } from '@/lib/detect';
 
 type Workspace = {
   role: string;
@@ -37,6 +38,7 @@ type CaptureItem = {
   ai_summary: string | null;
   tags: string[];
   connected?: boolean;
+  scrape_kind?: string | null;
 };
 
 type NodeNote = {
@@ -76,6 +78,21 @@ function relativeTimeFrom(iso?: string) {
 }
 
 function getCaptureType(captureItem: CaptureItem) {
+  // Prefer the extractor's persisted classification when available; fall back
+  // to URL-pattern guessing for older captures / before scrape_kind is set.
+  switch (captureItem.scrape_kind) {
+    case 'youtube':
+      return 'video';
+    case 'image':
+      return 'image';
+    case 'pdf':
+      return 'pdf';
+    case 'tweet':
+    case 'article':
+    case 'file':
+      return 'link';
+  }
+
   const url = captureItem.original_url ?? '';
   const lower = url.toLowerCase();
 
@@ -164,6 +181,13 @@ function DashboardContent() {
   const [nodeNotes, setNodeNotes] = useState<NodeNote[]>([]);
   const [status, setStatus] = useState('');
   const [captureDraft, setCaptureDraft] = useState('');
+  const detection = useMemo(() => detectUrlKind(captureDraft), [captureDraft]);
+  const [recording, setRecording] = useState(false);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [tagDraft, setTagDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -173,6 +197,7 @@ function DashboardContent() {
   const [isImproving, setIsImproving] = useState(false);
   const [lensOutputs, setLensOutputs] = useState<Record<string, string>>({});
   const [lensRunning, setLensRunning] = useState<string | null>(null);
+  const [lensSaved, setLensSaved] = useState<Record<string, boolean>>({});
   const [lensDormant, setLensDormant] = useState(false);
   const [newMindModalOpen, setNewMindModalOpen] = useState(false);
   const [synthModalOpen, setSynthModalOpen] = useState(false);
@@ -252,6 +277,95 @@ function DashboardContent() {
     setCapturesLoading(false);
     return nodes;
   }, [workspaceId]);
+
+  const toggleRecord = async () => {
+    if (recording) {
+      recorderRef.current?.stop();
+      return;
+    }
+    if (!workspaceId) {
+      setStatus('Create or choose a Mind first.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size) chunksRef.current.push(e.data);
+      };
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        if (!blob.size) return;
+        setVoiceBusy(true);
+        setStatus('Transcribing voice memo…');
+        try {
+          const token = await getAccessToken();
+          const fd = new FormData();
+          fd.append('workspaceId', workspaceId);
+          fd.append('audio', blob, 'memo.webm');
+          const r = await fetch('/api/capture/voice', {
+            method: 'POST',
+            headers: { authorization: `Bearer ${token}` },
+            body: fd,
+          });
+          const d = await r.json();
+          if (!r.ok) {
+            setStatus(d.error ?? 'Could not save voice memo.');
+            return;
+          }
+          setStatus('Voice memo transcribed and saved.');
+          loadRecentCaptures();
+        } catch {
+          setStatus('Voice capture failed.');
+        } finally {
+          setVoiceBusy(false);
+        }
+      };
+      recorderRef.current = rec;
+      rec.start();
+      setRecording(true);
+      setStatus('Recording… tap again to stop.');
+    } catch {
+      setStatus('Microphone access denied.');
+    }
+  };
+
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (!workspaceId) {
+      setStatus('Create or choose a Mind first.');
+      return;
+    }
+    setUploadBusy(true);
+    setStatus(`Uploading ${f.name}…`);
+    try {
+      const token = await getAccessToken();
+      const fd = new FormData();
+      fd.append('workspaceId', workspaceId);
+      fd.append('file', f);
+      const r = await fetch('/api/capture/upload', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        setStatus(d.error ?? 'Upload failed.');
+        return;
+      }
+      setStatus(d.kind === 'pdf' ? 'PDF captured.' : 'Image captured.');
+      loadRecentCaptures();
+    } catch {
+      setStatus('Upload failed.');
+    } finally {
+      setUploadBusy(false);
+    }
+  };
 
   const saveCapture = useCallback(
     async (text: string) => {
@@ -578,6 +692,25 @@ function DashboardContent() {
     [selectedCapture, workspaceId],
   );
 
+  const saveLensToInsights = useCallback(
+    async (lensKey: string, lensLabel: string, body: string) => {
+      if (!workspaceId || !body.trim()) return;
+      const title = `${lensLabel}${selectedCapture?.title ? ` · ${selectedCapture.title}` : ''}`;
+      const r = await authedFetch('/api/insights', {
+        method: 'POST',
+        body: JSON.stringify({
+          workspaceId,
+          title,
+          body,
+          sourceNodeId: selectedCapture?.id ?? null,
+          sourceKind: `lens:${lensKey}`,
+        }),
+      });
+      if (r.ok) setLensSaved((s) => ({ ...s, [lensKey]: true }));
+    },
+    [workspaceId, selectedCapture],
+  );
+
   useEffect(() => {
     const storedMindId = window.localStorage.getItem('muttmind:active-mind-id');
     if (storedMindId) {
@@ -643,7 +776,7 @@ function DashboardContent() {
       <AppNav active="dashboard" />
 
       <section className="dash-page" aria-labelledby="dashboard-title">
-        <h1 id="dashboard-title" className="sr-only">Captures</h1>
+        <h1 id="dashboard-title" className="sr-only">Dashboard</h1>
 
         <header className="dash-header">
           <div className="dash-crumb">
@@ -686,7 +819,7 @@ function DashboardContent() {
 
         <nav className="dash-pivots" aria-label="View">
           <Link href="/minds" className="dash-pivot">Minds</Link>
-          <span className="dash-pivot dash-pivot--active">Captures</span>
+          <span className="dash-pivot dash-pivot--active">Dashboard</span>
           <Link href="/vault" className="dash-pivot">Map</Link>
           {workspaceId ? (
             <Link href={`/minds/${workspaceId}/essays`} className="dash-pivot">
@@ -727,7 +860,47 @@ function DashboardContent() {
                 }}
                 rows={2}
               />
+              {captureDraft.trim() ? (
+                <p
+                  className={`dash-detect dash-detect--${detection.kind}`}
+                  aria-live="polite"
+                >
+                  <span className="dash-detect__dot" aria-hidden="true" />
+                  {detection.provider && detection.kind !== 'note'
+                    ? `${detection.provider} · ${detection.label}`
+                    : detection.label}
+                </p>
+              ) : null}
               <div className="dash-capture__row">
+                <div className="dash-tools">
+                <button
+                  type="button"
+                  className={`dash-mic ${recording ? 'dash-mic--rec' : ''}`}
+                  onClick={toggleRecord}
+                  disabled={voiceBusy || uploadBusy}
+                  aria-label={recording ? 'Stop recording' : 'Record a voice memo'}
+                  title="Voice memo (transcribed)"
+                >
+                  {recording ? '● Stop' : voiceBusy ? 'Transcribing…' : '🎙 Record'}
+                </button>
+                <button
+                  type="button"
+                  className="dash-mic"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadBusy || voiceBusy || recording}
+                  aria-label="Attach an image or PDF"
+                  title="Attach image or PDF"
+                >
+                  {uploadBusy ? 'Uploading…' : '📎 Attach'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={onPickFile}
+                  hidden
+                />
+                </div>
                 <span className="dash-capture__hint">⌘ + Enter to save</span>
                 <button type="submit" className="dash-capture__submit" disabled={isSaving || !captureDraft.trim()}>
                   {isSaving ? 'Saving…' : 'Save'}
@@ -967,6 +1140,14 @@ function DashboardContent() {
                     <div key={l.key} className="lens-result">
                       <p className="lens-result__label">{l.label}</p>
                       <p className="lens-result__body">{lensOutputs[l.key]}</p>
+                      <button
+                        type="button"
+                        className="insight-link"
+                        onClick={() => saveLensToInsights(l.key, l.label, lensOutputs[l.key])}
+                        disabled={lensSaved[l.key]}
+                      >
+                        {lensSaved[l.key] ? 'Saved to Insights ✓' : 'Save to Insights'}
+                      </button>
                     </div>
                   ))}
                 </div>

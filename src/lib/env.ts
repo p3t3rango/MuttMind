@@ -28,5 +28,7 @@ export const env = {
   // Stage 2: per-passage chunk embeddings at capture. Default OFF — flip to '1'
   // before re-capturing so each node also gets node_chunks for retrieval.
   chunkingEnabled: process.env.MUTTMIND_CHUNKING_ENABLED === '1',
+  // Voice-memo transcription via Gemini. LLM cost — default OFF.
+  voiceEnabled: process.env.MUTTMIND_VOICE_ENABLED === '1',
   cronSecret: process.env.CRON_SECRET ?? '',
 };

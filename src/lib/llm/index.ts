@@ -1,4 +1,9 @@
-import { geminiEmbed, geminiGenerateText, geminiProcess } from './providers/gemini';
+import {
+  geminiEmbed,
+  geminiGenerateText,
+  geminiProcess,
+  geminiTranscribe,
+} from './providers/gemini';
 
 export type LlmProvider = 'gemini';
 
@@ -49,6 +54,21 @@ export async function embeddingProcess(input: EmbeddingProcessInput): Promise<nu
   switch (provider) {
     case 'gemini':
       return geminiEmbed({ text: input.text, model: input.model });
+    default:
+      throw new Error(`Unsupported LLM provider: ${provider}`);
+  }
+}
+
+export async function transcribeAudio(input: {
+  base64: string;
+  mimeType: string;
+  provider?: LlmProvider;
+  model?: string;
+}): Promise<string> {
+  const provider = resolveProvider(input.provider);
+  switch (provider) {
+    case 'gemini':
+      return geminiTranscribe({ base64: input.base64, mimeType: input.mimeType, model: input.model });
     default:
       throw new Error(`Unsupported LLM provider: ${provider}`);
   }

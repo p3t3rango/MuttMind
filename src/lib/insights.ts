@@ -8,10 +8,13 @@ export type Insight = {
   body: string;
   created_at: string;
   updated_at: string;
+  source_node_id: string | null;
+  source_kind: string | null;
   author?: { display_name: string | null; email: string | null } | null;
 };
 
-const SELECT = 'id,workspace_id,created_by,title,body,created_at,updated_at,users(display_name,email)';
+const SELECT =
+  'id,workspace_id,created_by,title,body,created_at,updated_at,source_node_id,source_kind,users(display_name,email)';
 
 function shape(row: Record<string, unknown>): Insight {
   const u = (row.users ?? null) as { display_name?: string | null; email?: string | null } | null;
@@ -23,6 +26,8 @@ function shape(row: Record<string, unknown>): Insight {
     body: row.body as string,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
+    source_node_id: (row.source_node_id ?? null) as string | null,
+    source_kind: (row.source_kind ?? null) as string | null,
     author: u ? { display_name: u.display_name ?? null, email: u.email ?? null } : null,
   };
 }
@@ -46,6 +51,8 @@ export async function createInsight(input: {
   createdBy: string;
   title?: string | null;
   body: string;
+  sourceNodeId?: string | null;
+  sourceKind?: string | null;
 }): Promise<Insight> {
   const { data, error } = await getSupabaseAdmin()
     .from('insights')
@@ -54,6 +61,8 @@ export async function createInsight(input: {
       created_by: input.createdBy,
       title: input.title?.trim() || null,
       body: input.body.trim(),
+      source_node_id: input.sourceNodeId ?? null,
+      source_kind: input.sourceKind ?? null,
     })
     .select(SELECT)
     .single();

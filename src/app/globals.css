@@ -3186,6 +3186,24 @@ select:focus {
 
 /* Buttons ------------------------------------------------------------------ */
 
+.mm-event-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.mm-event-opt input {
+  margin-top: 3px;
+  accent-color: var(--ink);
+  flex: none;
+}
+
+.mm-event-opt > span {
+  display: grid;
+  gap: 2px;
+}
+
 .mm-actions {
   display: flex;
   align-items: center;

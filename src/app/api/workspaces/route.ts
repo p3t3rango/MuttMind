@@ -197,6 +197,12 @@ export async function POST(req: Request) {
       insertPayload.privacy = body.privacy;
     if (typeof body?.provider === 'string' && body.provider.trim()) insertPayload.provider = body.provider.trim();
     if (typeof body?.model === 'string' && body.model.trim()) insertPayload.model = body.model.trim();
+    if (body?.eventMode === true) {
+      insertPayload.event_mode = true;
+      insertPayload.share_code = generateShareCode();
+      if (typeof body?.eventAt === 'string' && body.eventAt.trim())
+        insertPayload.event_at = body.eventAt;
+    }
 
     const { data: workspace, error } = await getSupabaseAdmin()
       .from('workspaces')

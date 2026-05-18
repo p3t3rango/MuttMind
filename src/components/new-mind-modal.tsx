@@ -42,6 +42,7 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
   const [name, setName] = useState('');
   const [privacy, setPrivacy] = useState<Privacy>('closed');
   const [description, setDescription] = useState('');
+  const [isEvent, setIsEvent] = useState(false);
   const [createdMindId, setCreatedMindId] = useState('');
   const [createdMindName, setCreatedMindName] = useState('');
   const [shareLink, setShareLink] = useState('');
@@ -56,6 +57,7 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
     setName('');
     setPrivacy('closed');
     setDescription('');
+    setIsEvent(false);
     setCreatedMindId('');
     setCreatedMindName('');
     setShareLink('');
@@ -104,6 +106,7 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
         name: trimmedName,
         description: description.trim() || undefined,
         privacy,
+        eventMode: isEvent || undefined,
       }),
     });
     const createData = await createRes.json();
@@ -215,6 +218,22 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
                 rows={2}
                 disabled={mode === 'creating'}
               />
+            </label>
+
+            <label className="mm-event-opt">
+              <input
+                type="checkbox"
+                checked={isEvent}
+                onChange={(e) => setIsEvent(e.target.checked)}
+                disabled={mode === 'creating'}
+              />
+              <span>
+                <span className="mm-field__label">Make this an event (Moment)</span>
+                <span className="mm-field__optional">
+                  Get a shareable link + QR so others can contribute. You can refine
+                  date and anonymous access in settings.
+                </span>
+              </span>
             </label>
 
             {error ? <p className="mm-error">{error}</p> : null}

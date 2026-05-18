@@ -5134,6 +5134,13 @@ select:focus {
   border-left: 1px solid rgba(247, 247, 242, 0.18);
 }
 
+.ms-qr {
+  display: block;
+  margin-top: 14px;
+  border: 1px solid rgba(247, 247, 242, 0.14);
+  image-rendering: pixelated;
+}
+
 .ms-tag-add {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;

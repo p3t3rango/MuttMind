@@ -18,6 +18,10 @@ type WorkspaceMemberRow = {
     provider: string;
     model: string | null;
     created_at: string;
+    event_mode: boolean;
+    event_at: string | null;
+    share_code: string | null;
+    allow_anonymous_contributions: boolean;
   };
 };
 
@@ -28,7 +32,13 @@ type MemberCountRow = {
 };
 
 const VOICE_SOURCES = ['system_prompt', 'user_notes', 'mind_notes'] as const;
-const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at';
+const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at,event_mode,event_at,share_code,allow_anonymous_contributions';
+
+function generateShareCode(): string {
+  return (
+    Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6)
+  );
+}
 
 function serializeWorkspace<T extends Record<string, unknown>>(row: T) {
   return {
@@ -129,6 +139,10 @@ export async function GET(req: Request) {
         provider: item.workspaces.provider,
         model: item.workspaces.model,
         created_at: item.workspaces.created_at,
+        event_mode: item.workspaces.event_mode ?? false,
+        event_at: item.workspaces.event_at ?? null,
+        share_code: item.workspaces.share_code ?? null,
+        allow_anonymous_contributions: item.workspaces.allow_anonymous_contributions ?? false,
         member_count: memberCounts.get(item.workspaces.id) ?? 1,
         ...(wantsRecent
           ? {
@@ -212,7 +226,10 @@ export async function PATCH(req: Request) {
       'voiceSource' in body ||
       'voiceUserIds' in body ||
       'provider' in body ||
-      'model' in body;
+      'model' in body ||
+      'eventMode' in body ||
+      'eventAt' in body ||
+      'allowAnonymousContributions' in body;
     if (wantsMindEdit) {
       const canManage = await userCan(userId, workspaceId, 'manage_mind');
       if (!canManage) return Response.json({ error: 'Not allowed to edit this Mind' }, { status: 403 });
@@ -232,6 +249,23 @@ export async function PATCH(req: Request) {
     if (typeof body.provider === 'string' && body.provider.trim()) updates.provider = body.provider.trim();
     if (body.model === null) updates.model = null;
     else if (typeof body.model === 'string') updates.model = body.model.trim() || null;
+
+    if (typeof body.eventMode === 'boolean') {
+      updates.event_mode = body.eventMode;
+      if (body.eventMode) {
+        const { data: cur } = await getSupabaseAdmin()
+          .from('workspaces')
+          .select('share_code')
+          .eq('id', workspaceId)
+          .single();
+        if (!cur?.share_code) updates.share_code = generateShareCode();
+      }
+    }
+    if (body.eventAt === null) updates.event_at = null;
+    else if (typeof body.eventAt === 'string' && body.eventAt.trim())
+      updates.event_at = body.eventAt;
+    if (typeof body.allowAnonymousContributions === 'boolean')
+      updates.allow_anonymous_contributions = body.allowAnonymousContributions;
 
     if (Object.keys(updates).length === 0) {
       return Response.json({ error: 'No editable fields supplied' }, { status: 400 });

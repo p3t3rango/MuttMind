@@ -15,6 +15,10 @@ type Mind = {
   privacy: string;
   system_prompt: string | null;
   member_count?: number;
+  event_mode?: boolean;
+  event_at?: string | null;
+  share_code?: string | null;
+  allow_anonymous_contributions?: boolean;
 };
 
 type Tag = { id: string; shift_name: string; description: string | null };
@@ -48,6 +52,8 @@ function SettingsContent() {
   const [digestOptIn, setDigestOptIn] = useState(false);
   const [myUserId, setMyUserId] = useState('');
   const [myRole, setMyRole] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [copiedMoment, setCopiedMoment] = useState(false);
 
   const loadMind = useCallback(async () => {
     const r = await authedFetch('/api/workspaces');
@@ -65,6 +71,10 @@ function SettingsContent() {
         privacy: w.privacy ?? 'closed',
         system_prompt: w.system_prompt ?? null,
         member_count: w.member_count,
+        event_mode: w.event_mode ?? false,
+        event_at: w.event_at ?? null,
+        share_code: w.share_code ?? null,
+        allow_anonymous_contributions: w.allow_anonymous_contributions ?? false,
       });
       setName(w.name ?? '');
       setDescription(w.description ?? '');
@@ -170,6 +180,53 @@ function SettingsContent() {
       setStatus(d.error ?? 'Could not change privacy.');
     } else {
       setStatus('Privacy updated.');
+    }
+  };
+
+  const momentUrl =
+    mind?.share_code && typeof window !== 'undefined'
+      ? `${window.location.origin}/m/${mind.share_code}`
+      : '';
+
+  useEffect(() => {
+    if (!momentUrl) {
+      setQrDataUrl('');
+      return;
+    }
+    let cancelled = false;
+    import('qrcode')
+      .then((m) =>
+        m.default.toDataURL(momentUrl, { margin: 1, width: 220, color: { dark: '#050505', light: '#f7f7f2' } }),
+      )
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [momentUrl]);
+
+  const patchEvent = async (fields: Record<string, unknown>, okMsg: string) => {
+    const r = await authedFetch('/api/workspaces', {
+      method: 'PATCH',
+      body: JSON.stringify({ workspaceId: mindId, ...fields }),
+    });
+    const d = await r.json();
+    setStatus(r.ok ? okMsg : d.error ?? 'Could not update.');
+    if (r.ok) loadMind();
+  };
+
+  const copyMomentLink = async () => {
+    if (!momentUrl) return;
+    try {
+      await navigator.clipboard.writeText(momentUrl);
+      setCopiedMoment(true);
+      window.setTimeout(() => setCopiedMoment(false), 2000);
+    } catch {
+      /* clipboard unavailable */
     }
   };
 
@@ -427,6 +484,110 @@ function SettingsContent() {
                 Copy
               </button>
             </div>
+          ) : null}
+        </section>
+
+        <section className="ms-section">
+          <h2 className="ms-section__title">Event / Moment</h2>
+          <p className="ms-section__hint">
+            Turn this Mind into a Moment — a shareable event others can drop captures into
+            via a link or QR code.
+          </p>
+          <button
+            type="button"
+            className={`ms-toggle ${mind.event_mode ? 'ms-toggle--on' : ''}`}
+            onClick={() =>
+              patchEvent(
+                { eventMode: !mind.event_mode },
+                mind.event_mode ? 'Event mode off.' : 'Event mode on.',
+              )
+            }
+            role="switch"
+            aria-checked={!!mind.event_mode}
+          >
+            <span className="ms-toggle__dot" />
+            <span className="ms-toggle__label">
+              {mind.event_mode ? 'This Mind is a Moment' : 'Turn on event mode'}
+            </span>
+          </button>
+
+          {mind.event_mode ? (
+            <>
+              <label className="ms-field" style={{ marginTop: 16 }}>
+                <span className="ms-field__label">
+                  Event date <span className="ms-field__optional">— optional</span>
+                </span>
+                <input
+                  type="datetime-local"
+                  className="ms-input"
+                  defaultValue={
+                    mind.event_at ? new Date(mind.event_at).toISOString().slice(0, 16) : ''
+                  }
+                  onBlur={(e) =>
+                    patchEvent(
+                      {
+                        eventAt: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : null,
+                      },
+                      'Event date saved.',
+                    )
+                  }
+                />
+              </label>
+
+              <button
+                type="button"
+                className={`ms-toggle ${mind.allow_anonymous_contributions ? 'ms-toggle--on' : ''}`}
+                onClick={() =>
+                  patchEvent(
+                    { allowAnonymousContributions: !mind.allow_anonymous_contributions },
+                    'Updated.',
+                  )
+                }
+                role="switch"
+                aria-checked={!!mind.allow_anonymous_contributions}
+                style={{ marginTop: 16 }}
+              >
+                <span className="ms-toggle__dot" />
+                <span className="ms-toggle__label">
+                  {mind.allow_anonymous_contributions
+                    ? 'Anyone with the link can contribute'
+                    : 'Allow anonymous contributions'}
+                </span>
+              </button>
+              <p className="ms-section__hint">
+                {mind.allow_anonymous_contributions
+                  ? 'Visitors can add captures without signing in — credited to you.'
+                  : 'Off — only signed-in members can add to this Moment.'}
+              </p>
+
+              {mind.share_code && momentUrl ? (
+                <div className="ms-field" style={{ marginTop: 16 }}>
+                  <span className="ms-field__label">Share link</span>
+                  <div className="ms-share">
+                    <code className="ms-share__url">{momentUrl}</code>
+                    <button
+                      type="button"
+                      className="ms-btn ms-btn--ghost"
+                      onClick={copyMomentLink}
+                    >
+                      {copiedMoment ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                  {qrDataUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={qrDataUrl}
+                      alt="QR code for this Moment"
+                      className="ms-qr"
+                      width={180}
+                      height={180}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+            </>
           ) : null}
         </section>
 

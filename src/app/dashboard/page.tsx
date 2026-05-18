@@ -184,8 +184,10 @@ function DashboardContent() {
   const detection = useMemo(() => detectUrlKind(captureDraft), [captureDraft]);
   const [recording, setRecording] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [tagDraft, setTagDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -328,6 +330,40 @@ function DashboardContent() {
       setStatus('Recording… tap again to stop.');
     } catch {
       setStatus('Microphone access denied.');
+    }
+  };
+
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (!workspaceId) {
+      setStatus('Create or choose a Mind first.');
+      return;
+    }
+    setUploadBusy(true);
+    setStatus(`Uploading ${f.name}…`);
+    try {
+      const token = await getAccessToken();
+      const fd = new FormData();
+      fd.append('workspaceId', workspaceId);
+      fd.append('file', f);
+      const r = await fetch('/api/capture/upload', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        setStatus(d.error ?? 'Upload failed.');
+        return;
+      }
+      setStatus(d.kind === 'pdf' ? 'PDF captured.' : 'Image captured.');
+      loadRecentCaptures();
+    } catch {
+      setStatus('Upload failed.');
+    } finally {
+      setUploadBusy(false);
     }
   };
 
@@ -836,16 +872,35 @@ function DashboardContent() {
                 </p>
               ) : null}
               <div className="dash-capture__row">
+                <div className="dash-tools">
                 <button
                   type="button"
                   className={`dash-mic ${recording ? 'dash-mic--rec' : ''}`}
                   onClick={toggleRecord}
-                  disabled={voiceBusy}
+                  disabled={voiceBusy || uploadBusy}
                   aria-label={recording ? 'Stop recording' : 'Record a voice memo'}
                   title="Voice memo (transcribed)"
                 >
                   {recording ? '● Stop' : voiceBusy ? 'Transcribing…' : '🎙 Record'}
                 </button>
+                <button
+                  type="button"
+                  className="dash-mic"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadBusy || voiceBusy || recording}
+                  aria-label="Attach an image or PDF"
+                  title="Attach image or PDF"
+                >
+                  {uploadBusy ? 'Uploading…' : '📎 Attach'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={onPickFile}
+                  hidden
+                />
+                </div>
                 <span className="dash-capture__hint">⌘ + Enter to save</span>
                 <button type="submit" className="dash-capture__submit" disabled={isSaving || !captureDraft.trim()}>
                   {isSaving ? 'Saving…' : 'Save'}

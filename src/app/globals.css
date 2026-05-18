@@ -3752,8 +3752,13 @@ select:focus {
   color: rgba(247, 247, 242, 0.4);
 }
 
-.dash-mic {
+.dash-tools {
   margin-right: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.dash-mic {
   appearance: none;
   background: none;
   border: 1px solid rgba(247, 247, 242, 0.2);

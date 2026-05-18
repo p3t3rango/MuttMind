@@ -20,6 +20,7 @@ type NodeListRow = {
   ai_summary: string | null;
   user_notes: string | null;
   scrape_kind: string | null;
+  media_path: string | null;
   created_by: string | null;
   created_at: string;
   users?: {
@@ -37,7 +38,7 @@ export async function GET(req: Request) {
     await assertWorkspaceMember(workspaceId, userId);
 
     const select =
-      'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,scrape_kind,created_by,created_at,users(display_name,email),node_tags(tags(shift_name))';
+      'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,scrape_kind,media_path,created_by,created_at,users(display_name,email),node_tags(tags(shift_name))';
 
     // Captures connected to this Mind from elsewhere (Feature 1.5).
     const { data: connections } = await getSupabaseAdmin()
@@ -77,6 +78,7 @@ export async function GET(req: Request) {
         user_notes: node.user_notes,
         ai_summary: node.ai_summary,
         scrape_kind: node.scrape_kind,
+        media_path: node.media_path,
         created_by: node.created_by,
         created_by_label: node.users?.display_name || node.users?.email || 'teammate',
         // True when the capture's home is a different Mind — it's here via a
@@ -88,6 +90,28 @@ export async function GET(req: Request) {
               .filter((tag: unknown): tag is string => typeof tag === 'string' && tag.length > 0)
           : [],
       }));
+
+    // Private-bucket images: mint short-lived signed URLs at read time so the
+    // file is never publicly addressable. The list endpoint is already
+    // workspace-member gated.
+    const withMedia = nodes.filter((n) => n.media_path);
+    if (withMedia.length) {
+      const { data: signed } = await getSupabaseAdmin()
+        .storage.from('captures')
+        .createSignedUrls(
+          withMedia.map((n) => n.media_path as string),
+          3600,
+        );
+      const byPath = new Map(
+        (signed ?? []).map((s) => [s.path ?? '', s.signedUrl] as const),
+      );
+      for (const n of nodes) {
+        if (n.media_path) {
+          const url = byPath.get(n.media_path);
+          if (url) n.og_image_url = url;
+        }
+      }
+    }
     return Response.json({ nodes });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : 'unknown' }, { status: 401 });

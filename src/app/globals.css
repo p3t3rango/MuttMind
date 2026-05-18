@@ -4827,6 +4827,31 @@ select:focus {
   text-underline-offset: 4px;
 }
 
+@media (max-width: 560px) {
+  .home {
+    gap: 40px;
+    padding: 56px 20px 64px;
+  }
+  /* Stack the step number above its content so the body always gets full
+     width — never the squeezed single-word column. */
+  .home__step {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 22px 0;
+  }
+  .home__step-body,
+  .home__lede {
+    max-width: none;
+  }
+  .home__actions {
+    display: grid;
+    gap: 10px;
+  }
+  .home__cta {
+    width: 100%;
+  }
+}
+
 /* ---------------------------------------------------------------------------
    Per-Mind settings — /minds/[id]/settings, editorial restraint
    --------------------------------------------------------------------------- */

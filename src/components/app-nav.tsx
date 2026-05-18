@@ -157,7 +157,7 @@ export function AppNav({ active = 'home' }: AppNavProps) {
               className={active === 'dashboard' ? 'nav-link active' : 'nav-link'}
               onClick={() => setMenuOpen(false)}
             >
-              <span className="nav-num">01</span> Mind
+              <span className="nav-num">01</span> Dashboard
             </Link>
             <Link
               href="/minds"

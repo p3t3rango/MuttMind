@@ -825,7 +825,8 @@ h3 {
 .capture-drawer {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  /* Must sit above the mobile topbar (z-index: 80) — it's a modal dialog. */
+  z-index: 120;
   display: grid;
   justify-items: end;
 }
@@ -851,13 +852,16 @@ h3 {
 }
 
 .capture-drawer__close {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   justify-self: end;
-  margin: 18px 18px 0;
+  margin: 0 0 0 auto;
+  padding: max(14px, env(safe-area-inset-top)) 16px 14px;
   min-height: 40px;
-  border: 1.5px solid rgba(247, 247, 242, 0.5);
-  background: transparent;
+  border: 0;
+  background: #101015;
   color: var(--ink);
-  padding: 0 12px;
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.08em;
@@ -1392,11 +1396,10 @@ h3 {
 }
 
 .capture-drawer--wide .capture-drawer__close {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  z-index: 2;
-  margin: 0;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  margin: 0 0 0 auto;
 }
 
 .capture-drawer--wide .capture-drawer__preview {
@@ -3806,6 +3809,36 @@ select:focus {
   height: 26px;
   border: 1px solid rgba(247, 247, 242, 0.18);
   background: rgba(247, 247, 242, 0.03);
+}
+
+.dash-clip {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid rgba(247, 247, 242, 0.18);
+  background: rgba(247, 247, 242, 0.03);
+  display: grid;
+  gap: 10px;
+}
+
+.dash-clip__label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.55);
+}
+
+.dash-clip__audio {
+  width: 100%;
+  height: 36px;
+}
+
+.dash-clip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 @keyframes dash-mic-pulse {

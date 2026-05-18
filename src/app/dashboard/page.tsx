@@ -39,6 +39,7 @@ type CaptureItem = {
   tags: string[];
   connected?: boolean;
   scrape_kind?: string | null;
+  media_url?: string | null;
 };
 
 type NodeNote = {
@@ -87,6 +88,8 @@ function getCaptureType(captureItem: CaptureItem) {
       return 'image';
     case 'pdf':
       return 'pdf';
+    case 'audio':
+      return 'audio';
     case 'tweet':
     case 'article':
     case 'file':
@@ -191,7 +194,8 @@ function DashboardContent() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const rafRef = useRef<number | null>(null);
-  const [recoveryUrl, setRecoveryUrl] = useState('');
+  const [clipUrl, setClipUrl] = useState('');
+  const clipBlobRef = useRef<Blob | null>(null);
   const [tagDraft, setTagDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -291,9 +295,10 @@ function DashboardContent() {
       setStatus('Create or choose a Mind first.');
       return;
     }
-    if (recoveryUrl) {
-      URL.revokeObjectURL(recoveryUrl);
-      setRecoveryUrl('');
+    if (clipUrl) {
+      URL.revokeObjectURL(clipUrl);
+      clipBlobRef.current = null;
+      setClipUrl('');
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -345,39 +350,15 @@ function DashboardContent() {
         audioCtxRef.current = null;
       };
 
-      rec.onstop = async () => {
+      rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         stopWave();
         setRecording(false);
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
         if (!blob.size) return;
-        setVoiceBusy(true);
-        setStatus('Transcribing voice memo…');
-        try {
-          const token = await getAccessToken();
-          const fd = new FormData();
-          fd.append('workspaceId', workspaceId);
-          fd.append('audio', blob, 'memo.webm');
-          const r = await fetch('/api/capture/voice', {
-            method: 'POST',
-            headers: { authorization: `Bearer ${token}` },
-            body: fd,
-          });
-          const d = await r.json();
-          if (!r.ok) {
-            // Keep the recording recoverable so a long memo isn't lost.
-            setRecoveryUrl(URL.createObjectURL(blob));
-            setStatus(d.error ?? 'Upload failed — download your recording below.');
-            return;
-          }
-          setStatus('Voice memo transcribed and saved.');
-          loadRecentCaptures();
-        } catch {
-          setRecoveryUrl(URL.createObjectURL(blob));
-          setStatus('Upload failed (network?) — download your recording below.');
-        } finally {
-          setVoiceBusy(false);
-        }
+        clipBlobRef.current = blob;
+        setClipUrl(URL.createObjectURL(blob));
+        setStatus('Recording ready — play it back, then Transcribe & save.');
       };
       recorderRef.current = rec;
       rec.start();
@@ -385,6 +366,47 @@ function DashboardContent() {
       setStatus('Recording… tap again to stop.');
     } catch {
       setStatus('Microphone access denied.');
+    }
+  };
+
+  const discardClip = () => {
+    if (clipUrl) URL.revokeObjectURL(clipUrl);
+    clipBlobRef.current = null;
+    setClipUrl('');
+    setStatus('');
+  };
+
+  const submitClip = async () => {
+    const blob = clipBlobRef.current;
+    if (!blob || !workspaceId) return;
+    setVoiceBusy(true);
+    setStatus('Transcribing & saving…');
+    try {
+      const token = await getAccessToken();
+      const fd = new FormData();
+      fd.append('workspaceId', workspaceId);
+      fd.append('audio', blob, 'memo.webm');
+      const r = await fetch('/api/capture/voice', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        setStatus(
+          d.error ?? 'Upload failed — your recording is still here; download it to keep it.',
+        );
+        return;
+      }
+      if (clipUrl) URL.revokeObjectURL(clipUrl);
+      clipBlobRef.current = null;
+      setClipUrl('');
+      setStatus('Voice memo saved.');
+      loadRecentCaptures();
+    } catch {
+      setStatus('Upload failed (network?) — your recording is still here; download it to keep it.');
+    } finally {
+      setVoiceBusy(false);
     }
   };
 
@@ -964,16 +986,6 @@ function DashboardContent() {
                   onChange={onPickFile}
                   hidden
                 />
-                {recoveryUrl ? (
-                  <a
-                    href={recoveryUrl}
-                    download="voice-memo.webm"
-                    className="dash-mic dash-mic--save"
-                    title="Upload failed — download the recording so you don't lose it"
-                  >
-                    ⤓ Recording
-                  </a>
-                ) : null}
                 </div>
                 <span className="dash-capture__hint">⌘ + Enter to save</span>
                 <button type="submit" className="dash-capture__submit" disabled={isSaving || !captureDraft.trim()}>
@@ -981,6 +993,39 @@ function DashboardContent() {
                 </button>
               </div>
             </form>
+
+            {clipUrl ? (
+              <div className="dash-clip" aria-label="Recorded voice memo">
+                <p className="dash-clip__label">Recording ready</p>
+                <audio className="dash-clip__audio" src={clipUrl} controls />
+                <div className="dash-clip__actions">
+                  <a
+                    href={clipUrl}
+                    download="voice-memo.webm"
+                    className="dash-mic"
+                    title="Download the audio to keep it"
+                  >
+                    ⤓ Download
+                  </a>
+                  <button
+                    type="button"
+                    className="dash-mic"
+                    onClick={discardClip}
+                    disabled={voiceBusy}
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="button"
+                    className="dash-mic dash-mic--save"
+                    onClick={submitClip}
+                    disabled={voiceBusy}
+                  >
+                    {voiceBusy ? 'Transcribing…' : 'Transcribe & save'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {status || tags.length ? (
               <p className="dash-status" aria-live="polite">
@@ -1103,7 +1148,11 @@ function DashboardContent() {
               Close
             </button>
             <div className="capture-drawer__preview">
-              {selectedCapture.og_image_url ? (
+              {getCaptureType(selectedCapture) === 'audio' && selectedCapture.media_url ? (
+                <div className="capture-drawer__audio">
+                  <audio src={selectedCapture.media_url} controls />
+                </div>
+              ) : selectedCapture.og_image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={selectedCapture.og_image_url} alt={selectedCapture.title ?? 'Saved preview'} />
               ) : (
@@ -1115,10 +1164,20 @@ function DashboardContent() {
             <div className="capture-drawer__body">
               <p className="eyebrow">{getHostLabel(selectedCapture.original_url)}</p>
               <h2>{selectedCapture.title ?? 'Untitled capture'}</h2>
-              <div className="tldr-box">
-                <p className="kicker">TLDR</p>
-                <p>{selectedCapture.is_processing ? 'MuttMind is reading the source, writing the summary, and assigning tags.' : selectedCapture.ai_summary || selectedCapture.source_description || 'No summary yet.'}</p>
-              </div>
+              {getCaptureType(selectedCapture) === 'audio' ? (
+                <div className="tldr-box">
+                  <p className="kicker">Transcript</p>
+                  <p>
+                    {selectedCapture.raw_text?.trim() ||
+                      'No transcript — the audio is attached above.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="tldr-box">
+                  <p className="kicker">TLDR</p>
+                  <p>{selectedCapture.is_processing ? 'MuttMind is reading the source, writing the summary, and assigning tags.' : selectedCapture.ai_summary || selectedCapture.source_description || 'No summary yet.'}</p>
+                </div>
+              )}
               <div>
                 <p className="kicker">MuttMind tags</p>
                 {selectedCapture.is_processing ? (

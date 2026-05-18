@@ -79,6 +79,7 @@ export async function GET(req: Request) {
         ai_summary: node.ai_summary,
         scrape_kind: node.scrape_kind,
         media_path: node.media_path,
+        media_url: null as string | null,
         created_by: node.created_by,
         created_by_label: node.users?.display_name || node.users?.email || 'teammate',
         // True when the capture's home is a different Mind — it's here via a
@@ -108,7 +109,11 @@ export async function GET(req: Request) {
       for (const n of nodes) {
         if (n.media_path) {
           const url = byPath.get(n.media_path);
-          if (url) n.og_image_url = url;
+          if (url) {
+            n.media_url = url;
+            // Images render via og_image_url; audio uses media_url directly.
+            if (n.scrape_kind === 'image') n.og_image_url = url;
+          }
         }
       }
     }

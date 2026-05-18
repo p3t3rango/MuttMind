@@ -2,6 +2,7 @@ import { requireUserId } from '@/lib/auth';
 import { captureSignal } from '@/lib/capture';
 import { env } from '@/lib/env';
 import { transcribeAudio } from '@/lib/llm';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -41,6 +42,14 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Could not transcribe — nothing audible.' }, { status: 422 });
     }
 
+    // Persist the audio (private bucket) so the memo stays listenable.
+    const ext = (mimeType.split('/')[1] || 'webm').split(';')[0];
+    const path = `${workspaceId}/voice-${crypto.randomUUID()}.${ext}`;
+    const { error: upErr } = await getSupabaseAdmin()
+      .storage.from('captures')
+      .upload(path, buf, { contentType: mimeType, upsert: false });
+    if (upErr) return Response.json({ error: upErr.message }, { status: 500 });
+
     const stamp = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
     const result = await captureSignal({
       userId,
@@ -51,6 +60,12 @@ export async function POST(req: Request) {
         text: transcript,
       },
     });
+    const { error: setErr } = await getSupabaseAdmin()
+      .from('nodes')
+      .update({ media_path: path })
+      .eq('id', result.nodeId);
+    if (setErr) return Response.json({ error: setErr.message }, { status: 500 });
+
     return Response.json({ ok: true, nodeId: result.nodeId, transcript });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : 'unknown' }, { status: 500 });

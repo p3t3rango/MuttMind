@@ -603,7 +603,13 @@ function DashboardContent() {
       const title = `${lensLabel}${selectedCapture?.title ? ` · ${selectedCapture.title}` : ''}`;
       const r = await authedFetch('/api/insights', {
         method: 'POST',
-        body: JSON.stringify({ workspaceId, title, body }),
+        body: JSON.stringify({
+          workspaceId,
+          title,
+          body,
+          sourceNodeId: selectedCapture?.id ?? null,
+          sourceKind: `lens:${lensKey}`,
+        }),
       });
       if (r.ok) setLensSaved((s) => ({ ...s, [lensKey]: true }));
     },

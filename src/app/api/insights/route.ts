@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const userId = await requireUserId(req);
-    const { workspaceId, title, body } = await req.json();
+    const { workspaceId, title, body, sourceNodeId, sourceKind } = await req.json();
     const text = String(body ?? '').trim();
     if (!workspaceId) return Response.json({ error: 'workspaceId required' }, { status: 400 });
     if (!text) return Response.json({ error: 'Insight body required.' }, { status: 400 });
@@ -33,6 +33,8 @@ export async function POST(req: Request) {
       createdBy: userId,
       title: typeof title === 'string' ? title : null,
       body: text,
+      sourceNodeId: typeof sourceNodeId === 'string' ? sourceNodeId : null,
+      sourceKind: typeof sourceKind === 'string' ? sourceKind : null,
     });
     return Response.json({ insight });
   } catch (e) {

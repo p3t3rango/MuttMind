@@ -19,6 +19,7 @@ type NodeListRow = {
   raw_text: string | null;
   ai_summary: string | null;
   user_notes: string | null;
+  scrape_kind: string | null;
   created_by: string | null;
   created_at: string;
   users?: {
@@ -36,7 +37,7 @@ export async function GET(req: Request) {
     await assertWorkspaceMember(workspaceId, userId);
 
     const select =
-      'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,created_by,created_at,users(display_name,email),node_tags(tags(shift_name))';
+      'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,scrape_kind,created_by,created_at,users(display_name,email),node_tags(tags(shift_name))';
 
     // Captures connected to this Mind from elsewhere (Feature 1.5).
     const { data: connections } = await getSupabaseAdmin()
@@ -75,6 +76,7 @@ export async function GET(req: Request) {
         raw_text: node.raw_text,
         user_notes: node.user_notes,
         ai_summary: node.ai_summary,
+        scrape_kind: node.scrape_kind,
         created_by: node.created_by,
         created_by_label: node.users?.display_name || node.users?.email || 'teammate',
         // True when the capture's home is a different Mind — it's here via a

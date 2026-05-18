@@ -66,6 +66,7 @@ export async function reprocessNode(nodeId: string, workspaceId: string) {
       title,
       source_description: sourceDescription,
       source_author: sourceAuthor,
+      scrape_kind: scrape.kind,
     };
     if (ogImage) update.og_image_url = ogImage;
     const { error: upErr } = await supabase.from('nodes').update(update).eq('id', nodeId);

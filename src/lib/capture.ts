@@ -22,7 +22,16 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
 
   const scrape = url
     ? await scrapeUrl(url)
-    : { title: '', description: '', image: '', author: '', text: '' };
+    : {
+        title: '',
+        description: '',
+        image: '',
+        author: '',
+        text: '',
+        kind: 'note' as const,
+        truncated: false,
+        extractionWarnings: [] as string[],
+      };
   const normalizedRawText = rawText?.trim() ?? '';
   const normalizedUrl = url?.trim() ?? '';
   const userNote = normalizedRawText && normalizedRawText !== normalizedUrl ? normalizedRawText : '';
@@ -38,6 +47,7 @@ export async function captureSignal({ userId, workspaceId, url, rawText }: Captu
       original_url: url,
       raw_text: capturedText || normalizedRawText || scrape.text,
       content_type: url ? 'link' : 'text',
+      scrape_kind: scrape.kind,
       title: scrape.title,
       og_image_url: scrape.image,
       source_description: scrape.description,

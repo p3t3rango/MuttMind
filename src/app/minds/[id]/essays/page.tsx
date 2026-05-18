@@ -24,8 +24,16 @@ type Insight = {
   body: string;
   created_at: string;
   updated_at: string;
+  source_kind?: string | null;
   author?: { display_name: string | null; email: string | null } | null;
 };
+
+function sourceLabel(kind?: string | null): string {
+  if (!kind) return '';
+  if (kind === 'essay') return 'from a synthesis';
+  if (kind.startsWith('lens:')) return `from the ${kind.slice(5).replace(/-/g, ' ')} lens`;
+  return `from ${kind}`;
+}
 
 type Mode = 'essay' | 'brief' | 'questions';
 
@@ -183,7 +191,12 @@ function EssaysContent() {
   const saveEssayToInsights = async (id: string, title: string | null, body: string) => {
     const r = await authedFetch('/api/insights', {
       method: 'POST',
-      body: JSON.stringify({ workspaceId: mindId, title: title || 'Synthesis', body }),
+      body: JSON.stringify({
+        workspaceId: mindId,
+        title: title || 'Synthesis',
+        body,
+        sourceKind: 'essay',
+      }),
     });
     if (r.ok) {
       setSavedEssayId(id);
@@ -350,6 +363,7 @@ function EssaysContent() {
                           {' · '}
                           {relativeTime(it.updated_at)}
                           {it.updated_at !== it.created_at ? ' · edited' : ''}
+                          {it.source_kind ? ` · ${sourceLabel(it.source_kind)}` : ''}
                         </span>
                         <span className="insight-item__actions">
                           <button

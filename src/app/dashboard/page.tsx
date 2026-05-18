@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivationChecklist } from '@/components/activation-checklist';
+import { AudioPlayer } from '@/components/audio-player';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { Dropdown } from '@/components/dropdown';
@@ -997,7 +998,7 @@ function DashboardContent() {
             {clipUrl ? (
               <div className="dash-clip" aria-label="Recorded voice memo">
                 <p className="dash-clip__label">Recording ready</p>
-                <audio className="dash-clip__audio" src={clipUrl} controls />
+                <AudioPlayer src={clipUrl} />
                 <div className="dash-clip__actions">
                   <a
                     href={clipUrl}
@@ -1150,7 +1151,7 @@ function DashboardContent() {
             <div className="capture-drawer__preview">
               {getCaptureType(selectedCapture) === 'audio' && selectedCapture.media_url ? (
                 <div className="capture-drawer__audio">
-                  <audio src={selectedCapture.media_url} controls />
+                  <AudioPlayer src={selectedCapture.media_url} />
                 </div>
               ) : selectedCapture.og_image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element

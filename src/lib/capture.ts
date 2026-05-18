@@ -31,7 +31,7 @@ export async function captureSignal({
   rawText,
   prefetched,
 }: CaptureInput) {
-  if (!workspaceId || (!url && !rawText && !prefetched?.text)) {
+  if (!workspaceId || (!url && !rawText && !prefetched)) {
     throw new Error('workspaceId and url/rawText/prefetched required');
   }
 

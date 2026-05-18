@@ -3887,6 +3887,10 @@ select:focus {
   align-items: center;
 }
 
+.dash-clip__spacer {
+  flex: 1 1 auto;
+}
+
 @keyframes dash-mic-pulse {
   0%,
   100% {

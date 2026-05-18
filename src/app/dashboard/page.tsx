@@ -359,7 +359,7 @@ function DashboardContent() {
         if (!blob.size) return;
         clipBlobRef.current = blob;
         setClipUrl(URL.createObjectURL(blob));
-        setStatus('Recording ready — play it back, then Transcribe & save.');
+        setStatus('Recording ready — play it back, then Save (or Transcribe & save).');
       };
       recorderRef.current = rec;
       rec.start();
@@ -377,16 +377,17 @@ function DashboardContent() {
     setStatus('');
   };
 
-  const submitClip = async () => {
+  const submitClip = async (transcribe: boolean) => {
     const blob = clipBlobRef.current;
     if (!blob || !workspaceId) return;
     setVoiceBusy(true);
-    setStatus('Transcribing & saving…');
+    setStatus(transcribe ? 'Transcribing & saving…' : 'Saving recording…');
     try {
       const token = await getAccessToken();
       const fd = new FormData();
       fd.append('workspaceId', workspaceId);
       fd.append('audio', blob, 'memo.webm');
+      fd.append('transcribe', transcribe ? '1' : '0');
       const r = await fetch('/api/capture/voice', {
         method: 'POST',
         headers: { authorization: `Bearer ${token}` },
@@ -402,7 +403,7 @@ function DashboardContent() {
       if (clipUrl) URL.revokeObjectURL(clipUrl);
       clipBlobRef.current = null;
       setClipUrl('');
-      setStatus('Voice memo saved.');
+      setStatus(transcribe ? 'Voice memo transcribed and saved.' : 'Recording saved.');
       loadRecentCaptures();
     } catch {
       setStatus('Upload failed (network?) — your recording is still here; download it to keep it.');
@@ -997,7 +998,9 @@ function DashboardContent() {
 
             {clipUrl ? (
               <div className="dash-clip" aria-label="Recorded voice memo">
-                <p className="dash-clip__label">Recording ready</p>
+                <p className="dash-clip__label">
+                  Recording ready — this is what gets saved
+                </p>
                 <AudioPlayer src={clipUrl} />
                 <div className="dash-clip__actions">
                   <a
@@ -1016,13 +1019,24 @@ function DashboardContent() {
                   >
                     Discard
                   </button>
+                  <span className="dash-clip__spacer" />
                   <button
                     type="button"
                     className="dash-mic dash-mic--save"
-                    onClick={submitClip}
+                    onClick={() => submitClip(false)}
                     disabled={voiceBusy}
+                    title="Save the audio without transcribing"
                   >
-                    {voiceBusy ? 'Transcribing…' : 'Transcribe & save'}
+                    {voiceBusy ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    className="dash-mic"
+                    onClick={() => submitClip(true)}
+                    disabled={voiceBusy}
+                    title="Transcribe with AI, then save audio + transcript"
+                  >
+                    Transcribe & save
                   </button>
                 </div>
               </div>

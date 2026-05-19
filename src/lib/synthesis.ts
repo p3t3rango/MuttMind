@@ -34,6 +34,7 @@ export type Essay = {
   source_node_ids: string[];
   provider: string | null;
   model: string | null;
+  trail: { kind?: string; origin?: string } | null;
   created_at: string;
 };
 
@@ -70,8 +71,17 @@ export async function synthesizeEssay(input: {
   sourceNodeIds?: string[];
   prompt?: string;
   mode?: SynthesisMode;
+  /** 'digest' marks this as the scheduled weekly Mind Digest, not an ad-hoc essay. */
+  origin?: 'digest';
 }): Promise<SynthesizeResult> {
-  const { workspaceId, generatedBy = null, sourceNodeIds, prompt, mode = 'essay' } = input;
+  const {
+    workspaceId,
+    generatedBy = null,
+    sourceNodeIds,
+    prompt,
+    mode = 'essay',
+    origin,
+  } = input;
 
   const { data: workspaceRow, error: workspaceError } = await getSupabaseAdmin()
     .from('workspaces')
@@ -256,6 +266,7 @@ export async function synthesizeEssay(input: {
     `The saved material${workspace.name ? ` ("${workspace.name}")` : ''}, numbered for citation:\n\n${sourcesFragment}`,
     '\n\n---\n\n',
     userPrompt,
+    '\n\nFormat: begin the output with a single short Markdown H1 title line (3–8 words, specific, no quotes, no trailing punctuation), then a blank line, then the piece itself.',
     learningTail,
   ].join('');
 
@@ -300,13 +311,14 @@ export async function synthesizeEssay(input: {
       provider: provider ?? 'gemini',
       model: model ?? null,
       trail: {
-        kind: prompt ? 'custom-prompt' : mode,
+        kind: origin === 'digest' ? 'digest' : prompt ? 'custom-prompt' : mode,
         mode: prompt ? 'custom' : mode,
+        origin: origin ?? 'manual',
         node_count: nodes.length,
         retrieval: retrievalUsed ? 'chunks' : 'excerpt',
       },
     })
-    .select('id,workspace_id,title,body_md,source_node_ids,provider,model,created_at')
+    .select('id,workspace_id,title,body_md,source_node_ids,provider,model,trail,created_at')
     .single();
 
   if (insertError) return { ok: false, status: 500, error: insertError.message };

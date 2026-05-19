@@ -18,7 +18,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await getSupabaseAdmin()
       .from('essays')
-      .select('id,workspace_id,title,body_md,source_node_ids,provider,model,created_at')
+      .select('id,workspace_id,title,body_md,source_node_ids,provider,model,trail,created_at')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false })
       .limit(50);

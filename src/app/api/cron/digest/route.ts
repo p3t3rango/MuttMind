@@ -69,7 +69,18 @@ export async function GET(req: Request) {
   const report: Array<{ workspaceId: string; status: string; recipients: number }> = [];
 
   for (const [workspaceId, userIds] of byWorkspace.entries()) {
-    const result = await synthesizeEssay({ workspaceId, generatedBy: null });
+    const { data: wsRow } = await admin
+      .from('workspaces')
+      .select('digest_prompt')
+      .eq('id', workspaceId)
+      .single();
+    const digestPrompt = (wsRow as { digest_prompt?: string | null } | null)?.digest_prompt;
+    const result = await synthesizeEssay({
+      workspaceId,
+      generatedBy: null,
+      origin: 'digest',
+      prompt: digestPrompt?.trim() ? digestPrompt.trim() : undefined,
+    });
     if (!result.ok) {
       report.push({ workspaceId, status: `skipped: ${result.error}`, recipients: 0 });
       continue;

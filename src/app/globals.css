@@ -857,15 +857,19 @@ h3 {
   z-index: 4;
   justify-self: end;
   margin: 0 0 0 auto;
-  padding: max(14px, env(safe-area-inset-top)) 16px 14px;
-  min-height: 40px;
+  padding: max(12px, env(safe-area-inset-top)) 16px 12px;
   border: 0;
   background: #101015;
-  color: var(--ink);
+  color: rgba(247, 247, 242, 0.5);
   font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+
+.capture-drawer__close:hover {
+  color: var(--ink);
 }
 
 .capture-drawer__preview {

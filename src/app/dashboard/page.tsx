@@ -929,7 +929,16 @@ function DashboardContent() {
               <textarea
                 className="dash-capture__input"
                 value={captureDraft}
-                placeholder="Paste a link or write a note…"
+                placeholder="Paste a link (saves instantly) or write a note…"
+                onPaste={(event) => {
+                  // Paste a bare link into the empty box → just save it, no
+                  // Save click. (Don't hijack pastes mid-note.)
+                  const pasted = event.clipboardData.getData('text').trim();
+                  if (!captureDraft.trim() && pasted && URL_PATTERN.test(pasted) && !/\s/.test(pasted)) {
+                    event.preventDefault();
+                    void saveCapture(pasted);
+                  }
+                }}
                 onChange={(event) => setCaptureDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
@@ -1159,8 +1168,12 @@ function DashboardContent() {
         <div className="capture-drawer capture-drawer--wide" role="dialog" aria-modal="true" aria-label="Saved capture details">
           <button className="capture-drawer__backdrop" aria-label="Close details" onClick={() => setSelectedCapture(null)} />
           <aside className="capture-drawer__panel">
-            <button className="capture-drawer__close" onClick={() => setSelectedCapture(null)}>
-              Close
+            <button
+              className="capture-drawer__close"
+              onClick={() => setSelectedCapture(null)}
+              aria-label="Close"
+            >
+              ✕
             </button>
             <div className="capture-drawer__preview">
               {getCaptureType(selectedCapture) === 'audio' && selectedCapture.media_url ? (

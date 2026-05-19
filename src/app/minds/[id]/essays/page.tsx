@@ -15,8 +15,18 @@ type Essay = {
   source_node_ids: string[];
   provider: string | null;
   model: string | null;
+  trail: { kind?: string; origin?: string } | null;
   created_at: string;
 };
+
+function essayKindLabel(trail: Essay['trail']): string {
+  const k = trail?.kind;
+  if (k === 'digest') return 'Weekly Digest';
+  if (k === 'brief') return 'Brief';
+  if (k === 'questions') return 'Open questions';
+  if (k === 'custom-prompt') return 'Custom';
+  return 'Essay';
+}
 
 type Insight = {
   id: string;
@@ -80,6 +90,7 @@ function EssaysContent() {
   const [composeTitle, setComposeTitle] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [composeBusy, setComposeBusy] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
@@ -294,32 +305,44 @@ function EssaysContent() {
         </nav>
 
         <section className="insights-yours">
-          <p className="insights-lane">Yours</p>
-          <div className="insight-compose">
-            <input
-              className="insight-compose__title"
-              placeholder="Title (optional)"
-              value={composeTitle}
-              onChange={(e) => setComposeTitle(e.target.value)}
-            />
-            <textarea
-              className="insight-compose__body"
-              placeholder="Write an insight — what are you noticing across this Mind? The assistant reads these when it synthesizes."
-              value={composeBody}
-              onChange={(e) => setComposeBody(e.target.value)}
-              rows={3}
-            />
-            <div className="insight-compose__actions">
-              <button
-                type="button"
-                className="ms-btn"
-                onClick={createInsight}
-                disabled={composeBusy || !composeBody.trim()}
-              >
-                {composeBusy ? 'Saving…' : 'Add insight'}
-              </button>
-            </div>
+          <div className="insights-lane-row">
+            <p className="insights-lane">Yours</p>
+            <button
+              type="button"
+              className="insight-link"
+              onClick={() => setComposeOpen((v) => !v)}
+            >
+              {composeOpen ? 'Cancel' : '+ Add an insight'}
+            </button>
           </div>
+          {composeOpen ? (
+            <div className="insight-compose">
+              <input
+                className="insight-compose__title"
+                placeholder="Title (optional)"
+                value={composeTitle}
+                onChange={(e) => setComposeTitle(e.target.value)}
+              />
+              <textarea
+                className="insight-compose__body"
+                placeholder="What are you noticing across this Mind? The assistant reads these when it synthesizes."
+                value={composeBody}
+                onChange={(e) => setComposeBody(e.target.value)}
+                rows={3}
+                autoFocus
+              />
+              <div className="insight-compose__actions">
+                <button
+                  type="button"
+                  className="ms-btn"
+                  onClick={createInsight}
+                  disabled={composeBusy || !composeBody.trim()}
+                >
+                  {composeBusy ? 'Saving…' : 'Add insight'}
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {ownInsights.length ? (
             <ul className="insight-list" role="list">
@@ -567,6 +590,12 @@ function EssaysContent() {
                   >
                     <span className="essays-list__title">{e.title ?? 'Untitled essay'}</span>
                     <span className="essays-list__meta">
+                      <span
+                        className={`essays-kind ${e.trail?.kind === 'digest' ? 'essays-kind--digest' : ''}`}
+                      >
+                        {essayKindLabel(e.trail)}
+                      </span>
+                      {' · '}
                       {relativeTime(e.created_at)} · {e.source_node_ids.length} sources
                     </span>
                   </button>
@@ -579,6 +608,12 @@ function EssaysContent() {
                 <>
                   <div className="essays-reader__head">
                     <p className="essays-reader__meta">
+                      <span
+                        className={`essays-kind ${openEssay.trail?.kind === 'digest' ? 'essays-kind--digest' : ''}`}
+                      >
+                        {essayKindLabel(openEssay.trail)}
+                      </span>
+                      {' · '}
                       {relativeTime(openEssay.created_at)} · {openEssay.source_node_ids.length}{' '}
                       sources
                       {openEssay.model ? ` · ${openEssay.model}` : ''}

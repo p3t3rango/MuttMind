@@ -1770,7 +1770,7 @@ h3 {
   gap: 8px;
 }
 
-input,
+input:not([type='checkbox']):not([type='radio']),
 textarea,
 select {
   width: 100%;
@@ -1812,7 +1812,7 @@ textarea::placeholder {
   color: #676763;
 }
 
-input:focus,
+input:not([type='checkbox']):not([type='radio']):focus,
 textarea:focus,
 select:focus {
   box-shadow: inset 0 0 0 2px var(--line);
@@ -5909,6 +5909,33 @@ a.essay-cite--link:hover {
 .insights-yours {
   padding: 18px 0 28px;
   border-bottom: 1px solid rgba(247, 247, 242, 0.08);
+}
+
+.insights-lane-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.insights-lane-row .insights-lane {
+  margin-bottom: 0;
+}
+
+.essays-kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.5);
+}
+
+.essays-kind--digest {
+  color: #050505;
+  background: var(--ink);
+  padding: 1px 6px;
+  border-radius: 2px;
 }
 
 .insights-lane {

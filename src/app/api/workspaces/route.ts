@@ -23,6 +23,7 @@ type WorkspaceMemberRow = {
     share_code: string | null;
     allow_anonymous_contributions: boolean;
     learning_enabled: boolean;
+    digest_prompt: string | null;
   };
 };
 
@@ -33,7 +34,7 @@ type MemberCountRow = {
 };
 
 const VOICE_SOURCES = ['system_prompt', 'user_notes', 'mind_notes'] as const;
-const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at,event_mode,event_at,share_code,allow_anonymous_contributions,learning_enabled';
+const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at,event_mode,event_at,share_code,allow_anonymous_contributions,learning_enabled,digest_prompt';
 
 function generateShareCode(): string {
   return (
@@ -145,6 +146,7 @@ export async function GET(req: Request) {
         share_code: item.workspaces.share_code ?? null,
         allow_anonymous_contributions: item.workspaces.allow_anonymous_contributions ?? false,
         learning_enabled: item.workspaces.learning_enabled ?? false,
+        digest_prompt: item.workspaces.digest_prompt ?? null,
         member_count: memberCounts.get(item.workspaces.id) ?? 1,
         ...(wantsRecent
           ? {
@@ -238,7 +240,8 @@ export async function PATCH(req: Request) {
       'eventMode' in body ||
       'eventAt' in body ||
       'allowAnonymousContributions' in body ||
-      'learningEnabled' in body;
+      'learningEnabled' in body ||
+      'digestPrompt' in body;
     if (wantsMindEdit) {
       const canManage = await userCan(userId, workspaceId, 'manage_mind');
       if (!canManage) return Response.json({ error: 'Not allowed to edit this Mind' }, { status: 403 });
@@ -277,6 +280,9 @@ export async function PATCH(req: Request) {
       updates.allow_anonymous_contributions = body.allowAnonymousContributions;
     if (typeof body.learningEnabled === 'boolean')
       updates.learning_enabled = body.learningEnabled;
+    if (body.digestPrompt === null) updates.digest_prompt = null;
+    else if (typeof body.digestPrompt === 'string')
+      updates.digest_prompt = body.digestPrompt.trim() || null;
 
     if (Object.keys(updates).length === 0) {
       return Response.json({ error: 'No editable fields supplied' }, { status: 400 });

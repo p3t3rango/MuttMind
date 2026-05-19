@@ -25,6 +25,7 @@ type Insight = {
   created_at: string;
   updated_at: string;
   source_kind?: string | null;
+  source_node_id?: string | null;
   author?: { display_name: string | null; email: string | null } | null;
 };
 
@@ -259,6 +260,9 @@ function EssaysContent() {
       }))
     : [];
 
+  const ownInsights = insights.filter((i) => i.source_kind !== 'learned');
+  const learnedInsights = insights.filter((i) => i.source_kind === 'learned');
+
   return (
     <main className="app-shell ms-shell">
       <AppNav active="minds" />
@@ -317,9 +321,9 @@ function EssaysContent() {
             </div>
           </div>
 
-          {insights.length ? (
+          {ownInsights.length ? (
             <ul className="insight-list" role="list">
-              {insights.map((it) => (
+              {ownInsights.map((it) => (
                 <li key={it.id} className="insight-item">
                   {editingId === it.id ? (
                     <div className="insight-compose">
@@ -418,6 +422,76 @@ function EssaysContent() {
             </p>
           )}
         </section>
+
+        {learnedInsights.length ? (
+          <section className="insights-yours">
+            <p className="insights-lane">
+              What this Mind has learned
+              <span className="insights-lane__sub"> · distilled by the assistant</span>
+            </p>
+            <ul className="insight-list" role="list">
+              {learnedInsights.map((it) => {
+                const src = it.source_node_id ? nodeMeta.get(it.source_node_id) : null;
+                return (
+                  <li key={it.id} className="insight-item">
+                    <p className="insight-item__body">{it.body}</p>
+                    <div className="insight-item__meta">
+                      <span>
+                        {src ? (
+                          src.url ? (
+                            <a
+                              href={src.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="insight-src"
+                            >
+                              ↳ {src.title}
+                            </a>
+                          ) : (
+                            <span className="insight-src">↳ {src.title}</span>
+                          )
+                        ) : (
+                          'from across this Mind'
+                        )}
+                        {' · '}
+                        {relativeTime(it.updated_at)}
+                      </span>
+                      <span className="insight-item__actions">
+                        {confirmDeleteId === it.id ? (
+                          <>
+                            <button
+                              type="button"
+                              className="insight-link insight-link--danger"
+                              onClick={() => removeInsight(it.id)}
+                            >
+                              Confirm delete
+                            </button>
+                            <button
+                              type="button"
+                              className="insight-link"
+                              onClick={() => setConfirmDeleteId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="insight-link"
+                            onClick={() => setConfirmDeleteId(it.id)}
+                            title="Remove this learning (also drops it from future priming)"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ) : null}
 
         <p className="insights-lane insights-lane--synth">Synthesized</p>
 

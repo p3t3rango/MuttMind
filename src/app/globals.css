@@ -5873,6 +5873,23 @@ a.essay-cite--link:hover {
   color: rgba(247, 247, 242, 0.4);
 }
 
+.insights-lane__sub {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: rgba(247, 247, 242, 0.28);
+}
+
+.insight-src {
+  color: rgba(247, 247, 242, 0.55);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(247, 247, 242, 0.2);
+}
+
+.insight-src:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
 .insights-lane--synth {
   margin: 26px 0 14px;
 }

@@ -115,8 +115,7 @@ export async function getInsightAuthor(input: {
  * Treated as load-bearing priming, distinct from system memory. Capped so a
  * long journal can't crowd out the source material.
  */
-export function formatInsightsForPrompt(entries: Insight[], cap = 4_000): string {
-  if (!entries.length) return '';
+function packLines(entries: Insight[], cap: number): string[] {
   const parts: string[] = [];
   let used = 0;
   for (const e of entries) {
@@ -126,6 +125,36 @@ export function formatInsightsForPrompt(entries: Insight[], cap = 4_000): string
     parts.push(line);
     used += line.length;
   }
-  if (!parts.length) return '';
-  return `The user's own insights on this Mind (their explicit framing — treat as load-bearing, not optional):\n${parts.join('\n')}`;
+  return parts;
+}
+
+/**
+ * Prompt priming from insights. Two distinct blocks with separate budgets:
+ * the user's own journal (load-bearing, larger budget) and the Mind's
+ * machine-distilled "learnings" (smaller budget so they never crowd the
+ * user's framing or the source material).
+ */
+export function formatInsightsForPrompt(
+  entries: Insight[],
+  userCap = 4_000,
+  learnedCap = 1_500,
+): string {
+  if (!entries.length) return '';
+  const learned = entries.filter((e) => e.source_kind === 'learned');
+  const own = entries.filter((e) => e.source_kind !== 'learned');
+  const blocks: string[] = [];
+
+  const ownLines = packLines(own, userCap);
+  if (ownLines.length) {
+    blocks.push(
+      `The user's own insights on this Mind (their explicit framing — treat as load-bearing, not optional):\n${ownLines.join('\n')}`,
+    );
+  }
+  const learnedLines = packLines(learned, learnedCap);
+  if (learnedLines.length) {
+    blocks.push(
+      `What this Mind has learned about itself over time (its own distilled orientation — useful priors, but defer to the user's framing and the sources):\n${learnedLines.join('\n')}`,
+    );
+  }
+  return blocks.join('\n\n');
 }

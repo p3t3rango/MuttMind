@@ -1387,10 +1387,11 @@ h3 {
 }
 
 .capture-drawer--wide .capture-drawer__panel {
-  grid-template-columns: minmax(0, 1.05fr) minmax(380px, 460px);
-  grid-template-rows: auto;
-  width: min(calc(100vw - 28px), 1420px);
-  height: min(calc(100vh - 28px), 840px);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  grid-template-rows: 100%;
+  grid-template-areas: 'body preview';
+  width: min(calc(100vw - 28px), 1120px);
+  height: min(calc(100vh - 28px), 820px);
   max-width: calc(100vw - 28px);
   max-height: calc(100vh - 28px);
   overflow: hidden;
@@ -1400,23 +1401,27 @@ h3 {
 }
 
 .capture-drawer--wide .capture-drawer__close {
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  margin: 0 0 0 auto;
+  grid-area: preview;
+  align-self: start;
+  justify-self: end;
+  position: relative;
+  z-index: 5;
+  margin: 10px 10px 0 0;
+  background: rgba(0, 0, 0, 0.35);
 }
 
 .capture-drawer--wide .capture-drawer__preview {
+  grid-area: preview;
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 0;
-  height: clamp(220px, 32vh, 340px);
+  height: 100%;
   margin: 0;
-  padding: 20px;
+  padding: 24px;
   overflow: hidden;
   border: 0;
-  border-bottom: 1px solid rgba(247, 247, 242, 0.1);
+  border-left: 1px solid rgba(247, 247, 242, 0.1);
   background: #0d0e13;
 }
 
@@ -1429,10 +1434,11 @@ h3 {
 }
 
 .capture-drawer--wide .capture-drawer__body {
+  grid-area: body;
   align-content: start;
   min-width: 0;
   overflow: hidden auto;
-  padding: 64px 28px 28px;
+  padding: 32px 28px 28px;
   scrollbar-gutter: stable;
 }
 
@@ -6492,10 +6498,15 @@ a.essay-cite--link:hover {
     height: calc(100% - 16px);
     width: calc(100% - 16px);
     overflow: auto;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: 'preview' 'body';
   }
 
   .capture-drawer--wide .capture-drawer__preview {
+    border-left: 0;
     border-right: 0;
+    height: auto;
     min-height: 280px;
   }
 }
@@ -7050,12 +7061,17 @@ a.essay-cite--link:hover {
     width: 100%;
     height: 100%;
     max-height: 100%;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: 'preview' 'body';
   }
 
   .capture-drawer--wide .capture-drawer__preview {
+    height: auto;
     min-height: 260px;
     max-height: 42vh;
     overflow: hidden;
+    border-left: 0;
     border-right: 0;
   }
 

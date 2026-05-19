@@ -535,6 +535,97 @@ Lands as **Feature 8.5 — Connectors** alongside or after Feature 7 (Feeds). Ea
   settings. Owners can't be removed; admins can remove members; last owner
   guard. **Prioritize before any external launch.**
 
+## Feature: Per-Mind Learning Loop (Hermes pattern)
+
+**Goal:** each Mind's assistant gets sharper for research the longer it's
+used — without an expensive always-on LLM loop and without complicating the
+consumer frontend. Adapted from how NousResearch/hermes-agent actually works
+(deep-read of the repo, not the marketing): recall is LLM-free; distillation
+is event-throttled and piggybacks calls already being made; consolidation is
+sparse and idle-gated.
+
+**Cost stance:** zero new LLM calls in v1, zero new migrations, zero new
+frontend surface. (Workflow rule 5.)
+
+### What a "learning" is
+
+A short, durable, substantive claim *about this Mind* — not procedural
+("how I did X") but understanding ("this Mind's spine is the
+Jevons-paradox-of-knowledge thread; treat curation-as-creation as the
+through-line"). Schema, reusing the **existing** `insights` table:
+
+- stored as an `insights` row with `source_kind = 'learned'`
+  (`source_kind` is free text — added in `insights_provenance_patch.sql`;
+  **no migration needed**)
+- `body` ≤ ~200 chars, claim-shaped
+- `source_node_id` anchors it to a real capture; cite node ids in body
+- hard cap **~30 learned rows per Mind** (prune oldest/least-grounded)
+
+### Distillation — exactly two triggers (the cost control)
+
+1. **Synthesis runs** (`src/lib/synthesis.ts`, essay/brief/questions):
+   piggyback the call that already reads the corpus. Append a small
+   structured tail to the prompt asking for **one** learning; parse it and
+   write one `insights(source_kind='learned')` row, enforcing the per-Mind
+   cap. Extends the existing `essay_summary` writeback path. Marginal cost =
+   a few output tokens on a call already paid for.
+2. **Weekly digest cron** (`src/app/api/cron/digest/route.ts`): already an
+   LLM call — extend it with the consolidation pass below.
+
+**Explicitly NOT per-capture or per-lens.** Captures fire too often
+(N×cost); lenses are speculative. This exclusion *is* the cost mechanism —
+intentional, not an oversight.
+
+### Weekly consolidation — anti-drift invariant
+
+The cron pass MUST read **sampled raw captures + chunks** as input, not just
+the existing learnings. Re-grounding in source every cycle is load-bearing:
+without it the weekly job becomes pure self-reinforcement (echo chamber).
+It merges/dedupes/rewrites learned rows, drops stale/ungrounded ones,
+enforces the ~30 cap. Opt-in per Mind, idle-gated, frequency-capped.
+
+### Recall — already built, stays free and visible
+
+- Learned rows flow into synthesis/ask priming via the existing
+  `formatInsightsForPrompt` — **no LLM on recall**. Give learned rows a
+  **separate, smaller token budget** so they don't crowd the user's own
+  journal insights.
+- Rendered in the **existing Insights "Yours" lane** with a subtle "from the
+  Mind's reflection" label (reuses `source_kind`). User can see and *delete*
+  a wrong learning — trust + the only drift-correction/debug path. No new UI
+  surface, no new flow.
+
+### Not in v1
+
+- Honcho / dialectical user modeling (per-user personalization; doesn't earn
+  its complexity in a per-Mind research tool).
+- Any standalone scheduled "daydreaming" synthesis loop (the expensive thing
+  we are explicitly avoiding).
+- Do **not** assume Gemini prefix-cache savings (Anthropic-specific); the
+  cost story holds because distillation piggybacks entirely — no separate
+  forked call.
+
+### Files
+
+- `src/lib/synthesis.ts` — learning-extraction tail + capped write
+- `src/app/api/cron/digest/route.ts` — consolidation pass (re-ground on
+  sampled captures/chunks)
+- `src/lib/insights.ts` + Insights page — `source_kind='learned'` label;
+  separate priming budget in `formatInsightsForPrompt`
+
+### Verification
+
+- Run synthesis on a ≥6-capture Mind → exactly one new
+  `insights(source_kind='learned')` row, ≤200 chars, cites a node; cap holds
+  at 30. No extra LLM call (same single synthesis request).
+- Trigger the weekly consolidation manually → learned set shrinks/merges,
+  every surviving row traces to a sampled capture; opt-out Mind is skipped.
+- Synthesis/ask prompts include learned rows within their separate budget;
+  recall makes zero LLM calls.
+- Learned rows visible + deletable in Insights "Yours"; deleting one removes
+  it from future priming.
+- `tsc --noEmit` clean; `next build` 30/30 before merge.
+
 ## Future / not-now
 
 - Local LLM (Ollama) provider

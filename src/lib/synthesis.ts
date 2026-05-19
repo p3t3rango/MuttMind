@@ -11,6 +11,7 @@ type WorkspaceRow = {
   system_prompt: string | null;
   provider: string | null;
   model: string | null;
+  learning_enabled: boolean | null;
 };
 
 type NodeRow = {
@@ -74,7 +75,7 @@ export async function synthesizeEssay(input: {
 
   const { data: workspaceRow, error: workspaceError } = await getSupabaseAdmin()
     .from('workspaces')
-    .select('id,name,system_prompt,provider,model')
+    .select('id,name,system_prompt,provider,model,learning_enabled')
     .eq('id', workspaceId)
     .single();
   if (workspaceError) return { ok: false, status: 500, error: workspaceError.message };
@@ -244,18 +245,39 @@ export async function synthesizeEssay(input: {
       ? prompt.trim()
       : `${MODE_PROMPTS[mode]}${naturalNudge}${thinNote}`;
 
+  const learningEnabled = workspace.learning_enabled === true;
+  const learningTail = learningEnabled
+    ? '\n\nThen, after the piece, output exactly this block and nothing after it:\n===LEARNING===\n<one standalone sentence, ≤200 chars: the most durable, reusable orientation about THIS body of work as a whole — its spine/through-line — that should guide future work in this Mind. Not a recap of the essay; a lasting claim. Cite the single most load-bearing source as [n].>'
+    : '';
+
   const fullPrompt = [
     insightsFragment ? `${insightsFragment}\n\n---\n\n` : '',
     memoryFragment ? `${memoryFragment}\n\n---\n\n` : '',
     `The saved material${workspace.name ? ` ("${workspace.name}")` : ''}, numbered for citation:\n\n${sourcesFragment}`,
     '\n\n---\n\n',
     userPrompt,
+    learningTail,
   ].join('');
 
   const provider = workspace.provider === 'gemini' ? 'gemini' : undefined;
   const model = workspace.model && workspace.model.trim() ? workspace.model : undefined;
 
-  const body_md = await generateText({ prompt: fullPrompt, systemPrompt, provider, model });
+  const rawOutput = await generateText({ prompt: fullPrompt, systemPrompt, provider, model });
+  if (!rawOutput.trim()) {
+    return { ok: false, status: 502, error: 'LLM returned an empty essay.' };
+  }
+
+  // Split off the piggybacked learning (no extra LLM call). The saved essay
+  // never contains the delimiter or tail.
+  let body_md = rawOutput;
+  let learningText = '';
+  if (learningEnabled) {
+    const parts = rawOutput.split(/\n*={3,}\s*LEARNING\s*={0,}\n*/i);
+    if (parts.length > 1) {
+      body_md = parts[0].trim();
+      learningText = parts.slice(1).join(' ').replace(/\s+/g, ' ').trim().slice(0, 240);
+    }
+  }
   if (!body_md.trim()) {
     return { ok: false, status: 502, error: 'LLM returned an empty essay.' };
   }
@@ -297,6 +319,36 @@ export async function synthesizeEssay(input: {
     sourceEssayId: (essay as { id: string }).id,
     createdBy: generatedBy,
   });
+
+  // Hermes-pattern: persist the distilled learning (piggybacked above — no
+  // extra LLM call) as an insight, anchored to its cited source. Cap the
+  // learned set per Mind so priming stays tight.
+  if (learningEnabled && learningText) {
+    const citeMatch = learningText.match(/\[(\d+)\]/);
+    const citeIdx = citeMatch ? parseInt(citeMatch[1], 10) - 1 : -1;
+    const sourceNodeId = citeIdx >= 0 && citeIdx < nodes.length ? nodes[citeIdx].id : null;
+    const admin = getSupabaseAdmin();
+    const { error: learnErr } = await admin.from('insights').insert({
+      workspace_id: workspaceId,
+      created_by: generatedBy,
+      title: null,
+      body: learningText,
+      source_node_id: sourceNodeId,
+      source_kind: 'learned',
+    });
+    if (!learnErr) {
+      const { data: learned } = await admin
+        .from('insights')
+        .select('id')
+        .eq('workspace_id', workspaceId)
+        .eq('source_kind', 'learned')
+        .order('created_at', { ascending: false });
+      const ids = (learned ?? []).map((r) => (r as { id: string }).id);
+      if (ids.length > 30) {
+        await admin.from('insights').delete().in('id', ids.slice(30));
+      }
+    }
+  }
 
   return { ok: true, essay: essay as Essay };
 }

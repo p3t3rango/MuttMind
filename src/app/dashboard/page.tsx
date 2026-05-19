@@ -661,6 +661,34 @@ function DashboardContent() {
     );
   }, [loadTags, selectedCapture, updateCapture, workspaceId]);
 
+  const reprocessSelected = useCallback(async () => {
+    if (!workspaceId || !selectedCapture || selectedCapture.id.startsWith('pending-')) return;
+    setIsImproving(true);
+    setStatus('Reprocessing — re-fetching the source and regenerating…');
+    try {
+      const r = await authedFetch(`/api/nodes/${selectedCapture.id}/reprocess`, {
+        method: 'POST',
+        body: JSON.stringify({ workspaceId }),
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        setStatus(d.error ?? 'Reprocess failed.');
+        return;
+      }
+      await loadRecentCaptures();
+      await loadTags();
+      setStatus(
+        d.warnings?.length
+          ? `Reprocessed, with notes: ${d.warnings[0]}`
+          : 'Reprocessed — source re-fetched and summary regenerated.',
+      );
+    } catch {
+      setStatus('Reprocess failed (network?). Try again.');
+    } finally {
+      setIsImproving(false);
+    }
+  }, [loadRecentCaptures, loadTags, selectedCapture, workspaceId]);
+
   const addTagToSelectedCapture = useCallback(async () => {
     const tag = tagDraft.trim();
     if (!workspaceId || !selectedCapture || !tag || selectedCapture.id.startsWith('pending-')) return;
@@ -1428,6 +1456,16 @@ function DashboardContent() {
                 <Link href="/vault" className="button-secondary">
                   View Map
                 </Link>
+                {selectedCapture.original_url && !selectedCapture.id.startsWith('pending-') ? (
+                  <button
+                    className="button-secondary"
+                    onClick={reprocessSelected}
+                    disabled={isImproving}
+                    title="Re-fetch the source and regenerate (use if Gemini failed at capture)"
+                  >
+                    {isImproving ? 'Reprocessing…' : 'Reprocess'}
+                  </button>
+                ) : null}
                 {!selectedCapture.is_processing ? (
                   <button className="button-ghost" onClick={() => deleteCapture(selectedCapture.id)}>
                     Delete

@@ -1411,20 +1411,21 @@ h3 {
   align-items: center;
   justify-content: center;
   min-width: 0;
-  min-height: 0;
+  height: clamp(220px, 32vh, 340px);
   margin: 0;
+  padding: 20px;
   overflow: hidden;
   border: 0;
-  border-right: 12px solid var(--paper);
+  border-bottom: 1px solid rgba(247, 247, 242, 0.1);
   background: #0d0e13;
 }
 
 .capture-drawer--wide .capture-drawer__preview img {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  object-fit: cover;
-  object-position: center;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 
 .capture-drawer--wide .capture-drawer__body {
@@ -3209,6 +3210,9 @@ select:focus {
 .mm-event-opt > span {
   display: grid;
   gap: 2px;
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
 }
 
 .mm-actions {
@@ -5200,7 +5204,7 @@ select:focus {
   appearance: none;
   width: 100%;
   box-sizing: border-box;
-  padding: 10px 0;
+  padding: 12px 14px;
   border: 0;
   border-bottom: 1px solid rgba(247, 247, 242, 0.18);
   background: transparent;

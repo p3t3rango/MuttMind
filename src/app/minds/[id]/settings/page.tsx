@@ -20,6 +20,7 @@ type Mind = {
   share_code?: string | null;
   allow_anonymous_contributions?: boolean;
   learning_enabled?: boolean;
+  digest_prompt?: string | null;
 };
 
 type Tag = { id: string; shift_name: string; description: string | null };
@@ -41,6 +42,7 @@ function SettingsContent() {
   const [mind, setMind] = useState<Mind | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [digestPrompt, setDigestPrompt] = useState('');
   const [privacy, setPrivacy] = useState<Privacy>('closed');
   const [tags, setTags] = useState<Tag[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -77,9 +79,11 @@ function SettingsContent() {
         share_code: w.share_code ?? null,
         allow_anonymous_contributions: w.allow_anonymous_contributions ?? false,
         learning_enabled: w.learning_enabled ?? false,
+        digest_prompt: w.digest_prompt ?? null,
       });
       setName(w.name ?? '');
       setDescription(w.description ?? '');
+      setDigestPrompt(w.digest_prompt ?? '');
       setPrivacy((w.privacy as Privacy) ?? 'closed');
     }
   }, [mindId]);
@@ -412,6 +416,35 @@ function SettingsContent() {
             <span className="ms-toggle__label">
               {digestOptIn ? 'Weekly digest is ON for you' : 'Weekly digest is off'}
             </span>
+          </button>
+
+          <label className="ms-field" style={{ marginTop: 20 }}>
+            <span className="ms-field__label">
+              Digest prompt{' '}
+              <span className="ms-field__optional">
+                — optional, applies to this Mind for everyone
+              </span>
+            </span>
+            <textarea
+              className="ms-textarea"
+              rows={3}
+              value={digestPrompt}
+              placeholder="Leave blank for the default synthesis. e.g. “Lead with what changed this week and one thing worth chasing next.”"
+              onChange={(e) => setDigestPrompt(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="ms-btn"
+            style={{ justifySelf: 'start' }}
+            onClick={() =>
+              patchEvent(
+                { digestPrompt: digestPrompt.trim() || null },
+                'Digest prompt saved.',
+              )
+            }
+          >
+            Save digest prompt
           </button>
         </section>
 

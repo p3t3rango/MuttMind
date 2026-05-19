@@ -1770,7 +1770,7 @@ h3 {
   gap: 8px;
 }
 
-input,
+input:not([type='checkbox']):not([type='radio']),
 textarea,
 select {
   width: 100%;
@@ -1812,7 +1812,7 @@ textarea::placeholder {
   color: #676763;
 }
 
-input:focus,
+input:not([type='checkbox']):not([type='radio']):focus,
 textarea:focus,
 select:focus {
   box-shadow: inset 0 0 0 2px var(--line);

@@ -1,5 +1,37 @@
 import { env } from '../../env';
 
+const TRANSIENT = new Set([429, 500, 502, 503, 504]);
+
+/**
+ * Gemini's models 503 ("high demand … usually temporary") under load.
+ * Retry transient statuses with exponential backoff + jitter so brief
+ * spikes self-heal instead of failing the capture's enrichment. Returns
+ * the final Response either way — callers keep their own !ok handling.
+ */
+async function geminiFetch(
+  url: string,
+  init: RequestInit,
+  attempts = 4,
+): Promise<Response> {
+  let last: Response | null = null;
+  for (let i = 0; i < attempts; i += 1) {
+    let res: Response;
+    try {
+      res = await fetch(url, init);
+    } catch (e) {
+      if (i === attempts - 1) throw e;
+      await new Promise((r) => setTimeout(r, Math.min(8000, 500 * 2 ** i) + Math.random() * 250));
+      continue;
+    }
+    if (res.ok || !TRANSIENT.has(res.status)) return res;
+    last = res;
+    if (i < attempts - 1) {
+      await new Promise((r) => setTimeout(r, Math.min(8000, 500 * 2 ** i) + Math.random() * 250));
+    }
+  }
+  return last as Response;
+}
+
 export type GeminiProcessInput = {
   text: string;
   tags: string[];
@@ -75,7 +107,7 @@ export async function geminiProcess(input: GeminiProcessInput): Promise<GeminiPr
   ].join('\n');
 
   const model = input.model ?? env.geminiModel;
-  const response = await fetch(
+  const response = await geminiFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.geminiApiKey}`,
     {
       method: 'POST',
@@ -111,7 +143,7 @@ export async function geminiEmbed(input: GeminiEmbedInput): Promise<number[]> {
   if (!env.geminiApiKey) throw new Error('GEMINI_API_KEY is required');
 
   const model = input.model ?? env.geminiEmbeddingModel;
-  const response = await fetch(
+  const response = await geminiFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${env.geminiApiKey}`,
     {
       method: 'POST',
@@ -147,7 +179,7 @@ export async function geminiGenerateText(input: GeminiGenerateTextInput): Promis
     body.system_instruction = { parts: [{ text: input.systemPrompt }] };
   }
 
-  const response = await fetch(
+  const response = await geminiFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.geminiApiKey}`,
     {
       method: 'POST',
@@ -174,7 +206,7 @@ export type GeminiTranscribeInput = {
 export async function geminiTranscribe(input: GeminiTranscribeInput): Promise<string> {
   if (!env.geminiApiKey) throw new Error('GEMINI_API_KEY is required');
   const model = input.model ?? env.geminiModel;
-  const response = await fetch(
+  const response = await geminiFetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.geminiApiKey}`,
     {
       method: 'POST',

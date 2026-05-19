@@ -1,4 +1,5 @@
 import { env } from '@/lib/env';
+import { consolidateMindLearnings } from '@/lib/learning';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { sendTelegramMessage } from '@/lib/telegram';
 import { synthesizeEssay } from '@/lib/synthesis';
@@ -123,5 +124,30 @@ export async function GET(req: Request) {
     report.push({ workspaceId, status: 'sent', recipients: sent });
   }
 
-  return Response.json({ ran: true, minds: report.length, report });
+  // Weekly learning consolidation — independent of digest opt-in; runs for
+  // every Mind that turned on Reflection & learning. Each call is a no-op
+  // (cheap count query) unless learnings have actually accumulated.
+  const consolidation: Array<{ workspaceId: string; status: string; kept?: number }> = [];
+  const { data: learnMinds } = await admin
+    .from('workspaces')
+    .select('id')
+    .eq('learning_enabled', true);
+  for (const w of (learnMinds ?? []) as { id: string }[]) {
+    try {
+      const r = await consolidateMindLearnings(w.id);
+      consolidation.push({ workspaceId: w.id, ...r });
+    } catch (e) {
+      consolidation.push({
+        workspaceId: w.id,
+        status: `error: ${e instanceof Error ? e.message : 'unknown'}`,
+      });
+    }
+  }
+
+  return Response.json({
+    ran: true,
+    minds: report.length,
+    report,
+    consolidation,
+  });
 }

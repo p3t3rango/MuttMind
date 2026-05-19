@@ -56,6 +56,47 @@ type NodeNote = {
 
 const URL_PATTERN = /https?:\/\/\S+/i;
 
+/**
+ * Prefer a broadly-usable container. Safari/iOS supports audio/mp4 (AAC →
+ * .m4a, opens everywhere). Chrome only does webm — true mp3 would need
+ * server-side ffmpeg, which we don't run; webm stays the honest fallback,
+ * but at least the file is named with its real extension.
+ */
+function pickAudioMime(): { mime: string; ext: string } {
+  const isSupported = (t: string) =>
+    typeof MediaRecorder !== 'undefined' &&
+    typeof MediaRecorder.isTypeSupported === 'function' &&
+    MediaRecorder.isTypeSupported(t);
+  if (isSupported('audio/mp4')) return { mime: 'audio/mp4', ext: 'm4a' };
+  if (isSupported('audio/webm;codecs=opus')) return { mime: 'audio/webm;codecs=opus', ext: 'webm' };
+  if (isSupported('audio/webm')) return { mime: 'audio/webm', ext: 'webm' };
+  return { mime: '', ext: 'webm' };
+}
+
+const ICON = {
+  mic: (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" />
+    </svg>
+  ),
+  stop: (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
+      <rect x="5" y="5" width="14" height="14" rx="1.5" />
+    </svg>
+  ),
+  attach: (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 11l-8.5 8.5a4 4 0 0 1-5.7-5.7L15 5.6a2.7 2.7 0 0 1 3.8 3.8l-8.4 8.4a1.3 1.3 0 0 1-1.9-1.9l7.8-7.8" />
+    </svg>
+  ),
+  download: (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v12M7 11l5 5 5-5M5 21h14" />
+    </svg>
+  ),
+};
+
 function getHostLabel(url: string | null) {
   if (!url) return 'note';
 
@@ -196,6 +237,8 @@ function DashboardContent() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const rafRef = useRef<number | null>(null);
   const [clipUrl, setClipUrl] = useState('');
+  const [clipExt, setClipExt] = useState('webm');
+  const [failedImgSrc, setFailedImgSrc] = useState('');
   const clipBlobRef = useRef<Blob | null>(null);
   const [tagDraft, setTagDraft] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
@@ -303,7 +346,9 @@ function DashboardContent() {
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream);
+      const { mime, ext } = pickAudioMime();
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      setClipExt(ext);
       chunksRef.current = [];
       rec.ondataavailable = (e) => {
         if (e.data.size) chunksRef.current.push(e.data);
@@ -386,7 +431,7 @@ function DashboardContent() {
       const token = await getAccessToken();
       const fd = new FormData();
       fd.append('workspaceId', workspaceId);
-      fd.append('audio', blob, 'memo.webm');
+      fd.append('audio', blob, `memo.${clipExt}`);
       fd.append('transcribe', transcribe ? '1' : '0');
       const r = await fetch('/api/capture/voice', {
         method: 'POST',
@@ -963,13 +1008,13 @@ function DashboardContent() {
                 <div className="dash-tools">
                 <button
                   type="button"
-                  className={`dash-mic ${recording ? 'dash-mic--rec' : ''}`}
+                  className={`dash-iconbtn ${recording ? 'dash-iconbtn--rec' : ''}`}
                   onClick={toggleRecord}
                   disabled={voiceBusy || uploadBusy}
                   aria-label={recording ? 'Stop recording' : 'Record a voice memo'}
-                  title="Voice memo (transcribed)"
+                  title={recording ? 'Stop recording' : 'Record a voice memo'}
                 >
-                  {recording ? '● Stop' : voiceBusy ? 'Transcribing…' : '🎙 Record'}
+                  {recording ? ICON.stop : ICON.mic}
                 </button>
                 {recording ? (
                   <canvas
@@ -982,13 +1027,13 @@ function DashboardContent() {
                 ) : null}
                 <button
                   type="button"
-                  className="dash-mic"
+                  className="dash-iconbtn"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadBusy || voiceBusy || recording}
                   aria-label="Attach an image or PDF"
                   title="Attach image or PDF"
                 >
-                  {uploadBusy ? 'Uploading…' : '📎 Attach'}
+                  {ICON.attach}
                 </button>
                 <input
                   ref={fileInputRef}
@@ -1014,11 +1059,12 @@ function DashboardContent() {
                 <div className="dash-clip__actions">
                   <a
                     href={clipUrl}
-                    download="voice-memo.webm"
-                    className="dash-mic"
+                    download={`voice-memo.${clipExt}`}
+                    className="dash-iconbtn"
+                    aria-label="Download recording"
                     title="Download the audio to keep it"
                   >
-                    ⤓ Download
+                    {ICON.download}
                   </a>
                   <button
                     type="button"
@@ -1180,9 +1226,14 @@ function DashboardContent() {
                 <div className="capture-drawer__audio">
                   <AudioPlayer src={selectedCapture.media_url} />
                 </div>
-              ) : selectedCapture.og_image_url ? (
+              ) : selectedCapture.og_image_url &&
+                failedImgSrc !== selectedCapture.og_image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={selectedCapture.og_image_url} alt={selectedCapture.title ?? 'Saved preview'} />
+                <img
+                  src={selectedCapture.og_image_url}
+                  alt={selectedCapture.title ?? 'Saved preview'}
+                  onError={() => setFailedImgSrc(selectedCapture.og_image_url ?? '')}
+                />
               ) : (
                 <div className="signal-card__thumb signal-card__thumb--fallback">
                   <span>{getHostLabel(selectedCapture.original_url)}</span>

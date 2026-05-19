@@ -3762,7 +3762,40 @@ select:focus {
 .dash-tools {
   margin-right: auto;
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+.dash-iconbtn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  padding: 0;
+  border: 1px solid rgba(247, 247, 242, 0.22);
+  background: transparent;
+  color: rgba(247, 247, 242, 0.6);
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.dash-iconbtn:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: rgba(247, 247, 242, 0.5);
+}
+
+.dash-iconbtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dash-iconbtn--rec {
+  color: #f0867f;
+  border-color: #d9706a;
+  animation: dash-mic-pulse 1.2s ease-in-out infinite;
 }
 
 .dash-mic {

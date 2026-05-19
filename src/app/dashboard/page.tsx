@@ -316,8 +316,10 @@ function DashboardContent() {
 
   const loadRecentCaptures = useCallback(async () => {
     if (!workspaceId) {
+      // Bootstrap: workspaces haven't resolved yet. Keep capturesLoading
+      // true so we stay on "Loading…" — flipping it false here flashes the
+      // empty "save your first capture" inviter before the real load.
       setRecentCaptures([]);
-      setCapturesLoading(false);
       return [] as CaptureItem[];
     }
 
@@ -1107,9 +1109,9 @@ function DashboardContent() {
       </section>
 
       <section className="mind-board" aria-label="Saved captures">
-        {capturesLoading && recentCaptures.length === 0 ? (
+        {workspacesLoading || (capturesLoading && recentCaptures.length === 0) ? (
           <p className="dash-loading">Loading captures…</p>
-        ) : filteredCaptures.length > 0 ? (
+        ) : !workspaces.length ? null : filteredCaptures.length > 0 ? (
           <div className="masonry-grid">
             {filteredCaptures.map((captureItem, index) => {
               const variant = getCardVariant(captureItem, index);

@@ -19,6 +19,7 @@ type Mind = {
   event_at?: string | null;
   share_code?: string | null;
   allow_anonymous_contributions?: boolean;
+  learning_enabled?: boolean;
 };
 
 type Tag = { id: string; shift_name: string; description: string | null };
@@ -75,6 +76,7 @@ function SettingsContent() {
         event_at: w.event_at ?? null,
         share_code: w.share_code ?? null,
         allow_anonymous_contributions: w.allow_anonymous_contributions ?? false,
+        learning_enabled: w.learning_enabled ?? false,
       });
       setName(w.name ?? '');
       setDescription(w.description ?? '');
@@ -409,6 +411,34 @@ function SettingsContent() {
             <span className="ms-toggle__dot" />
             <span className="ms-toggle__label">
               {digestOptIn ? 'Weekly digest is ON for you' : 'Weekly digest is off'}
+            </span>
+          </button>
+        </section>
+
+        <section className="ms-section">
+          <h2 className="ms-section__title">Reflection &amp; learning</h2>
+          <p className="ms-section__hint">
+            When on, this Mind quietly distills a durable takeaway each time it
+            synthesizes, and consolidates them weekly — so its assistant gets sharper
+            for research over time. Off by default; no extra cost when off.
+          </p>
+          <button
+            type="button"
+            className={`ms-toggle ${mind.learning_enabled ? 'ms-toggle--on' : ''}`}
+            onClick={() =>
+              patchEvent(
+                { learningEnabled: !mind.learning_enabled },
+                mind.learning_enabled ? 'Reflection off.' : 'Reflection on.',
+              )
+            }
+            role="switch"
+            aria-checked={!!mind.learning_enabled}
+          >
+            <span className="ms-toggle__dot" />
+            <span className="ms-toggle__label">
+              {mind.learning_enabled
+                ? 'This Mind reflects & learns'
+                : 'Let this Mind reflect & learn'}
             </span>
           </button>
         </section>

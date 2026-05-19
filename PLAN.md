@@ -535,6 +535,140 @@ Lands as **Feature 8.5 — Connectors** alongside or after Feature 7 (Feeds). Ea
   settings. Owners can't be removed; admins can remove members; last owner
   guard. **Prioritize before any external launch.**
 
+## Feature: Per-Mind Learning Loop (Hermes pattern)
+
+**Goal:** each Mind's assistant gets sharper for research the longer it's
+used — without an expensive always-on LLM loop and without complicating the
+consumer frontend. Adapted from how NousResearch/hermes-agent actually works
+(deep-read of the repo, not the marketing): recall is LLM-free; distillation
+is event-throttled and piggybacks calls already being made; consolidation is
+sparse and idle-gated.
+
+**Cost stance:** zero new LLM calls in v1. Storage: reuses the `insights`
+table for learnings (no migration) + **one trivial reversible boolean
+column** for the per-Mind opt-in (`workspaces.learning_enabled`, default
+false — workflow rules 4 & 5). Frontend is deliberately minimal: **one
+settings toggle** (reuses the existing digest/event toggle pattern) and
+**one read-only section** on the Insights page that already exists. No new
+page, no new flow, composer/dashboard/capture untouched.
+
+### What a "learning" is
+
+A short, durable, substantive claim *about this Mind* — not procedural
+("how I did X") but understanding ("this Mind's spine is the
+Jevons-paradox-of-knowledge thread; treat curation-as-creation as the
+through-line"). Schema, reusing the **existing** `insights` table:
+
+- stored as an `insights` row with `source_kind = 'learned'`
+  (`source_kind` is free text — added in `insights_provenance_patch.sql`;
+  **no migration needed**)
+- `body` ≤ ~200 chars, claim-shaped
+- `source_node_id` anchors it to a real capture; cite node ids in body
+- hard cap **~30 learned rows per Mind** (prune oldest/least-grounded)
+
+### Distillation — exactly two triggers (the cost control)
+
+1. **Synthesis runs** (`src/lib/synthesis.ts`, essay/brief/questions):
+   piggyback the call that already reads the corpus. Append a small
+   structured tail to the prompt asking for **one** learning; parse it and
+   write one `insights(source_kind='learned')` row, enforcing the per-Mind
+   cap. Extends the existing `essay_summary` writeback path. Marginal cost =
+   a few output tokens on a call already paid for.
+2. **Weekly digest cron** (`src/app/api/cron/digest/route.ts`): already an
+   LLM call — extend it with the consolidation pass below.
+
+**Explicitly NOT per-capture or per-lens.** Captures fire too often
+(N×cost); lenses are speculative. This exclusion *is* the cost mechanism —
+intentional, not an oversight.
+
+### Weekly consolidation — anti-drift invariant
+
+The cron pass MUST read **sampled raw captures + chunks** as input, not just
+the existing learnings. Re-grounding in source every cycle is load-bearing:
+without it the weekly job becomes pure self-reinforcement (echo chamber).
+It merges/dedupes/rewrites learned rows, drops stale/ungrounded ones,
+enforces the ~30 cap. Gated on `workspaces.learning_enabled = true`,
+idle-gated, frequency-capped. Both distillation (synthesis tail) and
+consolidation no-op when the flag is off.
+
+### Recall — already built, stays free
+
+- Learned rows flow into synthesis/ask priming via the existing
+  `formatInsightsForPrompt` — **no LLM on recall**. Give learned rows a
+  **separate, smaller token budget** so they don't crowd the user's own
+  journal insights.
+
+### Frontend & settings (minimal, but real)
+
+- **Settings toggle.** New row in per-Mind settings
+  (`src/app/minds/[id]/settings/page.tsx`), reusing the existing
+  `ms-toggle` pattern (digest/event toggles): "Let this Mind reflect &
+  learn", **default OFF**. Persists via `PATCH /api/workspaces`
+  (`learningEnabled` → `workspaces.learning_enabled`). This is the only
+  genuinely new control.
+- **Its own quiet section in Insights.** Not folded into "Yours" (these
+  aren't the user's journal). A distinct read-only **"What this Mind has
+  learned"** section on the existing Insights page, alongside Yours /
+  Synthesized. Each item: the short claim, a cited-source chip (reuse the
+  essay citation/source pattern → links to the capture), and a delete (✕).
+  Read-only otherwise (no edit — it's the Mind's, not yours). Deleting a
+  learning removes it from future priming automatically (priming reads the
+  `insights` table). This is the trust + drift-correction path; learnings
+  are never invisible.
+- Everything else — composer, dashboard, capture, Map — untouched.
+
+### Not in v1
+
+- Honcho / dialectical user modeling (per-user personalization; doesn't earn
+  its complexity in a per-Mind research tool).
+- Any standalone scheduled "daydreaming" synthesis loop (the expensive thing
+  we are explicitly avoiding).
+- Do **not** assume Gemini prefix-cache savings (Anthropic-specific); the
+  cost story holds because distillation piggybacks entirely — no separate
+  forked call.
+
+### Files
+
+- `supabase/learning_enabled_patch.sql` — add `workspaces.learning_enabled
+  boolean not null default false` (+ ROLLBACK), applied via psql.
+- `src/lib/synthesis.ts` — learning-extraction tail + capped write (only
+  when `learning_enabled`)
+- `src/app/api/cron/digest/route.ts` — consolidation pass (re-ground on
+  sampled captures/chunks; skip Minds with flag off)
+- `src/app/api/workspaces/route.ts` — accept/return `learningEnabled`
+- `src/app/minds/[id]/settings/page.tsx` — the opt-in toggle
+- `src/lib/insights.ts` + Insights page (`src/app/minds/[id]/essays/page.tsx`)
+  — render the read-only "What this Mind has learned" section; ensure the
+  insights `DELETE` path permits removing `source_kind='learned'` rows by
+  workspace owner/admin; separate learned-priming budget in
+  `formatInsightsForPrompt`
+
+### Not in v1
+
+- Honcho / dialectical user modeling (per-user personalization; doesn't earn
+  its complexity in a per-Mind research tool).
+- Any standalone scheduled "daydreaming" synthesis loop (the expensive thing
+  we are explicitly avoiding).
+- Do **not** assume Gemini prefix-cache savings (Anthropic-specific); the
+  cost story holds because distillation piggybacks entirely — no separate
+  forked call.
+
+### Verification
+
+- Toggle OFF (default): synthesis on a ≥6-capture Mind writes **no**
+  learned row; consolidation skips the Mind. Toggle is the gate.
+- Toggle ON in settings → run synthesis → exactly one new
+  `insights(source_kind='learned')` row, ≤200 chars, cites a node; cap holds
+  at 30. No extra LLM call (same single synthesis request).
+- Trigger the weekly consolidation manually → learned set shrinks/merges,
+  every surviving row traces to a sampled capture.
+- Synthesis/ask prompts include learned rows within their separate budget;
+  recall makes zero LLM calls.
+- Learned rows appear in the read-only "What this Mind has learned" section
+  (not "Yours"), each with a source chip; deleting one (✕) removes it from
+  the section and from future priming. No edit affordance.
+- `tsc --noEmit` clean; `next build` 30/30 before merge.
+
 ## Future / not-now
 
 - Local LLM (Ollama) provider

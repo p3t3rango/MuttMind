@@ -22,6 +22,7 @@ type WorkspaceMemberRow = {
     event_at: string | null;
     share_code: string | null;
     allow_anonymous_contributions: boolean;
+    learning_enabled: boolean;
   };
 };
 
@@ -32,7 +33,7 @@ type MemberCountRow = {
 };
 
 const VOICE_SOURCES = ['system_prompt', 'user_notes', 'mind_notes'] as const;
-const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at,event_mode,event_at,share_code,allow_anonymous_contributions';
+const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at,event_mode,event_at,share_code,allow_anonymous_contributions,learning_enabled';
 
 function generateShareCode(): string {
   return (
@@ -143,6 +144,7 @@ export async function GET(req: Request) {
         event_at: item.workspaces.event_at ?? null,
         share_code: item.workspaces.share_code ?? null,
         allow_anonymous_contributions: item.workspaces.allow_anonymous_contributions ?? false,
+        learning_enabled: item.workspaces.learning_enabled ?? false,
         member_count: memberCounts.get(item.workspaces.id) ?? 1,
         ...(wantsRecent
           ? {
@@ -235,7 +237,8 @@ export async function PATCH(req: Request) {
       'model' in body ||
       'eventMode' in body ||
       'eventAt' in body ||
-      'allowAnonymousContributions' in body;
+      'allowAnonymousContributions' in body ||
+      'learningEnabled' in body;
     if (wantsMindEdit) {
       const canManage = await userCan(userId, workspaceId, 'manage_mind');
       if (!canManage) return Response.json({ error: 'Not allowed to edit this Mind' }, { status: 403 });
@@ -272,6 +275,8 @@ export async function PATCH(req: Request) {
       updates.event_at = body.eventAt;
     if (typeof body.allowAnonymousContributions === 'boolean')
       updates.allow_anonymous_contributions = body.allowAnonymousContributions;
+    if (typeof body.learningEnabled === 'boolean')
+      updates.learning_enabled = body.learningEnabled;
 
     if (Object.keys(updates).length === 0) {
       return Response.json({ error: 'No editable fields supplied' }, { status: 400 });

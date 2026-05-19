@@ -5911,6 +5911,33 @@ a.essay-cite--link:hover {
   border-bottom: 1px solid rgba(247, 247, 242, 0.08);
 }
 
+.insights-lane-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.insights-lane-row .insights-lane {
+  margin-bottom: 0;
+}
+
+.essays-kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(247, 247, 242, 0.5);
+}
+
+.essays-kind--digest {
+  color: #050505;
+  background: var(--ink);
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+
 .insights-lane {
   margin: 0 0 14px;
   font-family: var(--font-mono);

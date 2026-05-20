@@ -5906,7 +5906,8 @@ a.essay-cite--link:hover {
   color: rgba(247, 247, 242, 0.65);
 }
 
-.insights-yours {
+.insights-yours,
+.insights-synth {
   padding: 18px 0 28px;
   border-bottom: 1px solid rgba(247, 247, 242, 0.08);
 }
@@ -5917,6 +5918,19 @@ a.essay-cite--link:hover {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 14px;
+}
+
+.insights-lane-row .syn-modes {
+  padding: 0;
+  border: 0;
+  gap: 14px;
+}
+
+.insights-synth .syn-modes__blurb {
+  margin: 0 0 18px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: rgba(247, 247, 242, 0.4);
 }
 
 .insights-lane-row .insights-lane {

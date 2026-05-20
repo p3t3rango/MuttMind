@@ -304,6 +304,159 @@ function EssaysContent() {
           <span className="dash-pivot dash-pivot--active">Insights</span>
         </nav>
 
+        <section className="insights-synth">
+          <div className="insights-lane-row">
+            <p className="insights-lane">Synthesized</p>
+            <div className="syn-modes" role="tablist" aria-label="Synthesis output">
+              {MODES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === m.id}
+                  className={`syn-mode ${mode === m.id ? 'syn-mode--on' : ''}`}
+                  onClick={() => setMode(m.id)}
+                  disabled={isGenerating}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="syn-modes__blurb">
+            {MODES.find((m) => m.id === mode)?.blurb}
+          </p>
+
+          {isGenerating ? (
+            <div className="syn-loading" aria-live="polite">
+              <ol className="syn-loading__steps">
+                {PHASES[mode].map((label, i) => (
+                  <li
+                    key={label}
+                    className={
+                      i < phase ? 'is-done' : i === phase ? 'is-active' : 'is-pending'
+                    }
+                  >
+                    {label}
+                  </li>
+                ))}
+              </ol>
+              <p className="syn-loading__note">
+                One pass, end to end — usually 20–40 seconds.
+              </p>
+            </div>
+          ) : null}
+
+          {status ? <p className="ms-status">{status}</p> : null}
+
+          {dormant ? (
+            <div className="essays-dormant">
+              <p className="essays-dormant__title">Synthesis is dormant.</p>
+              <p className="essays-dormant__body">
+                The pipeline is built and ready, but it&apos;s gated so it can&apos;t spend tokens without a
+                deliberate switch. To turn it on, add <code>MUTTMIND_SYNTHESIS_ENABLED=1</code> to
+                <code>.env.local</code> and restart the dev server, then hit Synthesize again.
+              </p>
+            </div>
+          ) : null}
+
+          {essays.length === 0 && !dormant && !isGenerating ? (
+            <p className="ms-section__hint" style={{ paddingTop: 8 }}>
+              No syntheses yet. Synthesize pulls this Mind&apos;s recent captures, finds the resonance
+              between them, and writes in the Mind&apos;s configured voice — with citations back to
+              the sources.
+            </p>
+          ) : null}
+
+          {essays.length ? (
+            <div className="essays-layout">
+              <ul className="essays-list" role="list">
+                {essays.map((e) => (
+                  <li key={e.id}>
+                    <button
+                      type="button"
+                      className={`essays-list__item ${openId === e.id ? 'essays-list__item--active' : ''}`}
+                      onClick={() => setOpenId(e.id)}
+                    >
+                      <span className="essays-list__title">{e.title ?? 'Untitled essay'}</span>
+                      <span className="essays-list__meta">
+                        <span
+                          className={`essays-kind ${e.trail?.kind === 'digest' ? 'essays-kind--digest' : ''}`}
+                        >
+                          {essayKindLabel(e.trail)}
+                        </span>
+                        {' · '}
+                        {relativeTime(e.created_at)} · {e.source_node_ids.length} sources
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              <article className="essays-reader">
+                {openEssay ? (
+                  <>
+                    <div className="essays-reader__head">
+                      <p className="essays-reader__meta">
+                        <span
+                          className={`essays-kind ${openEssay.trail?.kind === 'digest' ? 'essays-kind--digest' : ''}`}
+                        >
+                          {essayKindLabel(openEssay.trail)}
+                        </span>
+                        {' · '}
+                        {relativeTime(openEssay.created_at)} · {openEssay.source_node_ids.length}{' '}
+                        sources
+                        {openEssay.model ? ` · ${openEssay.model}` : ''}
+                      </p>
+                      <span className="insight-item__actions">
+                        <button
+                          type="button"
+                          className="insight-link"
+                          onClick={() =>
+                            saveEssayToInsights(openEssay.id, openEssay.title, openEssay.body_md)
+                          }
+                          disabled={savedEssayId === openEssay.id}
+                        >
+                          {savedEssayId === openEssay.id ? 'Saved to Yours ✓' : 'Save to Yours'}
+                        </button>
+                        {confirmDeleteEssayId === openEssay.id ? (
+                          <>
+                            <button
+                              type="button"
+                              className="insight-link insight-link--danger"
+                              onClick={() => deleteEssay(openEssay.id)}
+                            >
+                              Confirm delete
+                            </button>
+                            <button
+                              type="button"
+                              className="insight-link"
+                              onClick={() => setConfirmDeleteEssayId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="insight-link"
+                            onClick={() => setConfirmDeleteEssayId(openEssay.id)}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                    <EssayMarkdown source={openEssay.body_md} sources={openSources} />
+                  </>
+                ) : (
+                  <p className="ms-loading">Select an essay.</p>
+                )}
+              </article>
+            </div>
+          ) : null}
+        </section>
+
         <section className="insights-yours">
           <div className="insights-lane-row">
             <p className="insights-lane">Yours</p>
@@ -516,155 +669,6 @@ function EssaysContent() {
           </section>
         ) : null}
 
-        <p className="insights-lane insights-lane--synth">Synthesized</p>
-
-        <div className="syn-modes" role="tablist" aria-label="Synthesis output">
-          {MODES.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              role="tab"
-              aria-selected={mode === m.id}
-              className={`syn-mode ${mode === m.id ? 'syn-mode--on' : ''}`}
-              onClick={() => setMode(m.id)}
-              disabled={isGenerating}
-            >
-              {m.label}
-            </button>
-          ))}
-          <span className="syn-modes__blurb">
-            {MODES.find((m) => m.id === mode)?.blurb}
-          </span>
-        </div>
-
-        {isGenerating ? (
-          <div className="syn-loading" aria-live="polite">
-            <ol className="syn-loading__steps">
-              {PHASES[mode].map((label, i) => (
-                <li
-                  key={label}
-                  className={
-                    i < phase ? 'is-done' : i === phase ? 'is-active' : 'is-pending'
-                  }
-                >
-                  {label}
-                </li>
-              ))}
-            </ol>
-            <p className="syn-loading__note">
-              One pass, end to end — usually 20–40 seconds.
-            </p>
-          </div>
-        ) : null}
-
-        {status ? <p className="ms-status">{status}</p> : null}
-
-        {dormant ? (
-          <div className="essays-dormant">
-            <p className="essays-dormant__title">Synthesis is dormant.</p>
-            <p className="essays-dormant__body">
-              The pipeline is built and ready, but it&apos;s gated so it can&apos;t spend tokens without a
-              deliberate switch. To turn it on, add <code>MUTTMIND_SYNTHESIS_ENABLED=1</code> to
-              <code>.env.local</code> and restart the dev server, then hit Synthesize again.
-            </p>
-          </div>
-        ) : null}
-
-        {essays.length === 0 && !dormant && !isGenerating ? (
-          <p className="ms-section__hint" style={{ paddingTop: 20 }}>
-            No essays yet. Synthesize pulls this Mind&apos;s recent captures, finds the resonance between
-            them, and writes an essay in the Mind&apos;s configured voice — with citations back to the
-            sources.
-          </p>
-        ) : null}
-
-        {essays.length ? (
-          <div className="essays-layout">
-            <ul className="essays-list" role="list">
-              {essays.map((e) => (
-                <li key={e.id}>
-                  <button
-                    type="button"
-                    className={`essays-list__item ${openId === e.id ? 'essays-list__item--active' : ''}`}
-                    onClick={() => setOpenId(e.id)}
-                  >
-                    <span className="essays-list__title">{e.title ?? 'Untitled essay'}</span>
-                    <span className="essays-list__meta">
-                      <span
-                        className={`essays-kind ${e.trail?.kind === 'digest' ? 'essays-kind--digest' : ''}`}
-                      >
-                        {essayKindLabel(e.trail)}
-                      </span>
-                      {' · '}
-                      {relativeTime(e.created_at)} · {e.source_node_ids.length} sources
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-
-            <article className="essays-reader">
-              {openEssay ? (
-                <>
-                  <div className="essays-reader__head">
-                    <p className="essays-reader__meta">
-                      <span
-                        className={`essays-kind ${openEssay.trail?.kind === 'digest' ? 'essays-kind--digest' : ''}`}
-                      >
-                        {essayKindLabel(openEssay.trail)}
-                      </span>
-                      {' · '}
-                      {relativeTime(openEssay.created_at)} · {openEssay.source_node_ids.length}{' '}
-                      sources
-                      {openEssay.model ? ` · ${openEssay.model}` : ''}
-                    </p>
-                    <span className="insight-item__actions">
-                      <button
-                        type="button"
-                        className="insight-link"
-                        onClick={() =>
-                          saveEssayToInsights(openEssay.id, openEssay.title, openEssay.body_md)
-                        }
-                        disabled={savedEssayId === openEssay.id}
-                      >
-                        {savedEssayId === openEssay.id ? 'Saved to Yours ✓' : 'Save to Yours'}
-                      </button>
-                      {confirmDeleteEssayId === openEssay.id ? (
-                        <>
-                          <button
-                            type="button"
-                            className="insight-link insight-link--danger"
-                            onClick={() => deleteEssay(openEssay.id)}
-                          >
-                            Confirm delete
-                          </button>
-                          <button
-                            type="button"
-                            className="insight-link"
-                            onClick={() => setConfirmDeleteEssayId(null)}
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          className="insight-link"
-                          onClick={() => setConfirmDeleteEssayId(openEssay.id)}
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                  <EssayMarkdown source={openEssay.body_md} sources={openSources} />
-                </>
-              ) : (
-                <p className="ms-loading">Select an essay.</p>
-              )}
-            </article>
-          </div>
-        ) : null}
       </section>
     </main>
   );

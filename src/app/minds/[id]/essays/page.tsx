@@ -71,6 +71,17 @@ function relativeTime(iso: string) {
   return `${Math.floor(diff / (86400 * 30))}mo ago`;
 }
 
+function digestPreview(body: string): string {
+  const stripped = body.replace(/^#\s+[^\n]+\n+/, '');
+  const firstPara = stripped.split(/\n\s*\n/)[0] ?? '';
+  const cleaned = firstPara
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[#*_`>]/g, '')
+    .trim();
+  return cleaned.length > 240 ? `${cleaned.slice(0, 240).trim()}…` : cleaned;
+}
+
 function EssaysContent() {
   const params = useParams<{ id: string }>();
   const mindId = params.id;
@@ -96,6 +107,7 @@ function EssaysContent() {
   const [editBody, setEditBody] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteEssayId, setConfirmDeleteEssayId] = useState<string | null>(null);
+  const [olderDigestsOpen, setOlderDigestsOpen] = useState(false);
   const phaseTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadMind = useCallback(async () => {
@@ -113,7 +125,11 @@ function EssaysContent() {
     if (r.ok) {
       const list = (d.essays ?? []) as Essay[];
       setEssays(list);
-      setOpenId((current) => current ?? list[0]?.id ?? null);
+      setOpenId((current) => {
+        if (current) return current;
+        const firstEssay = list.find((e) => e.trail?.kind !== 'digest');
+        return firstEssay?.id ?? null;
+      });
     }
   }, [mindId]);
 
@@ -271,6 +287,11 @@ function EssaysContent() {
       }))
     : [];
 
+  const digests = essays.filter((e) => e.trail?.kind === 'digest');
+  const nonDigests = essays.filter((e) => e.trail?.kind !== 'digest');
+  const latestDigest = digests[0] ?? null;
+  const olderDigests = digests.slice(1);
+
   const ownInsights = insights.filter((i) => i.source_kind !== 'learned');
   const learnedInsights = insights.filter((i) => i.source_kind === 'learned');
 
@@ -368,29 +389,86 @@ function EssaysContent() {
             </p>
           ) : null}
 
-          {essays.length ? (
+          {latestDigest ? (
+            <section
+              className={`digest-hero ${openId === latestDigest.id ? 'digest-hero--active' : ''}`}
+              aria-label="Latest weekly digest"
+            >
+              <button
+                type="button"
+                className="digest-hero__card"
+                onClick={() => setOpenId(latestDigest.id)}
+              >
+                <p className="digest-hero__meta">
+                  <span className="essays-kind essays-kind--digest">Weekly Digest</span>
+                  {' · '}
+                  {relativeTime(latestDigest.created_at)} · {latestDigest.source_node_ids.length}{' '}
+                  sources
+                </p>
+                <p className="digest-hero__title">{latestDigest.title ?? 'Untitled digest'}</p>
+                <p className="digest-hero__preview">{digestPreview(latestDigest.body_md)}</p>
+                <span className="digest-hero__read">Read →</span>
+              </button>
+              {olderDigests.length ? (
+                <div className="digest-hero__older">
+                  <button
+                    type="button"
+                    className="insight-link"
+                    onClick={() => setOlderDigestsOpen((v) => !v)}
+                    aria-expanded={olderDigestsOpen}
+                  >
+                    {olderDigestsOpen ? 'Hide' : 'Older digests'} ({olderDigests.length})
+                  </button>
+                  {olderDigestsOpen ? (
+                    <ul className="digest-older-list" role="list">
+                      {olderDigests.map((d) => (
+                        <li key={d.id}>
+                          <button
+                            type="button"
+                            className={`digest-older-list__item ${openId === d.id ? 'digest-older-list__item--active' : ''}`}
+                            onClick={() => setOpenId(d.id)}
+                          >
+                            <span className="digest-older-list__title">
+                              {d.title ?? 'Untitled digest'}
+                            </span>
+                            <span className="digest-older-list__meta">
+                              {relativeTime(d.created_at)} · {d.source_node_ids.length} sources
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {nonDigests.length || (latestDigest && openId) ? (
             <div className="essays-layout">
               <ul className="essays-list" role="list">
-                {essays.map((e) => (
-                  <li key={e.id}>
-                    <button
-                      type="button"
-                      className={`essays-list__item ${openId === e.id ? 'essays-list__item--active' : ''}`}
-                      onClick={() => setOpenId(e.id)}
-                    >
-                      <span className="essays-list__title">{e.title ?? 'Untitled essay'}</span>
-                      <span className="essays-list__meta">
-                        <span
-                          className={`essays-kind ${e.trail?.kind === 'digest' ? 'essays-kind--digest' : ''}`}
-                        >
-                          {essayKindLabel(e.trail)}
+                {nonDigests.length ? (
+                  nonDigests.map((e) => (
+                    <li key={e.id}>
+                      <button
+                        type="button"
+                        className={`essays-list__item ${openId === e.id ? 'essays-list__item--active' : ''}`}
+                        onClick={() => setOpenId(e.id)}
+                      >
+                        <span className="essays-list__title">{e.title ?? 'Untitled essay'}</span>
+                        <span className="essays-list__meta">
+                          <span className="essays-kind">{essayKindLabel(e.trail)}</span>
+                          {' · '}
+                          {relativeTime(e.created_at)} · {e.source_node_ids.length} sources
                         </span>
-                        {' · '}
-                        {relativeTime(e.created_at)} · {e.source_node_ids.length} sources
-                      </span>
-                    </button>
+                      </button>
+                    </li>
+                  ))
+                ) : (
+                  <li className="essays-list__empty">
+                    No essays yet. Pick a mode above and hit Synthesize.
                   </li>
-                ))}
+                )}
               </ul>
 
               <article className="essays-reader">

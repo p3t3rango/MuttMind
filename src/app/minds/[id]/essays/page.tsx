@@ -397,7 +397,13 @@ function EssaysContent() {
               <button
                 type="button"
                 className="digest-hero__card"
-                onClick={() => setOpenId(latestDigest.id)}
+                onClick={() => {
+                  if (openId === latestDigest.id) {
+                    setOpenId(nonDigests[0]?.id ?? null);
+                  } else {
+                    setOpenId(latestDigest.id);
+                  }
+                }}
               >
                 <p className="digest-hero__meta">
                   <span className="essays-kind essays-kind--digest">Weekly Digest</span>
@@ -407,7 +413,9 @@ function EssaysContent() {
                 </p>
                 <p className="digest-hero__title">{latestDigest.title ?? 'Untitled digest'}</p>
                 <p className="digest-hero__preview">{digestPreview(latestDigest.body_md)}</p>
-                <span className="digest-hero__read">Read →</span>
+                <span className="digest-hero__read">
+                  {openId === latestDigest.id ? 'Reading ↓  ·  Close' : 'Read →'}
+                </span>
               </button>
               {olderDigests.length ? (
                 <div className="digest-hero__older">
@@ -476,6 +484,24 @@ function EssaysContent() {
                   <>
                     <div className="essays-reader__head">
                       <p className="essays-reader__meta">
+                        {openEssay.trail?.kind === 'digest' ? (
+                          <>
+                            <button
+                              type="button"
+                              className="insight-link essays-reader__back"
+                              onClick={() => {
+                                const fallback = nonDigests[0]?.id ?? null;
+                                setOpenId(fallback);
+                                document
+                                  .querySelector('.insights-synth')
+                                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              }}
+                            >
+                              ← Close
+                            </button>
+                            {' · '}
+                          </>
+                        ) : null}
                         <span
                           className={`essays-kind ${openEssay.trail?.kind === 'digest' ? 'essays-kind--digest' : ''}`}
                         >

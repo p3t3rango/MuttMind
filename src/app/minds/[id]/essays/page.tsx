@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
+import { AskPanel } from '@/components/ask-panel';
 import { AuthGate } from '@/components/auth-gate';
 import { EssayMarkdown, type EssaySource } from '@/components/essay-markdown';
 import { authedFetch } from '@/lib/client-auth';
@@ -36,6 +37,7 @@ type Insight = {
   updated_at: string;
   source_kind?: string | null;
   source_node_id?: string | null;
+  feeds_priming?: boolean;
   author?: { display_name: string | null; email: string | null } | null;
 };
 
@@ -45,20 +47,6 @@ function sourceLabel(kind?: string | null): string {
   if (kind.startsWith('lens:')) return `from the ${kind.slice(5).replace(/-/g, ' ')} lens`;
   return `from ${kind}`;
 }
-
-type Mode = 'essay' | 'brief' | 'questions';
-
-const MODES: { id: Mode; label: string; blurb: string }[] = [
-  { id: 'essay', label: 'Essay', blurb: 'The full argument across everything saved.' },
-  { id: 'brief', label: 'Brief', blurb: 'One strong through-line, tight.' },
-  { id: 'questions', label: 'Open questions', blurb: "What the material circles but never resolves." },
-];
-
-const PHASES: Record<Mode, string[]> = {
-  essay: ['Reading the material', 'Tracing what rhymes', 'Finding the through-line', 'Writing'],
-  brief: ['Reading the material', 'Weighing the threads', 'Tightening to one idea'],
-  questions: ['Reading the material', "Listening for what's unresolved", 'Sharpening the questions'],
-};
 
 function relativeTime(iso: string) {
   const then = new Date(iso).getTime();
@@ -89,11 +77,6 @@ function EssaysContent() {
   const [mindName, setMindName] = useState('');
   const [essays, setEssays] = useState<Essay[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [status, setStatus] = useState('');
-  const [dormant, setDormant] = useState(false);
-  const [mode, setMode] = useState<Mode>('essay');
-  const [phase, setPhase] = useState(0);
   const [nodeMeta, setNodeMeta] = useState<Map<string, { title: string; url: string | null }>>(
     new Map(),
   );
@@ -102,13 +85,17 @@ function EssaysContent() {
   const [composeBody, setComposeBody] = useState('');
   const [composeBusy, setComposeBusy] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editBody, setEditBody] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteEssayId, setConfirmDeleteEssayId] = useState<string | null>(null);
   const [olderDigestsOpen, setOlderDigestsOpen] = useState(false);
-  const phaseTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [askOpen, setAskOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [pastOpen, setPastOpen] = useState(false);
+
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('ask') === '1') setAskOpen(true);
+  }, []);
 
   const loadMind = useCallback(async () => {
     const r = await authedFetch('/api/workspaces');
@@ -181,16 +168,14 @@ function EssaysContent() {
     }
   };
 
-  const saveEdit = async (id: string) => {
-    if (!editBody.trim()) return;
+  const togglePriming = async (id: string, next: boolean) => {
+    setInsights((cur) => cur.map((x) => (x.id === id ? { ...x, feeds_priming: next } : x)));
     const r = await authedFetch('/api/insights', {
       method: 'PATCH',
-      body: JSON.stringify({ workspaceId: mindId, id, title: editTitle, body: editBody }),
+      body: JSON.stringify({ workspaceId: mindId, id, feedsPriming: next }),
     });
-    const d = await r.json();
-    if (r.ok && d.insight) {
-      setInsights((cur) => cur.map((x) => (x.id === id ? (d.insight as Insight) : x)));
-      setEditingId(null);
+    if (!r.ok) {
+      setInsights((cur) => cur.map((x) => (x.id === id ? { ...x, feeds_priming: !next } : x)));
     }
   };
 
@@ -232,52 +217,6 @@ function EssaysContent() {
     }
   };
 
-  const stopPhases = useCallback(() => {
-    if (phaseTimer.current) {
-      clearInterval(phaseTimer.current);
-      phaseTimer.current = null;
-    }
-  }, []);
-
-  useEffect(() => () => stopPhases(), [stopPhases]);
-
-  const generate = async () => {
-    setIsGenerating(true);
-    setStatus('');
-    setDormant(false);
-    setPhase(0);
-    stopPhases();
-    const steps = PHASES[mode];
-    phaseTimer.current = setInterval(() => {
-      setPhase((p) => (p < steps.length - 1 ? p + 1 : p));
-    }, 5500);
-
-    try {
-      const r = await authedFetch('/api/essays', {
-        method: 'POST',
-        body: JSON.stringify({ workspaceId: mindId, mode }),
-      });
-      const d = await r.json();
-      if (r.status === 503) {
-        setDormant(true);
-        return;
-      }
-      if (!r.ok) {
-        setStatus(d.error ?? 'Could not generate an essay.');
-        return;
-      }
-      if (d.essay) {
-        setEssays((current) => [d.essay as Essay, ...current]);
-        setOpenId((d.essay as Essay).id);
-      }
-    } catch {
-      setStatus('Something interrupted synthesis. Try again.');
-    } finally {
-      stopPhases();
-      setIsGenerating(false);
-    }
-  };
-
   const openEssay = essays.find((e) => e.id === openId) ?? null;
   const openSources: EssaySource[] = openEssay
     ? openEssay.source_node_ids.map((id, idx) => ({
@@ -292,8 +231,42 @@ function EssaysContent() {
   const latestDigest = digests[0] ?? null;
   const olderDigests = digests.slice(1);
 
-  const ownInsights = insights.filter((i) => i.source_kind !== 'learned');
-  const learnedInsights = insights.filter((i) => i.source_kind === 'learned');
+  const q = query.trim().toLowerCase();
+  const matches = (i: Insight) => !q || `${i.title ?? ''} ${i.body}`.toLowerCase().includes(q);
+  const yours = insights.filter((i) => (i.source_kind ?? null) === null && matches(i));
+  const synthesized = insights.filter((i) => (i.source_kind ?? null) !== null && matches(i));
+
+  const renderInsightCard = (it: Insight) => (
+    <li key={it.id} className="insight-item">
+      {it.title ? <p className="insight-item__title">{it.title}</p> : null}
+      <p className="insight-item__body">{it.body}</p>
+      <div className="insight-item__meta">
+        <span>
+          {it.author?.display_name || it.author?.email || 'Unknown'}
+          {' · '}{relativeTime(it.updated_at)}
+          {it.source_kind ? ` · ${sourceLabel(it.source_kind)}` : ''}
+        </span>
+        <span className="insight-item__actions">
+          <button
+            type="button"
+            className={`prime-toggle ${it.feeds_priming !== false ? 'prime-toggle--on' : ''}`}
+            onClick={() => togglePriming(it.id, it.feeds_priming === false)}
+            title={it.feeds_priming !== false ? 'Feeding the Mind — click to mute' : 'Muted — click to feed the Mind'}
+          >
+            {it.feeds_priming !== false ? '● feeds the Mind' : '○ muted'}
+          </button>
+          {confirmDeleteId === it.id ? (
+            <>
+              <button type="button" className="insight-link insight-link--danger" onClick={() => removeInsight(it.id)}>Confirm delete</button>
+              <button type="button" className="insight-link" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+            </>
+          ) : (
+            <button type="button" className="insight-link" onClick={() => setConfirmDeleteId(it.id)}>Delete</button>
+          )}
+        </span>
+      </div>
+    </li>
+  );
 
   return (
     <main className="app-shell ms-shell">
@@ -308,14 +281,7 @@ function EssaysContent() {
             <span className="ms-crumb__sep">/</span>
             <span className="ms-crumb__current">insights</span>
           </div>
-          <button
-            type="button"
-            className="ms-btn"
-            onClick={generate}
-            disabled={isGenerating}
-          >
-            {isGenerating ? 'Synthesizing…' : 'Synthesize'}
-          </button>
+          <button type="button" className="ms-btn" onClick={() => setAskOpen(true)}>Ask ✦</button>
         </header>
 
         <nav className="dash-pivots" aria-label="View">
@@ -325,250 +291,82 @@ function EssaysContent() {
           <span className="dash-pivot dash-pivot--active">Insights</span>
         </nav>
 
-        <section className="insights-synth">
-          <div className="insights-lane-row">
-            <p className="insights-lane">Synthesized</p>
-            <div className="syn-modes" role="tablist" aria-label="Synthesis output">
-              {MODES.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === m.id}
-                  className={`syn-mode ${mode === m.id ? 'syn-mode--on' : ''}`}
-                  onClick={() => setMode(m.id)}
-                  disabled={isGenerating}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <p className="syn-modes__blurb">
-            {MODES.find((m) => m.id === mode)?.blurb}
-          </p>
+        <input
+          className="library-search"
+          type="search"
+          value={query}
+          placeholder="Search this Mind's library…"
+          onChange={(e) => setQuery(e.target.value)}
+        />
 
-          {isGenerating ? (
-            <div className="syn-loading" aria-live="polite">
-              <ol className="syn-loading__steps">
-                {PHASES[mode].map((label, i) => (
-                  <li
-                    key={label}
-                    className={
-                      i < phase ? 'is-done' : i === phase ? 'is-active' : 'is-pending'
-                    }
-                  >
-                    {label}
-                  </li>
-                ))}
-              </ol>
-              <p className="syn-loading__note">
-                One pass, end to end — usually 20–40 seconds.
-              </p>
-            </div>
-          ) : null}
-
-          {status ? <p className="ms-status">{status}</p> : null}
-
-          {dormant ? (
-            <div className="essays-dormant">
-              <p className="essays-dormant__title">Synthesis is dormant.</p>
-              <p className="essays-dormant__body">
-                The pipeline is built and ready, but it&apos;s gated so it can&apos;t spend tokens without a
-                deliberate switch. To turn it on, add <code>MUTTMIND_SYNTHESIS_ENABLED=1</code> to
-                <code>.env.local</code> and restart the dev server, then hit Synthesize again.
-              </p>
-            </div>
-          ) : null}
-
-          {essays.length === 0 && !dormant && !isGenerating ? (
-            <p className="ms-section__hint" style={{ paddingTop: 8 }}>
-              No syntheses yet. Synthesize pulls this Mind&apos;s recent captures, finds the resonance
-              between them, and writes in the Mind&apos;s configured voice — with citations back to
-              the sources.
-            </p>
-          ) : null}
-
-          {latestDigest ? (
-            <section
-              className={`digest-hero ${openId === latestDigest.id ? 'digest-hero--active' : ''}`}
-              aria-label="Latest weekly digest"
+        {latestDigest ? (
+          <section
+            className={`digest-hero ${openId === latestDigest.id ? 'digest-hero--active' : ''}`}
+            aria-label="Latest weekly digest"
+          >
+            <button
+              type="button"
+              className="digest-hero__card"
+              onClick={() => {
+                if (openId === latestDigest.id) {
+                  setOpenId(nonDigests[0]?.id ?? null);
+                } else {
+                  setOpenId(latestDigest.id);
+                  setPastOpen(true);
+                }
+              }}
             >
-              <button
-                type="button"
-                className="digest-hero__card"
-                onClick={() => {
-                  if (openId === latestDigest.id) {
-                    setOpenId(nonDigests[0]?.id ?? null);
-                  } else {
-                    setOpenId(latestDigest.id);
-                  }
-                }}
-              >
-                <p className="digest-hero__meta">
-                  <span className="essays-kind essays-kind--digest">Weekly Digest</span>
-                  {' · '}
-                  {relativeTime(latestDigest.created_at)} · {latestDigest.source_node_ids.length}{' '}
-                  sources
-                </p>
-                <p className="digest-hero__title">{latestDigest.title ?? 'Untitled digest'}</p>
-                <p className="digest-hero__preview">{digestPreview(latestDigest.body_md)}</p>
-                <span className="digest-hero__read">
-                  {openId === latestDigest.id ? 'Reading ↓  ·  Close' : 'Read →'}
-                </span>
-              </button>
-              {olderDigests.length ? (
-                <div className="digest-hero__older">
-                  <button
-                    type="button"
-                    className="insight-link"
-                    onClick={() => setOlderDigestsOpen((v) => !v)}
-                    aria-expanded={olderDigestsOpen}
-                  >
-                    {olderDigestsOpen ? 'Hide' : 'Older digests'} ({olderDigests.length})
-                  </button>
-                  {olderDigestsOpen ? (
-                    <ul className="digest-older-list" role="list">
-                      {olderDigests.map((d) => (
-                        <li key={d.id}>
-                          <button
-                            type="button"
-                            className={`digest-older-list__item ${openId === d.id ? 'digest-older-list__item--active' : ''}`}
-                            onClick={() => setOpenId(d.id)}
-                          >
-                            <span className="digest-older-list__title">
-                              {d.title ?? 'Untitled digest'}
-                            </span>
-                            <span className="digest-older-list__meta">
-                              {relativeTime(d.created_at)} · {d.source_node_ids.length} sources
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-
-          {nonDigests.length || (latestDigest && openId) ? (
-            <div className="essays-layout">
-              <ul className="essays-list" role="list">
-                {nonDigests.length ? (
-                  nonDigests.map((e) => (
-                    <li key={e.id}>
-                      <button
-                        type="button"
-                        className={`essays-list__item ${openId === e.id ? 'essays-list__item--active' : ''}`}
-                        onClick={() => setOpenId(e.id)}
-                      >
-                        <span className="essays-list__title">{e.title ?? 'Untitled essay'}</span>
-                        <span className="essays-list__meta">
-                          <span className="essays-kind">{essayKindLabel(e.trail)}</span>
-                          {' · '}
-                          {relativeTime(e.created_at)} · {e.source_node_ids.length} sources
-                        </span>
-                      </button>
-                    </li>
-                  ))
-                ) : (
-                  <li className="essays-list__empty">
-                    No essays yet. Pick a mode above and hit Synthesize.
-                  </li>
-                )}
-              </ul>
-
-              <article className="essays-reader">
-                {openEssay ? (
-                  <>
-                    <div className="essays-reader__head">
-                      <p className="essays-reader__meta">
-                        {openEssay.trail?.kind === 'digest' ? (
-                          <>
-                            <button
-                              type="button"
-                              className="insight-link essays-reader__back"
-                              onClick={() => {
-                                const fallback = nonDigests[0]?.id ?? null;
-                                setOpenId(fallback);
-                                document
-                                  .querySelector('.insights-synth')
-                                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                              }}
-                            >
-                              ← Close
-                            </button>
-                            {' · '}
-                          </>
-                        ) : null}
-                        <span
-                          className={`essays-kind ${openEssay.trail?.kind === 'digest' ? 'essays-kind--digest' : ''}`}
-                        >
-                          {essayKindLabel(openEssay.trail)}
-                        </span>
-                        {' · '}
-                        {relativeTime(openEssay.created_at)} · {openEssay.source_node_ids.length}{' '}
-                        sources
-                        {openEssay.model ? ` · ${openEssay.model}` : ''}
-                      </p>
-                      <span className="insight-item__actions">
+              <p className="digest-hero__meta">
+                <span className="essays-kind essays-kind--digest">Weekly Digest</span>
+                {' · '}
+                {relativeTime(latestDigest.created_at)} · {latestDigest.source_node_ids.length}{' '}
+                sources
+              </p>
+              <p className="digest-hero__title">{latestDigest.title ?? 'Untitled digest'}</p>
+              <p className="digest-hero__preview">{digestPreview(latestDigest.body_md)}</p>
+              <span className="digest-hero__read">
+                {openId === latestDigest.id ? 'Reading ↓  ·  Close' : 'Read →'}
+              </span>
+            </button>
+            {olderDigests.length ? (
+              <div className="digest-hero__older">
+                <button
+                  type="button"
+                  className="insight-link"
+                  onClick={() => setOlderDigestsOpen((v) => !v)}
+                  aria-expanded={olderDigestsOpen}
+                >
+                  {olderDigestsOpen ? 'Hide' : 'Older digests'} ({olderDigests.length})
+                </button>
+                {olderDigestsOpen ? (
+                  <ul className="digest-older-list" role="list">
+                    {olderDigests.map((d) => (
+                      <li key={d.id}>
                         <button
                           type="button"
-                          className="insight-link"
-                          onClick={() =>
-                            saveEssayToInsights(openEssay.id, openEssay.title, openEssay.body_md)
-                          }
-                          disabled={savedEssayId === openEssay.id}
+                          className={`digest-older-list__item ${openId === d.id ? 'digest-older-list__item--active' : ''}`}
+                          onClick={() => setOpenId(d.id)}
                         >
-                          {savedEssayId === openEssay.id ? 'Saved to Yours ✓' : 'Save to Yours'}
+                          <span className="digest-older-list__title">
+                            {d.title ?? 'Untitled digest'}
+                          </span>
+                          <span className="digest-older-list__meta">
+                            {relativeTime(d.created_at)} · {d.source_node_ids.length} sources
+                          </span>
                         </button>
-                        {confirmDeleteEssayId === openEssay.id ? (
-                          <>
-                            <button
-                              type="button"
-                              className="insight-link insight-link--danger"
-                              onClick={() => deleteEssay(openEssay.id)}
-                            >
-                              Confirm delete
-                            </button>
-                            <button
-                              type="button"
-                              className="insight-link"
-                              onClick={() => setConfirmDeleteEssayId(null)}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="insight-link"
-                            onClick={() => setConfirmDeleteEssayId(openEssay.id)}
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </span>
-                    </div>
-                    <EssayMarkdown source={openEssay.body_md} sources={openSources} />
-                  </>
-                ) : (
-                  <p className="ms-loading">Select an essay.</p>
-                )}
-              </article>
-            </div>
-          ) : null}
-        </section>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="insights-yours">
           <div className="insights-lane-row">
-            <p className="insights-lane">Yours</p>
-            <button
-              type="button"
-              className="insight-link"
-              onClick={() => setComposeOpen((v) => !v)}
-            >
+            <p className="insights-lane">Yours <span className="insights-lane__sub">· you wrote these</span></p>
+            <button type="button" className="insight-link" onClick={() => setComposeOpen((v) => !v)}>
               {composeOpen ? 'Cancel' : '+ Add an insight'}
             </button>
           </div>
@@ -600,81 +398,117 @@ function EssaysContent() {
               </div>
             </div>
           ) : null}
+          {yours.length ? (
+            <ul className="insight-list" role="list">{yours.map(renderInsightCard)}</ul>
+          ) : (
+            <p className="ms-section__hint">
+              No insights yet — jot what you&apos;re noticing. The assistant reads these when it answers.
+            </p>
+          )}
+        </section>
 
-          {ownInsights.length ? (
-            <ul className="insight-list" role="list">
-              {ownInsights.map((it) => (
-                <li key={it.id} className="insight-item">
-                  {editingId === it.id ? (
-                    <div className="insight-compose">
-                      <input
-                        className="insight-compose__title"
-                        placeholder="Title (optional)"
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                      />
-                      <textarea
-                        className="insight-compose__body"
-                        value={editBody}
-                        onChange={(e) => setEditBody(e.target.value)}
-                        rows={3}
-                      />
-                      <div className="insight-compose__actions">
+        <section className="insights-yours">
+          <div className="insights-lane-row">
+            <p className="insights-lane">Synthesized <span className="insights-lane__sub">· the assistant made these</span></p>
+          </div>
+          {synthesized.length ? (
+            <ul className="insight-list" role="list">{synthesized.map(renderInsightCard)}</ul>
+          ) : (
+            <p className="ms-section__hint">
+              Saved chat answers and lens saves land here, muted until you switch them on.
+            </p>
+          )}
+        </section>
+
+        {nonDigests.length || (latestDigest && openId === latestDigest.id) ? (
+          <div className="past-syntheses">
+            {nonDigests.length ? (
+              <button type="button" className="insight-link" onClick={() => setPastOpen((v) => !v)} aria-expanded={pastOpen}>
+                {pastOpen ? 'Hide' : 'Past syntheses'} ({nonDigests.length})
+              </button>
+            ) : null}
+            {pastOpen ? (
+              <div className="essays-layout">
+                <ul className="essays-list" role="list">
+                  {nonDigests.length ? (
+                    nonDigests.map((e) => (
+                      <li key={e.id}>
                         <button
                           type="button"
-                          className="mm-text-button"
-                          onClick={() => setEditingId(null)}
+                          className={`essays-list__item ${openId === e.id ? 'essays-list__item--active' : ''}`}
+                          onClick={() => setOpenId(e.id)}
                         >
-                          Cancel
+                          <span className="essays-list__title">{e.title ?? 'Untitled essay'}</span>
+                          <span className="essays-list__meta">
+                            <span className="essays-kind">{essayKindLabel(e.trail)}</span>
+                            {' · '}
+                            {relativeTime(e.created_at)} · {e.source_node_ids.length} sources
+                          </span>
                         </button>
-                        <button
-                          type="button"
-                          className="ms-btn"
-                          onClick={() => saveEdit(it.id)}
-                          disabled={!editBody.trim()}
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
+                      </li>
+                    ))
                   ) : (
+                    <li className="essays-list__empty">No past syntheses yet.</li>
+                  )}
+                </ul>
+
+                <article className="essays-reader">
+                  {openEssay ? (
                     <>
-                      {it.title ? <p className="insight-item__title">{it.title}</p> : null}
-                      <p className="insight-item__body">{it.body}</p>
-                      <div className="insight-item__meta">
-                        <span>
-                          {it.author?.display_name || it.author?.email || 'Unknown'}
+                      <div className="essays-reader__head">
+                        <p className="essays-reader__meta">
+                          {openEssay.trail?.kind === 'digest' ? (
+                            <>
+                              <button
+                                type="button"
+                                className="insight-link essays-reader__back"
+                                onClick={() => {
+                                  const fallback = nonDigests[0]?.id ?? null;
+                                  setOpenId(fallback);
+                                  document
+                                    .querySelector('.essays-page')
+                                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }}
+                              >
+                                ← Close
+                              </button>
+                              {' · '}
+                            </>
+                          ) : null}
+                          <span
+                            className={`essays-kind ${openEssay.trail?.kind === 'digest' ? 'essays-kind--digest' : ''}`}
+                          >
+                            {essayKindLabel(openEssay.trail)}
+                          </span>
                           {' · '}
-                          {relativeTime(it.updated_at)}
-                          {it.updated_at !== it.created_at ? ' · edited' : ''}
-                          {it.source_kind ? ` · ${sourceLabel(it.source_kind)}` : ''}
-                        </span>
+                          {relativeTime(openEssay.created_at)} · {openEssay.source_node_ids.length}{' '}
+                          sources
+                          {openEssay.model ? ` · ${openEssay.model}` : ''}
+                        </p>
                         <span className="insight-item__actions">
                           <button
                             type="button"
                             className="insight-link"
-                            onClick={() => {
-                              setEditingId(it.id);
-                              setEditTitle(it.title ?? '');
-                              setEditBody(it.body);
-                              setConfirmDeleteId(null);
-                            }}
+                            onClick={() =>
+                              saveEssayToInsights(openEssay.id, openEssay.title, openEssay.body_md)
+                            }
+                            disabled={savedEssayId === openEssay.id}
                           >
-                            Edit
+                            {savedEssayId === openEssay.id ? 'Saved to Yours ✓' : 'Save to Yours'}
                           </button>
-                          {confirmDeleteId === it.id ? (
+                          {confirmDeleteEssayId === openEssay.id ? (
                             <>
                               <button
                                 type="button"
                                 className="insight-link insight-link--danger"
-                                onClick={() => removeInsight(it.id)}
+                                onClick={() => deleteEssay(openEssay.id)}
                               >
                                 Confirm delete
                               </button>
                               <button
                                 type="button"
                                 className="insight-link"
-                                onClick={() => setConfirmDeleteId(null)}
+                                onClick={() => setConfirmDeleteEssayId(null)}
                               >
                                 Cancel
                               </button>
@@ -683,97 +517,33 @@ function EssaysContent() {
                             <button
                               type="button"
                               className="insight-link"
-                              onClick={() => setConfirmDeleteId(it.id)}
+                              onClick={() => setConfirmDeleteEssayId(openEssay.id)}
                             >
                               Delete
                             </button>
                           )}
                         </span>
                       </div>
+                      <EssayMarkdown source={openEssay.body_md} sources={openSources} />
                     </>
+                  ) : (
+                    <p className="ms-loading">Select an essay.</p>
                   )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="ms-section__hint" style={{ paddingTop: 8 }}>
-              No insights yet — jot what you&apos;re noticing across this Mind. The assistant
-              reads these when it synthesizes.
-            </p>
-          )}
-        </section>
-
-        {learnedInsights.length ? (
-          <section className="insights-yours">
-            <p className="insights-lane">
-              What this Mind has learned
-              <span className="insights-lane__sub"> · distilled by the assistant</span>
-            </p>
-            <ul className="insight-list" role="list">
-              {learnedInsights.map((it) => {
-                const src = it.source_node_id ? nodeMeta.get(it.source_node_id) : null;
-                return (
-                  <li key={it.id} className="insight-item">
-                    <p className="insight-item__body">{it.body}</p>
-                    <div className="insight-item__meta">
-                      <span>
-                        {src ? (
-                          src.url ? (
-                            <a
-                              href={src.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="insight-src"
-                            >
-                              ↳ {src.title}
-                            </a>
-                          ) : (
-                            <span className="insight-src">↳ {src.title}</span>
-                          )
-                        ) : (
-                          'from across this Mind'
-                        )}
-                        {' · '}
-                        {relativeTime(it.updated_at)}
-                      </span>
-                      <span className="insight-item__actions">
-                        {confirmDeleteId === it.id ? (
-                          <>
-                            <button
-                              type="button"
-                              className="insight-link insight-link--danger"
-                              onClick={() => removeInsight(it.id)}
-                            >
-                              Confirm delete
-                            </button>
-                            <button
-                              type="button"
-                              className="insight-link"
-                              onClick={() => setConfirmDeleteId(null)}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="insight-link"
-                            onClick={() => setConfirmDeleteId(it.id)}
-                            title="Remove this learning (also drops it from future priming)"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+                </article>
+              </div>
+            ) : null}
+          </div>
         ) : null}
 
       </section>
+
+      <AskPanel
+        open={askOpen}
+        onClose={() => setAskOpen(false)}
+        workspaceId={mindId}
+        mindName={mindName}
+        onSaved={loadInsights}
+      />
     </main>
   );
 }

@@ -547,7 +547,7 @@ function EssaysContent() {
                             }
                             disabled={savedEssayId === openEssay.id}
                           >
-                            {savedEssayId === openEssay.id ? 'Saved to Yours ✓' : 'Save to Yours'}
+                            {savedEssayId === openEssay.id ? 'Saved to Mind ✓' : 'Save to Mind'}
                           </button>
                           {confirmDeleteEssayId === openEssay.id ? (
                             <>

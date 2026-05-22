@@ -10,6 +10,7 @@ import { AuthGate } from '@/components/auth-gate';
 import { Dropdown } from '@/components/dropdown';
 import { NewMindModal } from '@/components/new-mind-modal';
 import { SynthesizeModal } from '@/components/synthesize-modal';
+import { AskPanel } from '@/components/ask-panel';
 import { authedFetch, getAccessToken, getSupabaseBrowser } from '@/lib/client-auth';
 import { detectUrlKind } from '@/lib/detect';
 
@@ -253,6 +254,7 @@ function DashboardContent() {
   const [lensDormant, setLensDormant] = useState(false);
   const [newMindModalOpen, setNewMindModalOpen] = useState(false);
   const [synthModalOpen, setSynthModalOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [connectHome, setConnectHome] = useState('');
   const [connectIds, setConnectIds] = useState<string[]>([]);
   const [connectBusy, setConnectBusy] = useState<string | null>(null);
@@ -963,9 +965,9 @@ function DashboardContent() {
               </button>
             ) : null}
             {workspaceId ? (
-              <Link href={`/minds/${workspaceId}/essays?ask=1`} className="dash-action">
+              <button type="button" className="dash-action" onClick={() => setAskOpen(true)}>
                 Ask this Mind <span aria-hidden="true">→</span>
-              </Link>
+              </button>
             ) : null}
             <button type="button" className="dash-action" onClick={openTelegramBot}>
               Open Bot
@@ -1496,6 +1498,14 @@ function DashboardContent() {
           workspaces.find((w) => w.workspaces.id === workspaceId)?.workspaces.name
         }
         captureCount={recentCaptures.length}
+      />
+
+      <AskPanel
+        open={askOpen}
+        onClose={() => setAskOpen(false)}
+        workspaceId={workspaceId}
+        mindName={currentWorkspace?.workspaces.name ?? ''}
+        onSaved={() => setStatus('Saved to this Mind’s insights.')}
       />
 
       <ActivationChecklist

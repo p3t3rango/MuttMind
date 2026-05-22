@@ -962,6 +962,11 @@ function DashboardContent() {
                 Synthesize
               </button>
             ) : null}
+            {workspaceId ? (
+              <Link href={`/minds/${workspaceId}/essays?ask=1`} className="dash-action">
+                Ask this Mind <span aria-hidden="true">→</span>
+              </Link>
+            ) : null}
             <button type="button" className="dash-action" onClick={openTelegramBot}>
               Open Bot
             </button>

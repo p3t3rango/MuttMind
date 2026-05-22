@@ -4,6 +4,7 @@ import {
   deleteInsight,
   getInsightAuthor,
   listInsights,
+  setInsightPriming,
   updateInsight,
 } from '@/lib/insights';
 import { assertWorkspaceMember } from '@/lib/workspace';
@@ -23,7 +24,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const userId = await requireUserId(req);
-    const { workspaceId, title, body, sourceNodeId, sourceKind } = await req.json();
+    const { workspaceId, title, body, sourceNodeId, sourceNodeIds, sourceKind, feedsPriming } =
+      await req.json();
     const text = String(body ?? '').trim();
     if (!workspaceId) return Response.json({ error: 'workspaceId required' }, { status: 400 });
     if (!text) return Response.json({ error: 'Insight body required.' }, { status: 400 });
@@ -34,7 +36,11 @@ export async function POST(req: Request) {
       title: typeof title === 'string' ? title : null,
       body: text,
       sourceNodeId: typeof sourceNodeId === 'string' ? sourceNodeId : null,
+      sourceNodeIds: Array.isArray(sourceNodeIds)
+        ? sourceNodeIds.filter((x: unknown): x is string => typeof x === 'string')
+        : null,
       sourceKind: typeof sourceKind === 'string' ? sourceKind : null,
+      feedsPriming: typeof feedsPriming === 'boolean' ? feedsPriming : undefined,
     });
     return Response.json({ insight });
   } catch (e) {
@@ -59,16 +65,26 @@ async function assertCanMutate(
 export async function PATCH(req: Request) {
   try {
     const userId = await requireUserId(req);
-    const { workspaceId, id, title, body } = await req.json();
-    const text = String(body ?? '').trim();
-    if (!workspaceId || !id) return Response.json({ error: 'workspaceId and id required' }, { status: 400 });
-    if (!text) return Response.json({ error: 'Insight body required.' }, { status: 400 });
+    const { workspaceId, id, title, body, feedsPriming } = await req.json();
+    if (!workspaceId || !id) {
+      return Response.json({ error: 'workspaceId and id required' }, { status: 400 });
+    }
     const role = await assertWorkspaceMember(workspaceId, userId);
     const gate = await assertCanMutate(id, workspaceId, userId, role);
     if ('missing' in gate) return Response.json({ error: 'Insight not found.' }, { status: 404 });
     if ('forbidden' in gate) {
       return Response.json({ error: 'Only the author or a Mind admin can edit this.' }, { status: 403 });
     }
+
+    // Priming-only toggle: no body change required. Contract — priming-only
+    // callers omit `body` entirely (covers both undefined and null).
+    if (typeof feedsPriming === 'boolean' && body == null) {
+      const insight = await setInsightPriming({ id, workspaceId, feedsPriming });
+      return Response.json({ insight });
+    }
+
+    const text = String(body ?? '').trim();
+    if (!text) return Response.json({ error: 'Insight body required.' }, { status: 400 });
     const insight = await updateInsight({
       id,
       workspaceId,

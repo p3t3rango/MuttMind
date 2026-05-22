@@ -348,6 +348,7 @@ function EssaysContent() {
           type="search"
           value={query}
           placeholder="Search this Mind's library…"
+          aria-label="Search this Mind's library"
           onChange={(e) => setQuery(e.target.value)}
         />
 
@@ -472,7 +473,7 @@ function EssaysContent() {
           )}
         </section>
 
-        {nonDigests.length || (latestDigest && openId === latestDigest.id) ? (
+        {nonDigests.length || digests.some((d) => d.id === openId) ? (
           <div className="past-syntheses">
             {nonDigests.length ? (
               <button type="button" className="insight-link" onClick={() => setPastOpen((v) => !v)} aria-expanded={pastOpen}>

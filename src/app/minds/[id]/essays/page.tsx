@@ -86,6 +86,9 @@ function EssaysContent() {
   const [composeBusy, setComposeBusy] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editBody, setEditBody] = useState('');
   const [confirmDeleteEssayId, setConfirmDeleteEssayId] = useState<string | null>(null);
   const [olderDigestsOpen, setOlderDigestsOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
@@ -179,6 +182,19 @@ function EssaysContent() {
     }
   };
 
+  const saveEdit = async (id: string) => {
+    if (!editBody.trim()) return;
+    const r = await authedFetch('/api/insights', {
+      method: 'PATCH',
+      body: JSON.stringify({ workspaceId: mindId, id, title: editTitle, body: editBody }),
+    });
+    const d = await r.json();
+    if (r.ok && d.insight) {
+      setInsights((cur) => cur.map((x) => (x.id === id ? (d.insight as Insight) : x)));
+      setEditingId(null);
+    }
+  };
+
   const removeInsight = async (id: string) => {
     const r = await authedFetch(`/api/insights?workspaceId=${mindId}&id=${id}`, {
       method: 'DELETE',
@@ -238,33 +254,69 @@ function EssaysContent() {
 
   const renderInsightCard = (it: Insight) => (
     <li key={it.id} className="insight-item">
-      {it.title ? <p className="insight-item__title">{it.title}</p> : null}
-      <p className="insight-item__body">{it.body}</p>
-      <div className="insight-item__meta">
-        <span>
-          {it.author?.display_name || it.author?.email || 'Unknown'}
-          {' · '}{relativeTime(it.updated_at)}
-          {it.source_kind ? ` · ${sourceLabel(it.source_kind)}` : ''}
-        </span>
-        <span className="insight-item__actions">
-          <button
-            type="button"
-            className={`prime-toggle ${it.feeds_priming !== false ? 'prime-toggle--on' : ''}`}
-            onClick={() => togglePriming(it.id, it.feeds_priming === false)}
-            title={it.feeds_priming !== false ? 'Feeding the Mind — click to mute' : 'Muted — click to feed the Mind'}
-          >
-            {it.feeds_priming !== false ? '● feeds the Mind' : '○ muted'}
-          </button>
-          {confirmDeleteId === it.id ? (
-            <>
-              <button type="button" className="insight-link insight-link--danger" onClick={() => removeInsight(it.id)}>Confirm delete</button>
-              <button type="button" className="insight-link" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
-            </>
-          ) : (
-            <button type="button" className="insight-link" onClick={() => setConfirmDeleteId(it.id)}>Delete</button>
-          )}
-        </span>
-      </div>
+      {editingId === it.id ? (
+        <div className="insight-compose">
+          <input
+            className="insight-compose__title"
+            placeholder="Title (optional)"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+          />
+          <textarea
+            className="insight-compose__body"
+            value={editBody}
+            onChange={(e) => setEditBody(e.target.value)}
+            rows={3}
+          />
+          <div className="insight-compose__actions">
+            <button type="button" className="mm-text-button" onClick={() => setEditingId(null)}>Cancel</button>
+            <button type="button" className="ms-btn" onClick={() => saveEdit(it.id)} disabled={!editBody.trim()}>Save</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {it.title ? <p className="insight-item__title">{it.title}</p> : null}
+          <p className="insight-item__body">{it.body}</p>
+          <div className="insight-item__meta">
+            <span>
+              {it.author?.display_name || it.author?.email || 'Unknown'}
+              {' · '}{relativeTime(it.updated_at)}
+              {it.updated_at !== it.created_at ? ' · edited' : ''}
+              {it.source_kind ? ` · ${sourceLabel(it.source_kind)}` : ''}
+            </span>
+            <span className="insight-item__actions">
+              <button
+                type="button"
+                className={`prime-toggle ${it.feeds_priming !== false ? 'prime-toggle--on' : ''}`}
+                onClick={() => togglePriming(it.id, it.feeds_priming === false)}
+                title={it.feeds_priming !== false ? 'Feeding the Mind — click to mute' : 'Muted — click to feed the Mind'}
+              >
+                {it.feeds_priming !== false ? '● feeds the Mind' : '○ muted'}
+              </button>
+              <button
+                type="button"
+                className="insight-link"
+                onClick={() => {
+                  setEditingId(it.id);
+                  setEditTitle(it.title ?? '');
+                  setEditBody(it.body);
+                  setConfirmDeleteId(null);
+                }}
+              >
+                Edit
+              </button>
+              {confirmDeleteId === it.id ? (
+                <>
+                  <button type="button" className="insight-link insight-link--danger" onClick={() => removeInsight(it.id)}>Confirm delete</button>
+                  <button type="button" className="insight-link" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+                </>
+              ) : (
+                <button type="button" className="insight-link" onClick={() => setConfirmDeleteId(it.id)}>Delete</button>
+              )}
+            </span>
+          </div>
+        </>
+      )}
     </li>
   );
 
@@ -345,7 +397,7 @@ function EssaysContent() {
                         <button
                           type="button"
                           className={`digest-older-list__item ${openId === d.id ? 'digest-older-list__item--active' : ''}`}
-                          onClick={() => setOpenId(d.id)}
+                          onClick={() => { setOpenId(d.id); setPastOpen(true); }}
                         >
                           <span className="digest-older-list__title">
                             {d.title ?? 'Untitled digest'}

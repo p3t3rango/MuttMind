@@ -32,17 +32,22 @@ export async function POST(req: Request) {
 
   let workspaceId: string;
   let messages: ChatMessage[];
+  let userId: string;
   try {
-    const userId = await requireUserId(req);
+    userId = await requireUserId(req);
     const parsed = await req.json();
     workspaceId = parsed?.workspaceId;
     messages = Array.isArray(parsed?.messages) ? parsed.messages : [];
     if (!workspaceId) return Response.json({ error: 'workspaceId required' }, { status: 400 });
     const lastUser = [...messages].reverse().find((m) => m.role === 'user');
     if (!lastUser?.content?.trim()) return Response.json({ error: 'A user message is required' }, { status: 400 });
-    await assertWorkspaceMember(workspaceId, userId);
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : 'unauthorized' }, { status: 401 });
+  }
+  try {
+    await assertWorkspaceMember(workspaceId, userId);
+  } catch {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const stream = new ReadableStream({

@@ -24,6 +24,7 @@ export const env = {
   synthesisEnabled: process.env.MUTTMIND_SYNTHESIS_ENABLED === '1',
   lensesEnabled: process.env.MUTTMIND_LENSES_ENABLED === '1',
   askEnabled: process.env.MUTTMIND_ASK_ENABLED === '1',
+  chatEnabled: process.env.MUTTMIND_CHAT_ENABLED === '1',
   digestEnabled: process.env.MUTTMIND_DIGEST_ENABLED === '1',
   // Stage 2: per-passage chunk embeddings at capture. Default OFF — flip to '1'
   // before re-capturing so each node also gets node_chunks for retrieval.

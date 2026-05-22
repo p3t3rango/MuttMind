@@ -376,8 +376,9 @@ export async function PATCH(req: Request) {
       return Response.json({ error: 'Only the author or a Mind admin can edit this.' }, { status: 403 });
     }
 
-    // Priming-only toggle: no body change required.
-    if (typeof feedsPriming === 'boolean' && body === undefined) {
+    // Priming-only toggle: no body change required. Contract — priming-only
+    // callers omit `body` entirely (covers both undefined and null).
+    if (typeof feedsPriming === 'boolean' && body == null) {
       const insight = await setInsightPriming({ id, workspaceId, feedsPriming });
       return Response.json({ insight });
     }
@@ -453,6 +454,9 @@ export async function* geminiGenerateTextStream(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  // Assumption: Gemini SSE emits one `data: {json}` per line (no multi-line
+  // data blocks), so newline-splitting is sufficient. If Gemini ever changes
+  // framing to multi-line SSE events, switch to splitting on '\n\n'.
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1091,10 +1095,11 @@ Replace everything inside `<section className="ms-page essays-page">` so the lay
   onChange={(e) => setQuery(e.target.value)}
 />
 
-{latestDigest ? (
-  /* keep the existing digest-hero block exactly as-is */
-  <DigestHero /* inline the current block */ />
-) : null}
+{/* RELOCATE VERBATIM (not a new component): move the existing digest-hero block
+    here unchanged — currently the `{latestDigest ? ( <section className="digest-hero …">
+    … </section> ) : null}` block at page.tsx lines ~392–453. It already uses
+    openId/setOpenId/nonDigests/olderDigests/olderDigestsOpen/relativeTime/digestPreview,
+    all of which still exist. Do not rewrite its internals. */}
 
 <div className="insights-lane-row">
   <p className="insights-lane">Yours <span className="insights-lane__sub">· you wrote these</span></p>
@@ -1118,18 +1123,26 @@ Replace everything inside `<section className="ms-page essays-page">` so the lay
       {pastOpen ? 'Hide' : 'Past syntheses'} ({nonDigests.length})
     </button>
     {pastOpen ? (
-      /* keep the existing essays-list + essays-reader two-pane block here */
-      <EssaysReader />
+      /* RELOCATE VERBATIM (not a new component): move the existing two-pane essays
+         block here unchanged — currently `<div className="essays-layout"> … </div>`
+         at page.tsx lines ~455–561, rendering essays-list (nonDigests) + essays-reader
+         (openEssay, openSources, deleteEssay, saveEssayToInsights, savedEssayId,
+         confirmDeleteEssayId, essayKindLabel, EssayMarkdown). */
+      null
     ) : null}
   </div>
 ) : null}
 ```
 
-> Note for the implementer: the `DigestHero`, compose block, and `EssaysReader`
-> two-pane markup already exist in the current file (lines ~392–561). Move them
-> verbatim into the positions above rather than rewriting them. The only deletions
-> are the Synthesize button, the `syn-modes` tabs, the `syn-loading` phase block,
-> and the dormant/`status` blocks tied to the old `generate` flow.
+> **Implementer note (read before editing):** the digest-hero block, the
+> `insight-compose` block, and the `essays-layout` two-pane block already exist in
+> the current file (digest-hero ~392–453, compose ~575–602, essays-layout ~455–561).
+> These are **inline JSX, not components** — physically cut each block from its
+> current spot and paste it (unchanged) into the position marked above. Do not
+> create `DigestHero`/`EssaysReader` components and do not rewrite the internals.
+> The only outright deletions are: the Synthesize button, the `syn-modes` mode-tab
+> block, the `syn-loading` phase block, and the dormant/`status` blocks tied to the
+> removed `generate` flow.
 
 - [ ] **Step 6: Mount the panel before `</main>`**
 
@@ -1146,7 +1159,12 @@ Replace everything inside `<section className="ms-page essays-page">` so the lay
 - [ ] **Step 7: Typecheck + lint**
 
 Run: `npm run lint`
-Expected: no unused-variable errors (confirm the removed `mode`/`phase`/`generate` references are all gone).
+Expected: no unused-variable errors.
+
+Then prove the old flow is fully gone (not just the state declarations — these names also appear in effects, callbacks, and JSX):
+
+Run: `git grep -nE 'isGenerating|phaseTimer|stopPhases|syn-modes|syn-loading|\bMODES\b|\bPHASES\b' 'src/app/minds/[id]/essays/page.tsx'`
+Expected: **no output** (zero matches). Any hit is a leftover reference to fix.
 
 - [ ] **Step 8: Commit**
 
@@ -1274,6 +1292,7 @@ Open a Mind that has captures (`/minds/<id>/essays`) and confirm:
 5. **Past syntheses:** the disclosure expands to the legacy essay reader; "Save to Mind" on an essay creates a muted Synthesized insight.
 6. **Dashboard doorway:** from `/dashboard`, "Ask this Mind →" opens `/minds/<id>/essays?ask=1` with the panel open.
 7. **Dormant path:** with the flag off, the panel shows the dormant message and the library still works.
+8. **Cross-surface muted save:** on the dashboard, run a lens on a capture and "Save to Insights"; confirm the new save shows in the **Synthesized** lane as **○ muted** (the intended behavior change — old lens-saves stay feeding, new ones start muted).
 
 - [ ] **Step 5: Commit**
 

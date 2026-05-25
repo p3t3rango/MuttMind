@@ -5488,7 +5488,7 @@ select:focus {
 }
 
 /* ---------------------------------------------------------------------------
-   Essays — synthesis reader (/minds/[id]/essays)
+   Insights — synthesis reader (/minds/[id]/insights)
    --------------------------------------------------------------------------- */
 
 .essays-page {
@@ -7407,4 +7407,16 @@ a.essay-cite--link:hover {
   font-family: var(--font-body); font-size: 14px;
 }
 .ask-panel__input::placeholder { color: rgba(247, 247, 242, 0.35); }
+
+/* Mind workspace sub-header */
+.mind-bar { display: flex; align-items: center; gap: 18px; padding: 10px 0; border-bottom: 1px solid rgba(247,247,242,0.1); margin-bottom: 18px; }
+.mind-bar__lead { display: flex; align-items: center; gap: 12px; }
+.mind-bar__back { font-family: var(--font-mono); font-size: 11px; color: rgba(247,247,242,0.45); text-decoration: none; }
+.mind-bar__back:hover { color: var(--ink); }
+.mind-tabs { display: flex; gap: 16px; }
+.mind-tab { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(247,247,242,0.5); text-decoration: none; padding-bottom: 4px; border-bottom: 2px solid transparent; }
+.mind-tab--on { color: var(--ink); border-bottom-color: var(--ink); }
+.mind-bar__actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.mind-bar__gear { color: rgba(247,247,242,0.5); text-decoration: none; font-size: 15px; }
+.mind-bar__gear:hover { color: var(--ink); }
 .ask-panel__input:focus { outline: none; border-color: rgba(247, 247, 242, 0.45); }

@@ -149,17 +149,15 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
   };
 
   const openMindAndClose = () => {
-    if (createdMindId) {
-      window.localStorage.setItem('muttmind:active-mind-id', createdMindId);
-    }
+    if (!createdMindId) return;
     onClose();
-    router.push('/dashboard');
+    router.push(`/minds/${createdMindId}`);
   };
 
   const openTailorAndClose = () => {
     if (!createdMindId) return;
     onClose();
-    router.push(`/minds/${createdMindId}/tailor`);
+    router.push(`/minds/${createdMindId}/settings`);
   };
 
   return (

@@ -13,6 +13,36 @@ type Mind = {
 
 function SettingsContent() {
   const [minds, setMinds] = useState<Mind[]>([]);
+  const [telegramStatus, setTelegramStatus] = useState('');
+
+  const telegramBotUrl = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL ?? '';
+  const openTelegramBot = useCallback(async () => {
+    const popup = window.open('', '_blank');
+    if (popup) popup.opener = null;
+
+    setTelegramStatus('Opening Telegram bot…');
+    const response = await authedFetch('/api/telegram-link', { method: 'POST' });
+    const data = await response.json();
+    const targetUrl = response.ok && data.url ? data.url : telegramBotUrl;
+
+    if (!targetUrl) {
+      popup?.close();
+      setTelegramStatus(data.error ?? 'Telegram bot URL is not configured.');
+      return;
+    }
+
+    if (popup) {
+      popup.location.href = targetUrl;
+    } else {
+      window.location.href = targetUrl;
+    }
+
+    setTelegramStatus(
+      response.ok
+        ? 'Telegram opened. Press Start in the bot to link this account.'
+        : `Telegram opened, but account linking needs attention: ${data.error ?? 'missing link token'}`,
+    );
+  }, [telegramBotUrl]);
 
   const loadMinds = useCallback(async () => {
     const r = await authedFetch('/api/workspaces');
@@ -51,6 +81,21 @@ function SettingsContent() {
             </Link>
           ))}
           {minds.length === 0 ? <p className="tag-table__empty">No Minds yet.</p> : null}
+        </div>
+
+        <div className="ms-section" style={{ marginTop: 32 }}>
+          <h2 className="ms-section__title">Connections</h2>
+          <p className="ms-section__hint">
+            Connect Telegram to save captures from anywhere — just send a link or voice memo to the bot.
+          </p>
+          <button type="button" className="button-secondary" onClick={openTelegramBot}>
+            Connect Telegram
+          </button>
+          {telegramStatus ? (
+            <p className="ms-section__hint" aria-live="polite" style={{ marginTop: 8 }}>
+              {telegramStatus}
+            </p>
+          ) : null}
         </div>
       </section>
     </main>

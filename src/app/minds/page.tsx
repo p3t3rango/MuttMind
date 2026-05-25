@@ -132,12 +132,6 @@ function MindsContent() {
           </button>
         </header>
 
-        <nav className="minds-page__pivots" aria-label="View">
-          <span className="minds-page__pivot minds-page__pivot--active">Minds</span>
-          <Link href="/dashboard" className="minds-page__pivot">Dashboard</Link>
-          <Link href="/vault" className="minds-page__pivot">Map</Link>
-        </nav>
-
         {loading ? (
           <p className="minds-empty__hint" style={{ paddingTop: 24, opacity: 0.35 }}>
             Loading your Minds…

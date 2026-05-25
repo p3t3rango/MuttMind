@@ -385,7 +385,7 @@ export default function SettingsPage() {
           <span className="ms-crumb__sep">/</span>
           <span className="ms-crumb__current">settings</span>
         </div>
-        <Link href="/dashboard" className="ms-open" onClick={() => window.localStorage.setItem('muttmind:active-mind-id', mind.id)}>
+        <Link href={`/minds/${mindId}`} className="ms-open">
           Open Mind →
         </Link>
       </header>

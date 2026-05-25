@@ -1,15 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivationChecklist } from '@/components/activation-checklist';
 import { AudioPlayer } from '@/components/audio-player';
-import { AppNav } from '@/components/app-nav';
-import { AuthGate } from '@/components/auth-gate';
-import { Dropdown } from '@/components/dropdown';
 import { NewMindModal } from '@/components/new-mind-modal';
-import { AskPanel } from '@/components/ask-panel';
 import { authedFetch, getAccessToken, getSupabaseBrowser } from '@/lib/client-auth';
 import { detectUrlKind } from '@/lib/detect';
 
@@ -213,12 +209,12 @@ const LENS_CATALOG: { key: string; label: string }[] = [
   { key: 'whats-missing', label: "What's missing" },
 ];
 
-function DashboardContent() {
+export default function BoardPage() {
+  const { id: workspaceId } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('q') ?? '';
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspacesLoading, setWorkspacesLoading] = useState(true);
-  const [workspaceId, setWorkspaceId] = useState('');
   const [tags, setTags] = useState<Tag[]>([]);
   const [recentCaptures, setRecentCaptures] = useState<CaptureItem[]>([]);
   const [capturesLoading, setCapturesLoading] = useState(true);
@@ -252,7 +248,6 @@ function DashboardContent() {
   const [lensSaved, setLensSaved] = useState<Record<string, boolean>>({});
   const [lensDormant, setLensDormant] = useState(false);
   const [newMindModalOpen, setNewMindModalOpen] = useState(false);
-  const [askOpen, setAskOpen] = useState(false);
   const [connectHome, setConnectHome] = useState('');
   const [connectIds, setConnectIds] = useState<string[]>([]);
   const [connectBusy, setConnectBusy] = useState<string | null>(null);
@@ -298,7 +293,6 @@ function DashboardContent() {
       const d = await r.json();
       const nextWorkspaces = d.workspaces ?? [];
       setWorkspaces(nextWorkspaces);
-      setWorkspaceId((current) => current || nextWorkspaces[0]?.workspaces?.id || '');
     } finally {
       setWorkspacesLoading(false);
     }
@@ -865,14 +859,6 @@ function DashboardContent() {
     [workspaceId, selectedCapture],
   );
 
-  useEffect(() => {
-    const storedMindId = window.localStorage.getItem('muttmind:active-mind-id');
-    if (storedMindId) {
-      setWorkspaceId(storedMindId);
-      window.localStorage.removeItem('muttmind:active-mind-id');
-    }
-  }, []);
-
   // Deep-link: opening a capture from the vault graph (or anywhere) sets
   // muttmind:focus-capture-id. Once the workspace is known, fetch that single
   // capture and open its drawer — it may be older than the recent slice, so
@@ -926,38 +912,17 @@ function DashboardContent() {
   }, [saveCapture]);
 
   return (
-    <main className="app-shell mind-shell">
-      <AppNav active="dashboard" />
-
+    <>
       <section className="dash-page" aria-labelledby="dashboard-title">
         <h1 id="dashboard-title" className="sr-only">Dashboard</h1>
 
         <header className="dash-header">
           <div className="dash-crumb">
-            <Dropdown
-              value={workspaceId}
-              options={[
-                { value: '', name: 'no mind selected' },
-                ...workspaces.map((workspace) => ({
-                  value: workspace.workspaces.id,
-                  name: formatMindName(workspace.workspaces.name),
-                })),
-              ]}
-              onChange={(v) => setWorkspaceId(v)}
-              ariaLabel="Active Mind"
-              size="inline"
-            />
-            <span className="dash-crumb__sep">/</span>
             <span className="dash-crumb__count">
               {filteredCaptures.length} {filteredCaptures.length === 1 ? 'capture' : 'captures'}
             </span>
           </div>
           <div className="dash-actions">
-            {workspaceId ? (
-              <button type="button" className="dash-action" onClick={() => setAskOpen(true)}>
-                Ask this Mind <span aria-hidden="true">→</span>
-              </button>
-            ) : null}
             <button type="button" className="dash-action" onClick={openTelegramBot}>
               Open Bot
             </button>
@@ -966,17 +931,6 @@ function DashboardContent() {
             </button>
           </div>
         </header>
-
-        <nav className="dash-pivots" aria-label="View">
-          <Link href="/minds" className="dash-pivot">Minds</Link>
-          <span className="dash-pivot dash-pivot--active">Dashboard</span>
-          <Link href="/vault" className="dash-pivot">Map</Link>
-          {workspaceId ? (
-            <Link href={`/minds/${workspaceId}/essays`} className="dash-pivot">
-              Insights
-            </Link>
-          ) : null}
-        </nav>
 
         {workspacesLoading ? (
           <p className="dash-loading">Loading…</p>
@@ -1479,14 +1433,6 @@ function DashboardContent() {
         onCreated={() => loadWorkspaces()}
       />
 
-      <AskPanel
-        open={askOpen}
-        onClose={() => setAskOpen(false)}
-        workspaceId={workspaceId}
-        mindName={currentWorkspace?.workspaces.name ?? ''}
-        onSaved={() => setStatus('Saved to this Mind’s insights.')}
-      />
-
       <ActivationChecklist
         milestones={[
           {
@@ -1525,14 +1471,6 @@ function DashboardContent() {
           },
         ]}
       />
-    </main>
-  );
-}
-
-export default function Dashboard() {
-  return (
-    <AuthGate>
-      <DashboardContent />
-    </AuthGate>
+    </>
   );
 }

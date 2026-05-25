@@ -43,9 +43,10 @@ function ShellInner({ children }: { children: React.ReactNode }) {
     if (searchParams.get('ask') === '1') setAskOpen(true);
   }, [searchParams]);
 
-  const tab: 'board' | 'map' | 'insights' = useMemo(() => {
+  const tab: 'board' | 'map' | 'insights' | 'settings' = useMemo(() => {
     if (pathname.endsWith('/map')) return 'map';
     if (pathname.endsWith('/insights')) return 'insights';
+    if (pathname.endsWith('/settings')) return 'settings';
     return 'board';
   }, [pathname]);
 

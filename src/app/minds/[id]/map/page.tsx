@@ -315,7 +315,7 @@ export default function MapPage() {
 
   const openInDashboard = (id: string) => {
     window.localStorage.setItem('muttmind:focus-capture-id', id);
-    router.push('/dashboard');
+    router.push(`/minds/${workspaceId}`);
   };
 
   // When a node is selected, fetch its full detail so the map can show the

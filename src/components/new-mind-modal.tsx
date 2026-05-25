@@ -159,7 +159,7 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
   const openTailorAndClose = () => {
     if (!createdMindId) return;
     onClose();
-    router.push(`/minds/${createdMindId}/tailor`);
+    router.push(`/minds/${createdMindId}/settings`);
   };
 
   return (

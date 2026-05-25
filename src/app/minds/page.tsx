@@ -100,14 +100,14 @@ function MindsContent() {
 
   const openMind = (mind: Mind) => {
     window.localStorage.setItem('muttmind:active-mind-id', mind.workspaces.id);
-    router.push('/dashboard');
+    router.push(`/minds/${mind.workspaces.id}`);
   };
 
   const openCapture = (mindId: string) => {
-    // For now, opening any capture lands the user on the Mind's dashboard.
+    // For now, opening any capture lands the user on the Mind's board.
     // A future hop could deep-link directly to the drawer for that capture id.
     window.localStorage.setItem('muttmind:active-mind-id', mindId);
-    router.push('/dashboard');
+    router.push(`/minds/${mindId}`);
   };
 
   return (

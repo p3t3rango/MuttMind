@@ -1364,7 +1364,7 @@ export default function BoardPage() {
                     Open Source
                   </a>
                 ) : null}
-                <Link href="/vault" className="button-secondary">
+                <Link href={`/minds/${workspaceId}/map`} className="button-secondary">
                   View Map
                 </Link>
                 {selectedCapture.original_url && !selectedCapture.id.startsWith('pending-') ? (

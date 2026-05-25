@@ -9,7 +9,6 @@ import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { Dropdown } from '@/components/dropdown';
 import { NewMindModal } from '@/components/new-mind-modal';
-import { SynthesizeModal } from '@/components/synthesize-modal';
 import { AskPanel } from '@/components/ask-panel';
 import { authedFetch, getAccessToken, getSupabaseBrowser } from '@/lib/client-auth';
 import { detectUrlKind } from '@/lib/detect';
@@ -253,7 +252,6 @@ function DashboardContent() {
   const [lensSaved, setLensSaved] = useState<Record<string, boolean>>({});
   const [lensDormant, setLensDormant] = useState(false);
   const [newMindModalOpen, setNewMindModalOpen] = useState(false);
-  const [synthModalOpen, setSynthModalOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const [connectHome, setConnectHome] = useState('');
   const [connectIds, setConnectIds] = useState<string[]>([]);
@@ -956,15 +954,6 @@ function DashboardContent() {
           </div>
           <div className="dash-actions">
             {workspaceId ? (
-              <button
-                type="button"
-                className="dash-action"
-                onClick={() => setSynthModalOpen(true)}
-              >
-                Synthesize
-              </button>
-            ) : null}
-            {workspaceId ? (
               <button type="button" className="dash-action" onClick={() => setAskOpen(true)}>
                 Ask this Mind <span aria-hidden="true">→</span>
               </button>
@@ -1488,16 +1477,6 @@ function DashboardContent() {
         open={newMindModalOpen}
         onClose={() => setNewMindModalOpen(false)}
         onCreated={() => loadWorkspaces()}
-      />
-
-      <SynthesizeModal
-        open={synthModalOpen}
-        onClose={() => setSynthModalOpen(false)}
-        workspaceId={workspaceId}
-        mindName={
-          workspaces.find((w) => w.workspaces.id === workspaceId)?.workspaces.name
-        }
-        captureCount={recentCaptures.length}
       />
 
       <AskPanel

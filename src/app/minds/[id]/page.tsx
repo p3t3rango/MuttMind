@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivationChecklist } from '@/components/activation-checklist';
 import { AudioPlayer } from '@/components/audio-player';
 import { NewMindModal } from '@/components/new-mind-modal';
 import { authedFetch, getAccessToken, getSupabaseBrowser } from '@/lib/client-auth';
@@ -256,37 +255,6 @@ export default function BoardPage() {
     () => recentCaptures.filter((captureItem) => matchesQuery(captureItem, searchQuery)),
     [recentCaptures, searchQuery],
   );
-  const currentWorkspace = workspaces.find((workspace) => workspace.workspaces.id === workspaceId);
-  const telegramBotUrl = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL ?? '';
-
-  const openTelegramBot = useCallback(async () => {
-    const popup = window.open('', '_blank');
-    if (popup) popup.opener = null;
-
-    setStatus('Opening Telegram bot...');
-    const response = await authedFetch('/api/telegram-link', { method: 'POST' });
-    const data = await response.json();
-    const targetUrl = response.ok && data.url ? data.url : telegramBotUrl;
-
-    if (!targetUrl) {
-      popup?.close();
-      setStatus(data.error ?? 'Telegram bot URL is not configured.');
-      return;
-    }
-
-    if (popup) {
-      popup.location.href = targetUrl;
-    } else {
-      window.location.href = targetUrl;
-    }
-
-    setStatus(
-      response.ok
-        ? 'Telegram opened. Press Start in the bot to link this account.'
-        : `Telegram opened, but account linking needs attention: ${data.error ?? 'missing link token'}`,
-    );
-  }, [telegramBotUrl]);
-
   const loadWorkspaces = useCallback(async () => {
     try {
       const r = await authedFetch('/api/workspaces');
@@ -923,9 +891,6 @@ export default function BoardPage() {
             </span>
           </div>
           <div className="dash-actions">
-            <button type="button" className="dash-action" onClick={openTelegramBot}>
-              Open Bot
-            </button>
             <button type="button" className="dash-action" onClick={() => setNewMindModalOpen(true)}>
               New Mind <span aria-hidden="true">+</span>
             </button>
@@ -1177,13 +1142,9 @@ export default function BoardPage() {
                     <span className="dash-empty__path-soon">soon</span>
                   </button>
                 </div>
-                <button
-                  type="button"
-                  className="dash-empty__bot"
-                  onClick={openTelegramBot}
-                >
-                  or save from anywhere — open the Telegram bot →
-                </button>
+                <Link href="/settings" className="dash-empty__bot">
+                  or save from anywhere — connect Telegram in Settings →
+                </Link>
               </>
             )}
           </div>
@@ -1433,44 +1394,6 @@ export default function BoardPage() {
         onCreated={() => loadWorkspaces()}
       />
 
-      <ActivationChecklist
-        milestones={[
-          {
-            key: 'mind',
-            label: 'Create your first Mind',
-            done: workspaces.length > 0,
-          },
-          {
-            key: 'capture',
-            label: 'Save your first capture',
-            done: recentCaptures.length > 0,
-          },
-          {
-            key: 'tailor',
-            label: 'Tailor your assistant',
-            done: false,
-            manuallyCheckable: true,
-            onAction: () => {
-              if (currentWorkspace?.workspaces.id) {
-                window.location.href = `/minds/${currentWorkspace.workspaces.id}/tailor`;
-              }
-            },
-          },
-          {
-            key: 'shared',
-            label: 'Make it a Shared Mind',
-            done: (currentWorkspace?.workspaces.member_count ?? 1) > 1,
-            onAction: () => setNewMindModalOpen(true),
-          },
-          {
-            key: 'telegram',
-            label: 'Connect the Telegram bot',
-            done: false,
-            manuallyCheckable: true,
-            onAction: openTelegramBot,
-          },
-        ]}
-      />
     </>
   );
 }

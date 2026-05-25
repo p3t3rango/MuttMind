@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ActivationChecklist } from '@/components/activation-checklist';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { NewMindModal } from '@/components/new-mind-modal';
@@ -55,6 +56,24 @@ function MindsContent() {
   const [minds, setMinds] = useState<Mind[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+
+  const telegramBotUrl = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL ?? '';
+  const openTelegramBot = useCallback(async () => {
+    const popup = window.open('', '_blank');
+    if (popup) popup.opener = null;
+    const response = await authedFetch('/api/telegram-link', { method: 'POST' });
+    const data = await response.json();
+    const targetUrl = response.ok && data.url ? data.url : telegramBotUrl;
+    if (!targetUrl) {
+      popup?.close();
+      return;
+    }
+    if (popup) {
+      popup.location.href = targetUrl;
+    } else {
+      window.location.href = targetUrl;
+    }
+  }, [telegramBotUrl]);
 
   const loadMinds = useCallback(async () => {
     try {
@@ -203,6 +222,44 @@ function MindsContent() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreated={() => loadMinds()}
+      />
+
+      <ActivationChecklist
+        milestones={[
+          {
+            key: 'mind',
+            label: 'Create your first Mind',
+            done: minds.length > 0,
+          },
+          {
+            key: 'capture',
+            label: 'Save your first capture',
+            done: minds.some((m) => (m.workspaces.capture_count ?? 0) > 0),
+          },
+          {
+            key: 'tailor',
+            label: 'Tailor your assistant',
+            done: false,
+            manuallyCheckable: true,
+            onAction: () => {
+              const firstId = minds[0]?.workspaces.id;
+              if (firstId) router.push(`/minds/${firstId}/settings`);
+            },
+          },
+          {
+            key: 'shared',
+            label: 'Make it a Shared Mind',
+            done: minds.some((m) => (m.workspaces.member_count ?? 1) > 1),
+            onAction: () => setModalOpen(true),
+          },
+          {
+            key: 'telegram',
+            label: 'Connect the Telegram bot',
+            done: false,
+            manuallyCheckable: true,
+            onAction: openTelegramBot,
+          },
+        ]}
       />
     </main>
   );

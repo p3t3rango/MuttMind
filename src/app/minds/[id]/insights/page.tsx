@@ -3,9 +3,6 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { AppNav } from '@/components/app-nav';
-import { AskPanel } from '@/components/ask-panel';
-import { AuthGate } from '@/components/auth-gate';
 import { EssayMarkdown, type EssaySource } from '@/components/essay-markdown';
 import { authedFetch } from '@/lib/client-auth';
 
@@ -70,7 +67,7 @@ function digestPreview(body: string): string {
   return cleaned.length > 240 ? `${cleaned.slice(0, 240).trim()}…` : cleaned;
 }
 
-function EssaysContent() {
+export default function InsightsPage() {
   const params = useParams<{ id: string }>();
   const mindId = params.id;
 
@@ -91,14 +88,8 @@ function EssaysContent() {
   const [editBody, setEditBody] = useState('');
   const [confirmDeleteEssayId, setConfirmDeleteEssayId] = useState<string | null>(null);
   const [olderDigestsOpen, setOlderDigestsOpen] = useState(false);
-  const [askOpen, setAskOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [pastOpen, setPastOpen] = useState(false);
-
-  useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    if (sp.get('ask') === '1') setAskOpen(true);
-  }, []);
 
   const loadMind = useCallback(async () => {
     const r = await authedFetch('/api/workspaces');
@@ -321,9 +312,6 @@ function EssaysContent() {
   );
 
   return (
-    <main className="app-shell ms-shell">
-      <AppNav active="minds" />
-
       <section className="ms-page essays-page">
         <header className="ms-top">
           <div className="ms-crumb">
@@ -333,15 +321,7 @@ function EssaysContent() {
             <span className="ms-crumb__sep">/</span>
             <span className="ms-crumb__current">insights</span>
           </div>
-          <button type="button" className="ms-btn" onClick={() => setAskOpen(true)}>Ask ✦</button>
         </header>
-
-        <nav className="dash-pivots" aria-label="View">
-          <Link href="/minds" className="dash-pivot">Minds</Link>
-          <Link href="/dashboard" className="dash-pivot">Dashboard</Link>
-          <Link href="/vault" className="dash-pivot">Map</Link>
-          <span className="dash-pivot dash-pivot--active">Insights</span>
-        </nav>
 
         <input
           className="library-search"
@@ -589,22 +569,5 @@ function EssaysContent() {
         ) : null}
 
       </section>
-
-      <AskPanel
-        open={askOpen}
-        onClose={() => setAskOpen(false)}
-        workspaceId={mindId}
-        mindName={mindName}
-        onSaved={loadInsights}
-      />
-    </main>
-  );
-}
-
-export default function EssaysPage() {
-  return (
-    <AuthGate>
-      <EssaysContent />
-    </AuthGate>
   );
 }

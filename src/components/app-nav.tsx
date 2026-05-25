@@ -6,7 +6,10 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/client-auth';
 
 type AppNavProps = {
-  active?: 'home' | 'dashboard' | 'minds' | 'vault' | 'settings' | 'login';
+  // 'home' and 'login' are used in the unauthed branch.
+  // The authed feature values are retained for backward compatibility
+  // with existing call sites; they are no longer rendered in the nav.
+  active?: 'home' | 'login' | 'dashboard' | 'minds' | 'vault' | 'settings';
 };
 
 /**
@@ -87,7 +90,7 @@ export function AppNav({ active = 'home' }: AppNavProps) {
   const [isAuthed, setIsAuthed] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const homeHref = isAuthed ? '/dashboard' : '/';
+  const homeHref = isAuthed ? '/minds' : '/';
 
   useEffect(() => {
     getSupabaseBrowser().auth.getSession().then(({ data }) => {
@@ -150,38 +153,7 @@ export function AppNav({ active = 'home' }: AppNavProps) {
       </button>
 
       <nav id="primary-navigation" className="nav" aria-label="Primary navigation">
-        {isAuthed ? (
-          <>
-            <Link
-              href="/dashboard"
-              className={active === 'dashboard' ? 'nav-link active' : 'nav-link'}
-              onClick={() => setMenuOpen(false)}
-            >
-              <span className="nav-num">01</span> Dashboard
-            </Link>
-            <Link
-              href="/minds"
-              className={active === 'minds' ? 'nav-link active' : 'nav-link'}
-              onClick={() => setMenuOpen(false)}
-            >
-              <span className="nav-num">02</span> Minds
-            </Link>
-            <Link
-              href="/vault"
-              className={active === 'vault' ? 'nav-link active' : 'nav-link'}
-              onClick={() => setMenuOpen(false)}
-            >
-              <span className="nav-num">03</span> Map
-            </Link>
-            <Link
-              href="/settings"
-              className={active === 'settings' ? 'nav-link active' : 'nav-link'}
-              onClick={() => setMenuOpen(false)}
-            >
-              <span className="nav-num">04</span> Settings
-            </Link>
-          </>
-        ) : (
+        {!isAuthed ? (
           <>
             <Link href="/" className={active === 'home' ? 'nav-link active' : 'nav-link'} onClick={() => setMenuOpen(false)}>
               <span className="nav-num">01</span> What
@@ -190,7 +162,7 @@ export function AppNav({ active = 'home' }: AppNavProps) {
               <span className="nav-num">02</span> Login
             </Link>
           </>
-        )}
+        ) : null}
       </nav>
 
       <div className="nav-meta" aria-live="polite">

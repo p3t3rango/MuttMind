@@ -12,7 +12,7 @@ export async function GET(_req: Request, context: { params: Promise<{ code: stri
 
   const { data, error } = await getSupabaseAdmin()
     .from('workspaces')
-    .select('id,name,description,event_mode,event_at,allow_anonymous_contributions')
+    .select('id,name,description,event_mode,event_at,event_end_at,allow_anonymous_contributions')
     .eq('share_code', code)
     .maybeSingle();
 
@@ -26,6 +26,7 @@ export async function GET(_req: Request, context: { params: Promise<{ code: stri
       name: data.name,
       description: data.description,
       eventAt: data.event_at,
+      eventEndAt: data.event_end_at,
       allowAnonymous: data.allow_anonymous_contributions === true,
     },
   });

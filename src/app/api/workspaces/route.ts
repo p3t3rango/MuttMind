@@ -20,6 +20,7 @@ type WorkspaceMemberRow = {
     created_at: string;
     event_mode: boolean;
     event_at: string | null;
+    event_end_at: string | null;
     share_code: string | null;
     allow_anonymous_contributions: boolean;
     learning_enabled: boolean;
@@ -34,7 +35,7 @@ type MemberCountRow = {
 };
 
 const VOICE_SOURCES = ['system_prompt', 'user_notes', 'mind_notes'] as const;
-const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at,event_mode,event_at,share_code,allow_anonymous_contributions,learning_enabled,digest_prompt';
+const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at,event_mode,event_at,event_end_at,share_code,allow_anonymous_contributions,learning_enabled,digest_prompt';
 
 function generateShareCode(): string {
   return (
@@ -143,6 +144,7 @@ export async function GET(req: Request) {
         created_at: item.workspaces.created_at,
         event_mode: item.workspaces.event_mode ?? false,
         event_at: item.workspaces.event_at ?? null,
+        event_end_at: item.workspaces.event_end_at ?? null,
         share_code: item.workspaces.share_code ?? null,
         allow_anonymous_contributions: item.workspaces.allow_anonymous_contributions ?? false,
         learning_enabled: item.workspaces.learning_enabled ?? false,
@@ -206,6 +208,8 @@ export async function POST(req: Request) {
       insertPayload.share_code = generateShareCode();
       if (typeof body?.eventAt === 'string' && body.eventAt.trim())
         insertPayload.event_at = body.eventAt;
+      if (typeof body?.eventEndAt === 'string' && body.eventEndAt.trim())
+        insertPayload.event_end_at = body.eventEndAt;
     }
 
     const { data: workspace, error } = await getSupabaseAdmin()
@@ -239,6 +243,7 @@ export async function PATCH(req: Request) {
       'model' in body ||
       'eventMode' in body ||
       'eventAt' in body ||
+      'eventEndAt' in body ||
       'allowAnonymousContributions' in body ||
       'learningEnabled' in body ||
       'digestPrompt' in body;
@@ -276,6 +281,9 @@ export async function PATCH(req: Request) {
     if (body.eventAt === null) updates.event_at = null;
     else if (typeof body.eventAt === 'string' && body.eventAt.trim())
       updates.event_at = body.eventAt;
+    if (body.eventEndAt === null) updates.event_end_at = null;
+    else if (typeof body.eventEndAt === 'string' && body.eventEndAt.trim())
+      updates.event_end_at = body.eventEndAt;
     if (typeof body.allowAnonymousContributions === 'boolean')
       updates.allow_anonymous_contributions = body.allowAnonymousContributions;
     if (typeof body.learningEnabled === 'boolean')

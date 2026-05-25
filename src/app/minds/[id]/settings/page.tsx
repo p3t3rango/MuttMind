@@ -17,6 +17,7 @@ type Mind = {
   member_count?: number;
   event_mode?: boolean;
   event_at?: string | null;
+  event_end_at?: string | null;
   share_code?: string | null;
   allow_anonymous_contributions?: boolean;
   learning_enabled?: boolean;
@@ -76,6 +77,7 @@ function SettingsContent() {
         member_count: w.member_count,
         event_mode: w.event_mode ?? false,
         event_at: w.event_at ?? null,
+        event_end_at: w.event_end_at ?? null,
         share_code: w.share_code ?? null,
         allow_anonymous_contributions: w.allow_anonymous_contributions ?? false,
         learning_enabled: w.learning_enabled ?? false,
@@ -578,7 +580,7 @@ function SettingsContent() {
             <>
               <label className="ms-field" style={{ marginTop: 16 }}>
                 <span className="ms-field__label">
-                  Event date <span className="ms-field__optional">— optional</span>
+                  Starts <span className="ms-field__optional">— optional</span>
                 </span>
                 <input
                   type="datetime-local"
@@ -593,7 +595,32 @@ function SettingsContent() {
                           ? new Date(e.target.value).toISOString()
                           : null,
                       },
-                      'Event date saved.',
+                      'Start time saved.',
+                    )
+                  }
+                />
+              </label>
+
+              <label className="ms-field" style={{ marginTop: 12 }}>
+                <span className="ms-field__label">
+                  Ends <span className="ms-field__optional">— optional</span>
+                </span>
+                <input
+                  type="datetime-local"
+                  className="ms-input"
+                  defaultValue={
+                    mind.event_end_at
+                      ? new Date(mind.event_end_at).toISOString().slice(0, 16)
+                      : ''
+                  }
+                  onBlur={(e) =>
+                    patchEvent(
+                      {
+                        eventEndAt: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : null,
+                      },
+                      'End time saved.',
                     )
                   }
                 />

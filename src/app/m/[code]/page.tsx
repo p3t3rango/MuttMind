@@ -8,6 +8,7 @@ type Moment = {
   name: string;
   description: string | null;
   eventAt: string | null;
+  eventEndAt: string | null;
   allowAnonymous: boolean;
 };
 
@@ -84,11 +85,12 @@ export default function MomentPage() {
     );
   }
 
+  const fmtMoment = (iso: string) =>
+    new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   const dateLabel = moment.eventAt
-    ? new Date(moment.eventAt).toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      })
+    ? moment.eventEndAt
+      ? `${fmtMoment(moment.eventAt)} → ${fmtMoment(moment.eventEndAt)}`
+      : fmtMoment(moment.eventAt)
     : '';
 
   return (

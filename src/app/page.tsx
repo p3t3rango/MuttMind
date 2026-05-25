@@ -16,7 +16,7 @@ export default function Home() {
     getSupabaseBrowser().auth.getSession().then(({ data }) => {
       if (!mounted) return;
       if (data.session) {
-        router.replace('/dashboard');
+        router.replace('/minds');
         return;
       }
       setReady(true);

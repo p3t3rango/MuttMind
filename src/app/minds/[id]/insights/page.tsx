@@ -143,6 +143,15 @@ export default function InsightsPage() {
     loadInsights();
   }, [loadMind, loadEssays, loadNodeMeta, loadInsights]);
 
+  // The Ask overlay lives in the shell now; when it saves an answer it fires
+  // this event so the Synthesized lane refreshes live (it can't call our loader
+  // directly across the layout boundary).
+  useEffect(() => {
+    const onSaved = () => loadInsights();
+    window.addEventListener('muttmind:insight-saved', onSaved);
+    return () => window.removeEventListener('muttmind:insight-saved', onSaved);
+  }, [loadInsights]);
+
   const createInsight = async () => {
     if (!composeBody.trim()) return;
     setComposeBusy(true);

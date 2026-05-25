@@ -87,7 +87,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
           onClose={() => setAskOpen(false)}
           workspaceId={id}
           mindName={name}
-          onSaved={() => {}}
+          onSaved={() => window.dispatchEvent(new CustomEvent('muttmind:insight-saved'))}
         />
       </main>
     </MindProvider>

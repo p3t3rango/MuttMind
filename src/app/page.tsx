@@ -60,24 +60,30 @@ export default function Home() {
         <ol className="home__steps" id="how">
           <li className="home__step">
             <p className="home__step-num">01</p>
-            <h2 className="home__step-title">Capture</h2>
-            <p className="home__step-body">
-              Send a link from Telegram, paste it into the dashboard, or right-click an image. The capture lands in your active Mind with title, summary, og:image, and tags auto-filled.
-            </p>
+            <div className="home__step-content">
+              <h2 className="home__step-title">Capture</h2>
+              <p className="home__step-body">
+                Send a link from Telegram, paste it into the dashboard, or right-click an image. The capture lands in your active Mind with title, summary, og:image, and tags auto-filled.
+              </p>
+            </div>
           </li>
           <li className="home__step">
             <p className="home__step-num">02</p>
-            <h2 className="home__step-title">Organize</h2>
-            <p className="home__step-body">
-              Each Mind is a focused container — one research project, topic, or interest. Solo by default; share to make it a Shared Mind. Each Mind has its own system prompt and voice.
-            </p>
+            <div className="home__step-content">
+              <h2 className="home__step-title">Organize</h2>
+              <p className="home__step-body">
+                Each Mind is a focused container — one research project, topic, or interest. Solo by default; share to make it a Shared Mind. Each Mind has its own system prompt and voice.
+              </p>
+            </div>
           </li>
           <li className="home__step">
             <p className="home__step-num">03</p>
-            <h2 className="home__step-title">Synthesize</h2>
-            <p className="home__step-body">
-              The assistant inside each Mind surfaces resonance across what you&apos;ve saved — relationships on a map, weekly digests via Telegram, on-demand essays from selected captures.
-            </p>
+            <div className="home__step-content">
+              <h2 className="home__step-title">Synthesize</h2>
+              <p className="home__step-body">
+                The assistant inside each Mind surfaces resonance across what you&apos;ve saved — relationships on a map, weekly digests via Telegram, on-demand essays from selected captures.
+              </p>
+            </div>
           </li>
         </ol>
 

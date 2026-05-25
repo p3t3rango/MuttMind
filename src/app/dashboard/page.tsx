@@ -9,7 +9,7 @@ import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { Dropdown } from '@/components/dropdown';
 import { NewMindModal } from '@/components/new-mind-modal';
-import { SynthesizeModal } from '@/components/synthesize-modal';
+import { AskPanel } from '@/components/ask-panel';
 import { authedFetch, getAccessToken, getSupabaseBrowser } from '@/lib/client-auth';
 import { detectUrlKind } from '@/lib/detect';
 
@@ -252,7 +252,7 @@ function DashboardContent() {
   const [lensSaved, setLensSaved] = useState<Record<string, boolean>>({});
   const [lensDormant, setLensDormant] = useState(false);
   const [newMindModalOpen, setNewMindModalOpen] = useState(false);
-  const [synthModalOpen, setSynthModalOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [connectHome, setConnectHome] = useState('');
   const [connectIds, setConnectIds] = useState<string[]>([]);
   const [connectBusy, setConnectBusy] = useState<string | null>(null);
@@ -954,12 +954,8 @@ function DashboardContent() {
           </div>
           <div className="dash-actions">
             {workspaceId ? (
-              <button
-                type="button"
-                className="dash-action"
-                onClick={() => setSynthModalOpen(true)}
-              >
-                Synthesize
+              <button type="button" className="dash-action" onClick={() => setAskOpen(true)}>
+                Ask this Mind <span aria-hidden="true">→</span>
               </button>
             ) : null}
             <button type="button" className="dash-action" onClick={openTelegramBot}>
@@ -1483,14 +1479,12 @@ function DashboardContent() {
         onCreated={() => loadWorkspaces()}
       />
 
-      <SynthesizeModal
-        open={synthModalOpen}
-        onClose={() => setSynthModalOpen(false)}
+      <AskPanel
+        open={askOpen}
+        onClose={() => setAskOpen(false)}
         workspaceId={workspaceId}
-        mindName={
-          workspaces.find((w) => w.workspaces.id === workspaceId)?.workspaces.name
-        }
-        captureCount={recentCaptures.length}
+        mindName={currentWorkspace?.workspaces.name ?? ''}
+        onSaved={() => setStatus('Saved to this Mind’s insights.')}
       />
 
       <ActivationChecklist

@@ -1,6 +1,7 @@
 import {
   geminiEmbed,
   geminiGenerateText,
+  geminiGenerateTextStream,
   geminiProcess,
   geminiTranscribe,
 } from './providers/gemini';
@@ -83,6 +84,23 @@ export async function generateText(input: GenerateTextInput): Promise<string> {
         systemPrompt: input.systemPrompt,
         model: input.model,
       });
+    default:
+      throw new Error(`Unsupported LLM provider: ${provider}`);
+  }
+}
+
+export async function* generateTextStream(
+  input: GenerateTextInput,
+): AsyncGenerator<string> {
+  const provider = resolveProvider(input.provider);
+  switch (provider) {
+    case 'gemini':
+      yield* geminiGenerateTextStream({
+        prompt: input.prompt,
+        systemPrompt: input.systemPrompt,
+        model: input.model,
+      });
+      return;
     default:
       throw new Error(`Unsupported LLM provider: ${provider}`);
   }

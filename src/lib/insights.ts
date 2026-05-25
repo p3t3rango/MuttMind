@@ -9,12 +9,23 @@ export type Insight = {
   created_at: string;
   updated_at: string;
   source_node_id: string | null;
+  source_node_ids: string[];
   source_kind: string | null;
+  feeds_priming: boolean;
   author?: { display_name: string | null; email: string | null } | null;
 };
 
+/**
+ * New saves: hand-written (null) and machine-distilled 'learned' insights feed
+ * the Mind by default; user-saved AI artifacts (chat / lens:* / essay) start
+ * muted so the assistant never silently feeds on its own output.
+ */
+export function defaultFeedsPriming(sourceKind: string | null | undefined): boolean {
+  return sourceKind == null || sourceKind === 'learned';
+}
+
 const SELECT =
-  'id,workspace_id,created_by,title,body,created_at,updated_at,source_node_id,source_kind,users(display_name,email)';
+  'id,workspace_id,created_by,title,body,created_at,updated_at,source_node_id,source_node_ids,source_kind,feeds_priming,users(display_name,email)';
 
 function shape(row: Record<string, unknown>): Insight {
   const u = (row.users ?? null) as { display_name?: string | null; email?: string | null } | null;
@@ -27,7 +38,9 @@ function shape(row: Record<string, unknown>): Insight {
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
     source_node_id: (row.source_node_id ?? null) as string | null,
+    source_node_ids: (row.source_node_ids ?? []) as string[],
     source_kind: (row.source_kind ?? null) as string | null,
+    feeds_priming: (row.feeds_priming ?? true) as boolean,
     author: u ? { display_name: u.display_name ?? null, email: u.email ?? null } : null,
   };
 }
@@ -52,7 +65,9 @@ export async function createInsight(input: {
   title?: string | null;
   body: string;
   sourceNodeId?: string | null;
+  sourceNodeIds?: string[] | null;
   sourceKind?: string | null;
+  feedsPriming?: boolean;
 }): Promise<Insight> {
   const { data, error } = await getSupabaseAdmin()
     .from('insights')
@@ -62,7 +77,9 @@ export async function createInsight(input: {
       title: input.title?.trim() || null,
       body: input.body.trim(),
       source_node_id: input.sourceNodeId ?? null,
+      source_node_ids: input.sourceNodeIds ?? [],
       source_kind: input.sourceKind ?? null,
+      feeds_priming: input.feedsPriming ?? defaultFeedsPriming(input.sourceKind),
     })
     .select(SELECT)
     .single();
@@ -79,6 +96,22 @@ export async function updateInsight(input: {
   const { data, error } = await getSupabaseAdmin()
     .from('insights')
     .update({ title: input.title?.trim() || null, body: input.body.trim() })
+    .eq('id', input.id)
+    .eq('workspace_id', input.workspaceId)
+    .select(SELECT)
+    .single();
+  if (error) throw new Error(error.message);
+  return shape(data as Record<string, unknown>);
+}
+
+export async function setInsightPriming(input: {
+  id: string;
+  workspaceId: string;
+  feedsPriming: boolean;
+}): Promise<Insight> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('insights')
+    .update({ feeds_priming: input.feedsPriming })
     .eq('id', input.id)
     .eq('workspace_id', input.workspaceId)
     .select(SELECT)
@@ -139,9 +172,10 @@ export function formatInsightsForPrompt(
   userCap = 4_000,
   learnedCap = 1_500,
 ): string {
-  if (!entries.length) return '';
-  const learned = entries.filter((e) => e.source_kind === 'learned');
-  const own = entries.filter((e) => e.source_kind !== 'learned');
+  const active = entries.filter((e) => e.feeds_priming !== false);
+  if (!active.length) return '';
+  const learned = active.filter((e) => e.source_kind === 'learned');
+  const own = active.filter((e) => e.source_kind !== 'learned');
   const blocks: string[] = [];
 
   const ownLines = packLines(own, userCap);

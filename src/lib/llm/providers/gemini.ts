@@ -197,6 +197,62 @@ export async function geminiGenerateText(input: GeminiGenerateTextInput): Promis
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
+/**
+ * Streaming variant of geminiGenerateText. Calls streamGenerateContent with
+ * SSE and yields text deltas as they arrive. Reuses geminiFetch for the
+ * initial connection (retry/backoff), then reads the SSE body manually.
+ */
+export async function* geminiGenerateTextStream(
+  input: GeminiGenerateTextInput,
+): AsyncGenerator<string> {
+  if (!env.geminiApiKey) throw new Error('GEMINI_API_KEY is required');
+  const model = input.model ?? env.geminiModel;
+  const body: Record<string, unknown> = {
+    contents: [{ parts: [{ text: input.prompt }] }],
+  };
+  if (input.systemPrompt) body.system_instruction = { parts: [{ text: input.systemPrompt }] };
+
+  const response = await geminiFetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${env.geminiApiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!response.ok || !response.body) {
+    const errorText = response.body ? await response.text() : '';
+    throw new Error(`Gemini stream failed: ${response.status} ${errorText.slice(0, 180)}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  // Assumption: Gemini SSE emits one `data: {json}` per line (no multi-line
+  // data blocks), so newline-splitting is sufficient. If Gemini ever changes
+  // framing to multi-line SSE events, switch to splitting on '\n\n'.
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) continue;
+      const json = trimmed.slice(5).trim();
+      if (!json || json === '[DONE]') continue;
+      try {
+        const parsed = JSON.parse(json);
+        const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (typeof text === 'string' && text) yield text;
+      } catch {
+        // partial JSON across chunks — ignore; the next read completes it
+      }
+    }
+  }
+}
+
 export type GeminiTranscribeInput = {
   base64: string;
   mimeType: string;

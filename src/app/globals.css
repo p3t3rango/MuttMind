@@ -3664,6 +3664,7 @@ select:focus {
   font-size: 12px;
   letter-spacing: 0.06em;
   cursor: pointer;
+  text-decoration: none;
   transition: border-color 120ms ease, background 120ms ease;
 }
 
@@ -7311,3 +7312,99 @@ a.essay-cite--link:hover {
     min-height: 92px;
   }
 }
+
+/* Library search */
+.library-search {
+  width: 100%;
+  padding: 11px 16px;
+  border: 1px solid rgba(247, 247, 242, 0.18);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  margin: 8px 0 22px;
+}
+.library-search::placeholder { color: rgba(247, 247, 242, 0.35); }
+.library-search:focus { outline: none; border-color: rgba(247, 247, 242, 0.45); }
+
+/* Priming toggle */
+.prime-toggle {
+  border: 1px solid rgba(247, 247, 242, 0.18);
+  background: transparent;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  color: rgba(247, 247, 242, 0.4);
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.prime-toggle--on { color: var(--ink); border-color: rgba(247, 247, 242, 0.5); }
+
+.insights-lane__sub { font-weight: 400; color: rgba(247, 247, 242, 0.4); }
+.past-syntheses { margin-top: 22px; border-top: 1px solid rgba(247, 247, 242, 0.1); padding-top: 14px; }
+
+/* Ask panel — slide-in rail, matches the dark/mono shell */
+.ask-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(460px, 94vw);
+  background: var(--paper);
+  border-left: 1px solid rgba(247, 247, 242, 0.14);
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.5);
+  display: flex; flex-direction: column; z-index: 60;
+  color: var(--ink);
+}
+.ask-panel__head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 20px; border-bottom: 1px solid rgba(247, 247, 242, 0.1);
+}
+.ask-panel__title {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: rgba(247, 247, 242, 0.55);
+}
+.ask-panel__close {
+  border: none; background: none; cursor: pointer; font-size: 15px;
+  color: rgba(247, 247, 242, 0.5); line-height: 1;
+}
+.ask-panel__close:hover { color: var(--ink); }
+.ask-panel__thread { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.ask-panel__starters { display: flex; flex-direction: column; gap: 8px; }
+.ask-panel__hint {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
+  color: rgba(247, 247, 242, 0.4); margin-bottom: 4px;
+}
+.ask-starter {
+  text-align: left; border: 1px solid rgba(247, 247, 242, 0.18);
+  background: transparent; padding: 11px 14px; cursor: pointer;
+  font-family: var(--font-body); font-size: 14px; color: var(--ink);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.ask-starter:hover { background: rgba(247, 247, 242, 0.06); border-color: rgba(247, 247, 242, 0.4); }
+.ask-turn { display: flex; flex-direction: column; gap: 6px; }
+.ask-turn--user .ask-turn__body {
+  align-self: flex-end; background: rgba(247, 247, 242, 0.1);
+  padding: 9px 13px; max-width: 88%; font-size: 14px; color: var(--ink);
+}
+.ask-turn--assistant .ask-turn__body {
+  background: transparent; border-left: 2px solid rgba(247, 247, 242, 0.2);
+  padding: 2px 0 2px 14px; white-space: pre-wrap; font-size: 14px;
+  line-height: 1.55; color: rgba(247, 247, 242, 0.9);
+}
+.ask-turn__thinking { color: rgba(247, 247, 242, 0.4); font-style: italic; }
+.ask-turn__foot { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding-left: 16px; }
+.ask-turn__cites { display: flex; gap: 10px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 11px; color: rgba(247, 247, 242, 0.4); }
+.ask-cite { color: rgba(247, 247, 242, 0.45); text-decoration: none; }
+.ask-cite:hover { color: var(--ink); }
+.ask-panel__error { color: #e8765f; font-size: 13px; }
+.ask-panel__compose {
+  display: flex; gap: 10px; align-items: flex-end;
+  padding: 14px; border-top: 1px solid rgba(247, 247, 242, 0.1);
+}
+.ask-panel__input {
+  flex: 1; resize: none; min-height: 56px; max-height: 160px;
+  border: 1px solid rgba(247, 247, 242, 0.18); background: transparent;
+  color: var(--ink); padding: 10px 12px;
+  font-family: var(--font-body); font-size: 14px;
+}
+.ask-panel__input::placeholder { color: rgba(247, 247, 242, 0.35); }
+.ask-panel__input:focus { outline: none; border-color: rgba(247, 247, 242, 0.45); }

@@ -7443,4 +7443,20 @@ a.essay-cite--link:hover {
 .mind-menu__item:hover { background: rgba(247, 247, 242, 0.06); color: var(--ink); }
 .mind-menu__divider { height: 1px; background: rgba(247, 247, 242, 0.12); margin: 6px 0; }
 .mind-menu__label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(247, 247, 242, 0.4); padding: 4px 10px; margin: 0; }
+
+/* Cross-Mind search results */
+.search-page { padding: clamp(28px, 4vw, 48px) clamp(20px, 4vw, 56px) 64px; }
+.search-page__crumb { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; color: rgba(247,247,242,0.5); margin: 0 0 24px; }
+.search-page__empty { color: rgba(247,247,242,0.6); }
+.search-group { margin-bottom: 28px; }
+.search-group__head { display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid rgba(247,247,242,0.1); padding-bottom: 8px; margin-bottom: 10px; }
+.search-group__mind { font-size: 15px; color: var(--ink); text-decoration: none; }
+.search-group__mind:hover { text-decoration: underline; }
+.search-group__count { font-family: var(--font-mono); font-size: 11px; color: rgba(247,247,242,0.4); }
+.search-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.search-hit { display: grid; grid-template-columns: 70px 1fr; gap: 4px 12px; width: 100%; text-align: left; background: none; border: none; border-bottom: 1px solid rgba(247,247,242,0.06); padding: 10px 0; cursor: pointer; text-decoration: none; align-items: baseline; }
+.search-hit:hover { background: rgba(247,247,242,0.04); }
+.search-hit__kind { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(247,247,242,0.4); }
+.search-hit__title { color: var(--ink); font-size: 14px; }
+.search-hit__sub { grid-column: 2; color: rgba(247,247,242,0.5); font-size: 12px; }
 .ask-panel__input:focus { outline: none; border-color: rgba(247, 247, 242, 0.45); }

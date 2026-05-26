@@ -3221,6 +3221,16 @@ select:focus {
   overflow-wrap: anywhere;
 }
 
+/* Event fields revealed inside the New-Mind modal when "event" is checked */
+.mm-event-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: -2px 0 0 26px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(247, 247, 242, 0.12);
+}
+
 .mm-actions {
   display: flex;
   align-items: center;

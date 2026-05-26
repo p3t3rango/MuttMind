@@ -210,6 +210,8 @@ export async function POST(req: Request) {
         insertPayload.event_at = body.eventAt;
       if (typeof body?.eventEndAt === 'string' && body.eventEndAt.trim())
         insertPayload.event_end_at = body.eventEndAt;
+      if (typeof body?.allowAnonymousContributions === 'boolean')
+        insertPayload.allow_anonymous_contributions = body.allowAnonymousContributions;
     }
 
     const { data: workspace, error } = await getSupabaseAdmin()

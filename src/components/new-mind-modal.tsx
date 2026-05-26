@@ -43,6 +43,9 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
   const [privacy, setPrivacy] = useState<Privacy>('closed');
   const [description, setDescription] = useState('');
   const [isEvent, setIsEvent] = useState(false);
+  const [eventAt, setEventAt] = useState('');
+  const [eventEndAt, setEventEndAt] = useState('');
+  const [allowAnonymous, setAllowAnonymous] = useState(false);
   const [createdMindId, setCreatedMindId] = useState('');
   const [createdMindName, setCreatedMindName] = useState('');
   const [shareLink, setShareLink] = useState('');
@@ -58,6 +61,9 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
     setPrivacy('closed');
     setDescription('');
     setIsEvent(false);
+    setEventAt('');
+    setEventEndAt('');
+    setAllowAnonymous(false);
     setCreatedMindId('');
     setCreatedMindName('');
     setShareLink('');
@@ -100,14 +106,21 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
     setError('');
     setMode('creating');
 
+    const createBody: Record<string, unknown> = {
+      name: trimmedName,
+      description: description.trim() || undefined,
+      privacy,
+    };
+    if (isEvent) {
+      createBody.eventMode = true;
+      if (eventAt) createBody.eventAt = new Date(eventAt).toISOString();
+      if (eventEndAt) createBody.eventEndAt = new Date(eventEndAt).toISOString();
+      createBody.allowAnonymousContributions = allowAnonymous;
+    }
+
     const createRes = await authedFetch('/api/workspaces', {
       method: 'POST',
-      body: JSON.stringify({
-        name: trimmedName,
-        description: description.trim() || undefined,
-        privacy,
-        eventMode: isEvent || undefined,
-      }),
+      body: JSON.stringify(createBody),
     });
     const createData = await createRes.json();
     if (!createRes.ok || !createData.workspace?.id) {
@@ -228,11 +241,49 @@ export function NewMindModal({ open, onClose, onCreated }: NewMindModalProps) {
               <span>
                 <span className="mm-field__label">Make this an event (Moment)</span>
                 <span className="mm-field__optional">
-                  Get a shareable link + QR so others can contribute. You can refine
-                  date and anonymous access in settings.
+                  Get a shareable link + QR so others can contribute.
                 </span>
               </span>
             </label>
+
+            {isEvent ? (
+              <div className="mm-event-fields">
+                <label className="mm-field">
+                  <span className="mm-field__label">Starts <span className="mm-field__optional">— optional</span></span>
+                  <input
+                    type="datetime-local"
+                    className="mm-field__input"
+                    value={eventAt}
+                    onChange={(e) => setEventAt(e.target.value)}
+                    disabled={mode === 'creating'}
+                  />
+                </label>
+                <label className="mm-field">
+                  <span className="mm-field__label">Ends <span className="mm-field__optional">— optional</span></span>
+                  <input
+                    type="datetime-local"
+                    className="mm-field__input"
+                    value={eventEndAt}
+                    onChange={(e) => setEventEndAt(e.target.value)}
+                    disabled={mode === 'creating'}
+                  />
+                </label>
+                <label className="mm-event-opt">
+                  <input
+                    type="checkbox"
+                    checked={allowAnonymous}
+                    onChange={(e) => setAllowAnonymous(e.target.checked)}
+                    disabled={mode === 'creating'}
+                  />
+                  <span>
+                    <span className="mm-field__label">Allow anonymous contributions</span>
+                    <span className="mm-field__optional">
+                      Visitors with the link can add captures without signing in.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            ) : null}
 
             {error ? <p className="mm-error">{error}</p> : null}
 

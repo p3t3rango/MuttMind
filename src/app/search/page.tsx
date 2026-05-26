@@ -19,16 +19,20 @@ function SearchResults() {
     const term = q.trim();
     if (!term) {
       setGroups([]);
+      setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const r = await authedFetch(`/api/search?q=${encodeURIComponent(term)}`);
-      const d = await r.json();
-      if (!cancelled) {
-        setGroups(r.ok ? (d.groups ?? []) : []);
-        setLoading(false);
+      try {
+        const r = await authedFetch(`/api/search?q=${encodeURIComponent(term)}`);
+        const d = await r.json();
+        if (!cancelled) setGroups(r.ok ? (d.groups ?? []) : []);
+      } catch {
+        if (!cancelled) setGroups([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {

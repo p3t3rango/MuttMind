@@ -1,19 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { AskPanel } from '@/components/ask-panel';
-import { Dropdown } from '@/components/dropdown';
+import { MindMenu } from '@/components/mind-menu';
 import { MindProvider, type MindSummary } from '@/lib/mind-context';
 import { authedFetch } from '@/lib/client-auth';
 
 function ShellInner({ children }: { children: React.ReactNode }) {
   const { id } = useParams<{ id: string }>();
   const pathname = usePathname();
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [minds, setMinds] = useState<MindSummary[]>([]);
@@ -58,16 +57,9 @@ function ShellInner({ children }: { children: React.ReactNode }) {
         <AppNav active="minds" />
 
         <div className="mind-bar">
-          <div className="mind-bar__lead">
-            <Link href="/minds" className="mind-bar__back">‹ Minds</Link>
-            <Dropdown
-              value={id}
-              options={minds.map((m) => ({ value: m.id, name: m.name }))}
-              onChange={(next) => router.push(`/minds/${next}${tab === 'board' ? '' : `/${tab}`}`)}
-              ariaLabel="Switch Mind"
-              size="inline"
-            />
-          </div>
+          <MindMenu id={id} name={name} minds={minds} tab={tab} />
+
+          <span className="mind-bar__sep" aria-hidden="true" />
 
           <nav className="mind-tabs" aria-label="Mind views">
             <Link href={`/minds/${id}`} className={`mind-tab ${tab === 'board' ? 'mind-tab--on' : ''}`}>Board</Link>
@@ -76,7 +68,6 @@ function ShellInner({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="mind-bar__actions">
-            <Link href={`/minds/${id}/settings`} className="mind-bar__gear" aria-label="Mind settings">⚙</Link>
             <button type="button" className="ms-btn" onClick={() => setAskOpen(true)}>Ask ✦</button>
           </div>
         </div>

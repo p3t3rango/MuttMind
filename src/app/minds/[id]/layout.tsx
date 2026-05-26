@@ -59,6 +59,8 @@ function ShellInner({ children }: { children: React.ReactNode }) {
         <div className="mind-bar">
           <MindMenu id={id} name={name} minds={minds} tab={tab} />
 
+          <span className="mind-bar__sep" aria-hidden="true" />
+
           <nav className="mind-tabs" aria-label="Mind views">
             <Link href={`/minds/${id}`} className={`mind-tab ${tab === 'board' ? 'mind-tab--on' : ''}`}>Board</Link>
             <Link href={`/minds/${id}/map`} className={`mind-tab ${tab === 'map' ? 'mind-tab--on' : ''}`}>Map</Link>

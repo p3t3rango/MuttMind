@@ -67,22 +67,28 @@ function NavSearch() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const term = searchQuery.trim();
+    if (term) router.push(`/search?q=${encodeURIComponent(term)}`);
+  };
+
   return (
-    <label className="nav-search">
+    <form className="nav-search" onSubmit={submitSearch} role="search">
       <span className="sr-only">Search MuttMind</span>
       <span className="nav-search__icon" aria-hidden="true">⌕</span>
       <input
         ref={searchInputRef}
         type="search"
         className="nav-search__input"
-        placeholder="Search MuttMind"
+        placeholder="Search all Minds"
         value={searchQuery}
         onChange={(e) => updateSearch(e.target.value)}
         autoComplete="off"
         spellCheck={false}
       />
       {!searchQuery ? <span className="nav-search__hint" aria-hidden="true">⌘K</span> : null}
-    </label>
+    </form>
   );
 }
 

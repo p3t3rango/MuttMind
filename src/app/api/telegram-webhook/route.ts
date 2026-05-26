@@ -14,6 +14,7 @@ import {
   setActiveTelegramWorkspace,
   unlinkTelegramUser,
 } from '@/lib/telegram';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -25,6 +26,24 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
+
+  // Idempotency: Telegram re-delivers an update if it doesn't get a fast 200.
+  // Capture runs synchronously here and is slow, which previously let retries
+  // save the same link 5+ times. Record each update_id; a repeat delivery
+  // conflicts on the primary key and is acked + skipped.
+  const updateId = body?.update_id as number | undefined;
+  if (typeof updateId === 'number') {
+    const { error: dupErr } = await getSupabaseAdmin()
+      .from('telegram_updates')
+      .insert({ update_id: updateId });
+    if (dupErr) {
+      if (dupErr.code === '23505') {
+        return Response.json({ ok: true, ignored: true, reason: 'duplicate update' });
+      }
+      // Unexpected error recording idempotency — proceed so capture isn't blocked.
+    }
+  }
+
   const telegramUserId = body?.message?.from?.id as number | undefined;
   const chatId = body?.message?.chat?.id as number | undefined;
   const text = body?.message?.text as string | undefined;

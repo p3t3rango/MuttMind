@@ -429,24 +429,42 @@ export default function BoardPage() {
       setStatus('Create or choose a Mind first.');
       return;
     }
+    if (f.size > 50 * 1024 * 1024) {
+      setStatus('File too large (50MB max).');
+      return;
+    }
     setUploadBusy(true);
     setStatus(`Uploading ${f.name}…`);
     try {
-      const token = await getAccessToken();
-      const fd = new FormData();
-      fd.append('workspaceId', workspaceId);
-      fd.append('file', f);
-      const r = await fetch('/api/capture/upload', {
+      // 1. Mint a signed upload URL (small JSON request — never the file).
+      const urlRes = await authedFetch('/api/capture/upload-url', {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}` },
-        body: fd,
+        body: JSON.stringify({ workspaceId, filename: f.name }),
       });
-      const d = await r.json();
-      if (!r.ok) {
-        setStatus(d.error ?? 'Upload failed.');
+      const urlData = await urlRes.json();
+      if (!urlRes.ok || !urlData.path || !urlData.token) {
+        setStatus(urlData.error ?? 'Upload failed.');
         return;
       }
-      setStatus(d.kind === 'pdf' ? 'PDF captured.' : 'Image captured.');
+      // 2. Upload the file straight to Supabase Storage (no serverless body limit).
+      const { error: upErr } = await getSupabaseBrowser()
+        .storage.from('captures')
+        .uploadToSignedUrl(urlData.path, urlData.token, f, { contentType: f.type || undefined });
+      if (upErr) {
+        setStatus(`Upload failed: ${upErr.message}`);
+        return;
+      }
+      // 3. Process server-side from storage.
+      const procRes = await authedFetch('/api/capture/from-storage', {
+        method: 'POST',
+        body: JSON.stringify({ workspaceId, path: urlData.path, name: f.name }),
+      });
+      const procData = await procRes.json();
+      if (!procRes.ok) {
+        setStatus(procData.error ?? 'Upload failed.');
+        return;
+      }
+      setStatus(procData.kind === 'pdf' ? 'PDF captured.' : 'Image captured.');
       loadRecentCaptures();
     } catch {
       setStatus('Upload failed.');

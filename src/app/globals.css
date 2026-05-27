@@ -1243,7 +1243,11 @@ h3 {
 }
 
 .mind-card__note {
-  display: block;
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   color: rgba(247, 247, 242, 0.88);
   font-size: 20px;
   line-height: 1.45;

@@ -433,6 +433,26 @@ export default function BoardPage() {
       setStatus('File too large (50MB max).');
       return;
     }
+
+    // Insert an optimistic "processing" card immediately so the board shows
+    // activity during the upload + server processing phases.
+    const optimisticId = `pending-${Date.now()}`;
+    const optimisticCapture: CaptureItem = {
+      id: optimisticId,
+      is_processing: true,
+      title: f.name,
+      original_url: null,
+      og_image_url: null,
+      source_description: 'MuttMind is reading this source now.',
+      source_author: null,
+      raw_text: null,
+      user_notes: null,
+      ai_summary: null,
+      created_by_label: 'you',
+      tags: [],
+    };
+    setRecentCaptures((cur) => [optimisticCapture, ...cur]);
+
     setUploadBusy(true);
     setStatus(`Uploading ${f.name}…`);
     try {
@@ -443,6 +463,7 @@ export default function BoardPage() {
       });
       const urlData = await urlRes.json();
       if (!urlRes.ok || !urlData.path || !urlData.token) {
+        setRecentCaptures((cur) => cur.filter((c) => c.id !== optimisticId));
         setStatus(urlData.error ?? 'Upload failed.');
         return;
       }
@@ -451,22 +472,26 @@ export default function BoardPage() {
         .storage.from('captures')
         .uploadToSignedUrl(urlData.path, urlData.token, f, { contentType: f.type || undefined });
       if (upErr) {
+        setRecentCaptures((cur) => cur.filter((c) => c.id !== optimisticId));
         setStatus(`Upload failed: ${upErr.message}`);
         return;
       }
-      // 3. Process server-side from storage.
+      // 3. Process server-side from storage (can be slow for large PDFs).
+      setStatus('Reading & processing…');
       const procRes = await authedFetch('/api/capture/from-storage', {
         method: 'POST',
         body: JSON.stringify({ workspaceId, path: urlData.path, name: f.name }),
       });
       const procData = await procRes.json();
       if (!procRes.ok) {
+        setRecentCaptures((cur) => cur.filter((c) => c.id !== optimisticId));
         setStatus(procData.error ?? 'Upload failed.');
         return;
       }
       setStatus(procData.kind === 'pdf' ? 'PDF captured.' : 'Image captured.');
       loadRecentCaptures();
     } catch {
+      setRecentCaptures((cur) => cur.filter((c) => c.id !== optimisticId));
       setStatus('Upload failed.');
     } finally {
       setUploadBusy(false);

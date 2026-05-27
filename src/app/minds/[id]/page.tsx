@@ -1218,6 +1218,12 @@ export default function BoardPage() {
                   alt={selectedCapture.title ?? 'Saved preview'}
                   onError={() => setFailedImgSrc(selectedCapture.og_image_url ?? '')}
                 />
+              ) : getCaptureType(selectedCapture) === 'pdf' && selectedCapture.media_url ? (
+                <iframe
+                  src={selectedCapture.media_url}
+                  className="capture-drawer__pdf"
+                  title={selectedCapture.title ?? 'PDF preview'}
+                />
               ) : (
                 <div className="signal-card__thumb signal-card__thumb--fallback">
                   <span>{getHostLabel(selectedCapture.original_url)}</span>

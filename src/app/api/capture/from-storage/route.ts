@@ -60,7 +60,8 @@ export async function POST(req: Request) {
         workspaceId,
         prefetched: { kind: 'pdf', title: fileName.replace(/\.pdf$/i, ''), text },
       });
-      await db.storage.from('captures').remove([path]); // PDFs not persisted
+      const { error: setErr } = await db.from('nodes').update({ media_path: path }).eq('id', result.nodeId);
+      if (setErr) return Response.json({ error: setErr.message }, { status: 500 });
       return Response.json({ ok: true, nodeId: result.nodeId, kind: 'pdf' });
     }
 

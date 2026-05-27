@@ -1407,6 +1407,11 @@ export default function BoardPage() {
                     Open Source
                   </a>
                 ) : null}
+                {getCaptureType(selectedCapture) === 'pdf' && selectedCapture.media_url ? (
+                  <a className="button-secondary" href={selectedCapture.media_url} target="_blank" rel="noreferrer">
+                    Open PDF
+                  </a>
+                ) : null}
                 <Link href={`/minds/${workspaceId}/map`} className="button-secondary">
                   View Map
                 </Link>

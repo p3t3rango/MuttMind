@@ -429,26 +429,69 @@ export default function BoardPage() {
       setStatus('Create or choose a Mind first.');
       return;
     }
+    if (f.size > 50 * 1024 * 1024) {
+      setStatus('File too large (50MB max).');
+      return;
+    }
+
+    // Insert an optimistic "processing" card immediately so the board shows
+    // activity during the upload + server processing phases.
+    const optimisticId = `pending-${Date.now()}`;
+    const optimisticCapture: CaptureItem = {
+      id: optimisticId,
+      is_processing: true,
+      title: f.name,
+      original_url: null,
+      og_image_url: null,
+      source_description: 'MuttMind is reading this source now.',
+      source_author: null,
+      raw_text: null,
+      user_notes: null,
+      ai_summary: null,
+      created_by_label: 'you',
+      tags: [],
+    };
+    setRecentCaptures((cur) => [optimisticCapture, ...cur]);
+
     setUploadBusy(true);
     setStatus(`Uploading ${f.name}…`);
     try {
-      const token = await getAccessToken();
-      const fd = new FormData();
-      fd.append('workspaceId', workspaceId);
-      fd.append('file', f);
-      const r = await fetch('/api/capture/upload', {
+      // 1. Mint a signed upload URL (small JSON request — never the file).
+      const urlRes = await authedFetch('/api/capture/upload-url', {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}` },
-        body: fd,
+        body: JSON.stringify({ workspaceId, filename: f.name }),
       });
-      const d = await r.json();
-      if (!r.ok) {
-        setStatus(d.error ?? 'Upload failed.');
+      const urlData = await urlRes.json();
+      if (!urlRes.ok || !urlData.path || !urlData.token) {
+        setRecentCaptures((cur) => cur.filter((c) => c.id !== optimisticId));
+        setStatus(urlData.error ?? 'Upload failed.');
         return;
       }
-      setStatus(d.kind === 'pdf' ? 'PDF captured.' : 'Image captured.');
+      // 2. Upload the file straight to Supabase Storage (no serverless body limit).
+      const { error: upErr } = await getSupabaseBrowser()
+        .storage.from('captures')
+        .uploadToSignedUrl(urlData.path, urlData.token, f, { contentType: f.type || undefined });
+      if (upErr) {
+        setRecentCaptures((cur) => cur.filter((c) => c.id !== optimisticId));
+        setStatus(`Upload failed: ${upErr.message}`);
+        return;
+      }
+      // 3. Process server-side from storage (can be slow for large PDFs).
+      setStatus('Reading & processing…');
+      const procRes = await authedFetch('/api/capture/from-storage', {
+        method: 'POST',
+        body: JSON.stringify({ workspaceId, path: urlData.path, name: f.name }),
+      });
+      const procData = await procRes.json();
+      if (!procRes.ok) {
+        setRecentCaptures((cur) => cur.filter((c) => c.id !== optimisticId));
+        setStatus(procData.error ?? 'Upload failed.');
+        return;
+      }
+      setStatus(procData.kind === 'pdf' ? 'PDF captured.' : 'Image captured.');
       loadRecentCaptures();
     } catch {
+      setRecentCaptures((cur) => cur.filter((c) => c.id !== optimisticId));
       setStatus('Upload failed.');
     } finally {
       setUploadBusy(false);
@@ -1175,6 +1218,12 @@ export default function BoardPage() {
                   alt={selectedCapture.title ?? 'Saved preview'}
                   onError={() => setFailedImgSrc(selectedCapture.og_image_url ?? '')}
                 />
+              ) : getCaptureType(selectedCapture) === 'pdf' && selectedCapture.media_url ? (
+                <iframe
+                  src={selectedCapture.media_url}
+                  className="capture-drawer__pdf"
+                  title={selectedCapture.title ?? 'PDF preview'}
+                />
               ) : (
                 <div className="signal-card__thumb signal-card__thumb--fallback">
                   <span>{getHostLabel(selectedCapture.original_url)}</span>
@@ -1362,6 +1411,11 @@ export default function BoardPage() {
                 {selectedCapture.original_url ? (
                   <a className="button-secondary" href={selectedCapture.original_url} target="_blank" rel="noreferrer">
                     Open Source
+                  </a>
+                ) : null}
+                {getCaptureType(selectedCapture) === 'pdf' && selectedCapture.media_url ? (
+                  <a className="button-secondary" href={selectedCapture.media_url} target="_blank" rel="noreferrer">
+                    Open PDF
                   </a>
                 ) : null}
                 <Link href={`/minds/${workspaceId}/map`} className="button-secondary">

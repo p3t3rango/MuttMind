@@ -13,6 +13,7 @@ type Prefetched = {
   image?: string;
   description?: string;
   author?: string;
+  publishedAt?: string;
 };
 
 type CaptureInput = {
@@ -49,6 +50,7 @@ export async function captureSignal({
           kind: prefetched.kind,
           truncated: false,
           extractionWarnings: [] as string[],
+          publishedAt: prefetched.publishedAt ?? undefined,
         }
       : {
           title: '',
@@ -59,6 +61,7 @@ export async function captureSignal({
           kind: 'note' as const,
           truncated: false,
           extractionWarnings: [] as string[],
+          publishedAt: undefined as string | undefined,
         };
   const normalizedRawText = rawText?.trim() ?? '';
   const normalizedUrl = url?.trim() ?? '';
@@ -81,6 +84,7 @@ export async function captureSignal({
       source_description: scrape.description,
       source_author: scrape.author,
       user_notes: userNote || null,
+      published_at: scrape.publishedAt ?? null,
     })
     .select('id, title, original_url, raw_text, source_description, source_author, user_notes')
     .single();

@@ -61,12 +61,13 @@ export async function reprocessNode(nodeId: string, workspaceId: string) {
     sourceAuthor = scrape.author || sourceAuthor;
     ogImage = scrape.image || '';
 
-    const update: Record<string, string> = {
+    const update: Record<string, string | null> = {
       raw_text: rawText,
       title,
       source_description: sourceDescription,
       source_author: sourceAuthor,
       scrape_kind: scrape.kind,
+      published_at: scrape.publishedAt ?? null,
     };
     if (ogImage) update.og_image_url = ogImage;
     const { error: upErr } = await supabase.from('nodes').update(update).eq('id', nodeId);

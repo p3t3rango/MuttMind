@@ -19,6 +19,7 @@ type NodeRow = {
   ai_summary: string | null;
   created_by: string | null;
   created_at: string;
+  published_at: string | null;
   users?: { display_name?: string | null; email?: string | null } | null;
   node_tags?: NodeTagRow[] | null;
 };
@@ -40,7 +41,7 @@ export async function GET(req: Request, context: { params: Promise<{ nodeId: str
     const { data, error } = await getSupabaseAdmin()
       .from('nodes')
       .select(
-        'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,created_by,created_at,users(display_name,email),node_tags(tags(shift_name))',
+        'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,created_by,created_at,published_at,users(display_name,email),node_tags(tags(shift_name))',
       )
       .eq('workspace_id', workspaceId)
       .eq('id', nodeId)
@@ -63,6 +64,7 @@ export async function GET(req: Request, context: { params: Promise<{ nodeId: str
         ai_summary: node.ai_summary,
         created_by: node.created_by,
         created_at: node.created_at,
+        published_at: node.published_at,
         created_by_label: node.users?.display_name || node.users?.email || 'teammate',
         tags: Array.isArray(node.node_tags)
           ? node.node_tags
@@ -71,6 +73,45 @@ export async function GET(req: Request, context: { params: Promise<{ nodeId: str
           : [],
       },
     });
+  } catch (e) {
+    return Response.json({ error: e instanceof Error ? e.message : 'unknown' }, { status: 401 });
+  }
+}
+
+export async function PATCH(req: Request, context: { params: Promise<{ nodeId: string }> }) {
+  try {
+    const userId = await requireUserId(req);
+    const { nodeId } = await context.params;
+    const body = await req.json();
+    const { workspaceId, publishedAt } = body ?? {};
+    if (!workspaceId || !nodeId) {
+      return Response.json({ error: 'workspaceId and nodeId required' }, { status: 400 });
+    }
+    await assertWorkspaceMember(workspaceId, userId);
+
+    const updates: Record<string, unknown> = {};
+    if (publishedAt === null) updates.published_at = null;
+    else if (typeof publishedAt === 'string' && publishedAt.trim()) {
+      const d = new Date(publishedAt);
+      if (Number.isNaN(d.getTime())) {
+        return Response.json({ error: 'publishedAt must be a valid ISO date or null' }, { status: 400 });
+      }
+      updates.published_at = d.toISOString();
+    } else if (publishedAt !== undefined) {
+      return Response.json({ error: 'publishedAt must be a string, null, or omitted' }, { status: 400 });
+    }
+
+    if (!Object.keys(updates).length) return Response.json({ ok: true, unchanged: true });
+
+    const { data, error } = await getSupabaseAdmin()
+      .from('nodes')
+      .update(updates)
+      .eq('id', nodeId)
+      .eq('workspace_id', workspaceId)
+      .select('id,published_at')
+      .single();
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ ok: true, node: data });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : 'unknown' }, { status: 401 });
   }

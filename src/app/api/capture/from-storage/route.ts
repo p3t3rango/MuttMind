@@ -38,9 +38,21 @@ export async function POST(req: Request) {
       const buf = Buffer.from(await blob.arrayBuffer());
 
       let text = '';
+      let pdfPublishedAt: string | undefined;
       try {
         const { extractText, getDocumentProxy } = await import('unpdf');
         const pdf = await getDocumentProxy(new Uint8Array(buf));
+        try {
+          const meta = await pdf.getMetadata();
+          const info = (meta as { info?: { CreationDate?: unknown } } | null)?.info;
+          const raw = info?.CreationDate;
+          if (raw) {
+            const { parsePdfDate } = await import('@/lib/pdf-date');
+            pdfPublishedAt = parsePdfDate(raw) ?? undefined;
+          }
+        } catch {
+          // metadata unavailable; leave publishedAt unset
+        }
         const r = await extractText(pdf, { mergePages: true });
         text = (Array.isArray(r.text) ? r.text.join('\n\n') : r.text)
           .replace(/[ \t]+/g, ' ')
@@ -58,7 +70,7 @@ export async function POST(req: Request) {
       const result = await captureSignal({
         userId,
         workspaceId,
-        prefetched: { kind: 'pdf', title: fileName.replace(/\.pdf$/i, ''), text },
+        prefetched: { kind: 'pdf', title: fileName.replace(/\.pdf$/i, ''), text, publishedAt: pdfPublishedAt },
       });
       const { error: setErr } = await db.from('nodes').update({ media_path: path }).eq('id', result.nodeId);
       if (setErr) return Response.json({ error: setErr.message }, { status: 500 });

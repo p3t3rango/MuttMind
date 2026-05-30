@@ -36,6 +36,7 @@ type CaptureItem = {
   connected?: boolean;
   scrape_kind?: string | null;
   media_url?: string | null;
+  published_at?: string | null;
 };
 
 type NodeNote = {
@@ -113,6 +114,13 @@ function relativeTimeFrom(iso?: string) {
   if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`;
   if (diff < 86400 * 365) return `${Math.floor(diff / (86400 * 30))}mo ago`;
   return `${Math.floor(diff / (86400 * 365))}y ago`;
+}
+
+function absoluteDate(iso?: string | null) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
 }
 
 function getCaptureType(captureItem: CaptureItem) {
@@ -250,6 +258,8 @@ export default function BoardPage() {
   const [connectHome, setConnectHome] = useState('');
   const [connectIds, setConnectIds] = useState<string[]>([]);
   const [connectBusy, setConnectBusy] = useState<string | null>(null);
+  const [publishedAtDraft, setPublishedAtDraft] = useState('');
+  const [publishedAtBusy, setPublishedAtBusy] = useState(false);
 
   const filteredCaptures = useMemo(
     () => recentCaptures.filter((captureItem) => matchesQuery(captureItem, searchQuery)),
@@ -744,6 +754,26 @@ export default function BoardPage() {
 
 
 
+  const savePublishedAt = async () => {
+    if (!selectedCapture || !workspaceId) return;
+    setPublishedAtBusy(true);
+    const value = publishedAtDraft
+      ? new Date(publishedAtDraft).toISOString()
+      : null;
+    const r = await authedFetch(`/api/nodes/${selectedCapture.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ workspaceId, publishedAt: value }),
+    });
+    setPublishedAtBusy(false);
+    if (r.ok) {
+      updateCapture(selectedCapture.id, { published_at: value });
+      setStatus(value ? 'Published date saved.' : 'Published date cleared.');
+    } else {
+      const d = await r.json();
+      setStatus(d.error ?? 'Could not save published date.');
+    }
+  };
+
   const deleteCapture = async (nodeId: string) => {
     if (!workspaceId || nodeId.startsWith('pending-')) return;
     if (!window.confirm('Delete this capture from the Mind?')) return;
@@ -779,6 +809,14 @@ export default function BoardPage() {
     setLensDormant(false);
     void loadSelectedNotes();
   }, [loadSelectedNotes, selectedCapture?.id]);
+
+  useEffect(() => {
+    setPublishedAtDraft(
+      selectedCapture?.published_at
+        ? new Date(selectedCapture.published_at).toISOString().slice(0, 16)
+        : '',
+    );
+  }, [selectedCapture?.id, selectedCapture?.published_at]);
 
   // Load which Minds the selected capture is connected to (Feature 1.5).
   useEffect(() => {
@@ -1233,6 +1271,10 @@ export default function BoardPage() {
             <div className="capture-drawer__body">
               <p className="eyebrow">{getHostLabel(selectedCapture.original_url)}</p>
               <h2>{selectedCapture.title ?? 'Untitled capture'}</h2>
+              <p className="meta">
+                {selectedCapture.published_at ? `Published ${absoluteDate(selectedCapture.published_at)} · ` : ''}
+                Shared {relativeTimeFrom(selectedCapture.created_at)}
+              </p>
               {getCaptureType(selectedCapture) === 'audio' ? (
                 <div className="tldr-box">
                   <p className="kicker">Transcript</p>
@@ -1314,6 +1356,29 @@ export default function BoardPage() {
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+              ) : null}
+              {!selectedCapture.id.startsWith('pending-') ? (
+                <div className="ms-field">
+                  <span className="ms-field__label">
+                    Published date <span className="ms-field__optional">— optional, original date of the source</span>
+                  </span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      type="datetime-local"
+                      className="ms-input"
+                      value={publishedAtDraft}
+                      onChange={(e) => setPublishedAtDraft(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="ms-btn"
+                      onClick={savePublishedAt}
+                      disabled={publishedAtBusy}
+                    >
+                      {publishedAtBusy ? 'Saving…' : 'Save'}
+                    </button>
                   </div>
                 </div>
               ) : null}

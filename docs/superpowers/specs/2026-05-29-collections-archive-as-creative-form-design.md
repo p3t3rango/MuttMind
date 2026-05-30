@@ -51,6 +51,8 @@ New tables:
   `cover_path` (signed image in `captures` bucket, nullable),
   `default_view` (`'editorial'`), `enabled_views` (text[] from
   `{'editorial','gallery','timeline'}`, must include `'editorial'`),
+  `show_summary` (bool, default false), `show_tags` (bool, default false),
+  `show_notes` (bool, default false) — public-exhibit opt-ins,
   `status` (`'draft' | 'published'`), `share_code` (unique, minted on publish),
   `created_at`, `updated_at`.
 - **`collection_items`**: `id`, `collection_id`, `position` (int, contiguous),
@@ -65,6 +67,12 @@ New tables:
 - **`nodes.published_at`** (timestamptz, nullable) — the *original*
   published/created date of the source. `nodes.created_at` (existing) remains the
   *shared* date.
+- **`workspaces.allow_member_cross_publish`** (bool, default false) — Shared
+  Mind owner toggle, surfaced in that Mind's Settings. When false, members can
+  include only their own captures from this Mind in personal Collections; when
+  true, members may include any capture from this Mind. Enforced on add (the
+  editor blocks it) and re-validated on every public-exhibit render so the
+  setting can be revoked.
 
 Cross-Mind reads: when the editor lists items, it joins to `nodes` and only
 returns nodes whose `workspace_id` is one the **owner** belongs to (recheck on
@@ -121,8 +129,11 @@ States: **Draft** (owner-only, editable) → **Published** (read-only public URL
 - The exhibit renders the **curated projection** of each item: title, the
   capture's `og_image` (if any) or a preview, the curator's `caption`, the
   source `original_url` (if any), `published_at` (if any), and any text blocks.
-  It does **NOT** expose the user's `raw_text` / `user_notes` / tags / insights
-  — only what the curator put in the Collection.
+  The curator can **opt in per Collection** to additionally surface each
+  capture's AI **summary**, **tags**, and/or **user notes** via the three
+  `show_*` booleans on the Collection. **`raw_text` is never exposed** (it
+  could be an entire article/PDF), and insights are never exposed (they're not
+  Collection items).
 - **Live updates.** A published Collection reflects subsequent edits (no
   version snapshots in v1). Unpublish hides it; the share_code is preserved so
   re-publishing reuses the URL.
@@ -191,24 +202,25 @@ except that capture surfaces gain an "**Add to Collection**" action.
 
 ## Decisions flagged for review
 
-1. **Public exhibit data scope.** Exhibit shows the *curated projection only*
-   (title, image, caption, original_url, published_at, text blocks) — not
-   `raw_text` / `user_notes` / tags / insights. Confirm; alternative is to
-   surface a summary too.
+1. **Public exhibit data scope.** ✓ Resolved with user. Curated projection by
+   default; the curator can **opt in per Collection** to additionally surface
+   AI **summary**, **tags**, and/or **user notes** via three booleans on the
+   Collection (`show_summary`, `show_tags`, `show_notes`). `raw_text` and
+   insights are never exposed.
 2. **Live updates vs published snapshots.** v1 is live-update (edits reflect on
    the public URL immediately). Confirm; snapshotting versions is a fast-follow.
 3. **Single-owner editing.** Only the Collection's creator can edit (no
    co-curation in v1, even for captures from Shared Minds). Confirm.
 4. **Image EXIF dates.** Image captures have no `published_at` in v1 (EXIF
    parsing deferred). Confirm.
-5. **Shared-Mind publishing authority** *(real privacy decision)*. A member of a
-   **Shared Mind** could otherwise take *other members'* captures from that
-   Mind and publish them on their personal Collection's unlisted public URL.
-   v1 default: **only captures whose `created_by = collection.owner_user_id`
-   may be added** from a Shared Mind into a personal Collection — i.e., you
-   can only publish your own contributions from a Shared Mind, not your
-   collaborators'. The relaxation (Shared Mind explicitly opts in to allow
-   any member's captures to be published) is a fast-follow. Confirm.
+5. **Shared-Mind publishing authority.** ✓ Resolved with user. Default is
+   **own-captures-only** (`nodes.created_by = collection.owner_user_id`) for
+   captures sourced from a Shared Mind. A new per-Mind owner setting
+   **`workspaces.allow_member_cross_publish`** (surfaced in that Mind's
+   Settings, default false) opts the Shared Mind in to allow any member to
+   include any capture from it in personal Collections. Enforced at add-time
+   in the editor and re-validated on every public-exhibit render so the
+   setting can be revoked.
 
 ## Verification (per plan)
 

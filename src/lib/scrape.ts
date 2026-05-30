@@ -3,6 +3,48 @@ import { env } from './env';
 
 type Cheerio = ReturnType<typeof cheerio.load>;
 
+/**
+ * Walk the conventional places a publish date hides in an article: standard
+ * Open Graph / itemprop meta tags, JSON-LD `datePublished`, and the first
+ * `<time datetime="…">`. Returns an ISO string; undefined if nothing parses.
+ */
+export function extractArticlePublishedAt(htmlOrCheerio: string | Cheerio): string | undefined {
+  const $ = typeof htmlOrCheerio === 'string' ? cheerio.load(htmlOrCheerio) : htmlOrCheerio;
+
+  const candidates: string[] = [];
+  const pickMeta = (sel: string) => {
+    const v = $(sel).attr('content')?.trim();
+    if (v) candidates.push(v);
+  };
+  pickMeta('meta[property="article:published_time"]');
+  pickMeta('meta[property="og:article:published_time"]');
+  pickMeta('meta[name="datePublished"]');
+  pickMeta('meta[itemprop="datePublished"]');
+
+  $('script[type="application/ld+json"]').each((_, el) => {
+    const text = $(el).text();
+    try {
+      const data = JSON.parse(text);
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        const v = item?.datePublished ?? item?.dateCreated;
+        if (typeof v === 'string' && v.trim()) candidates.push(v.trim());
+      }
+    } catch {
+      // not JSON; skip
+    }
+  });
+
+  const t = $('time[datetime]').first().attr('datetime')?.trim();
+  if (t) candidates.push(t);
+
+  for (const raw of candidates) {
+    const d = new Date(raw);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  return undefined;
+}
+
 export type ScrapeKind = 'article' | 'pdf' | 'youtube' | 'tweet' | 'image' | 'file';
 
 export type ScrapeResult = {
@@ -14,6 +56,7 @@ export type ScrapeResult = {
   kind: ScrapeKind;
   truncated: boolean;
   extractionWarnings: string[];
+  publishedAt?: string;
 };
 
 const FETCH_TIMEOUT_MS = 20_000;
@@ -387,6 +430,7 @@ async function extractArticle(html: string, url: string): Promise<ScrapeResult> 
     kind: 'article',
     truncated: ceil.truncated,
     extractionWarnings: warnings,
+    publishedAt: extractArticlePublishedAt($),
   };
 }
 

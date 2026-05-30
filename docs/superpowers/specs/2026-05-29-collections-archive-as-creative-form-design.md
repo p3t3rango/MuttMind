@@ -37,9 +37,9 @@ captures (never moves or duplicates them); one capture can appear in many.
   *suggest* (future), but the curator authors.
 - **Authored above lensed.** Editorial is the canonical view; other views are
   re-presentations of the same captures, not replacements for the authorship.
-- **Curate private; publish public.** Editing is private (owner-only). Publishing
-  produces an *unlisted* public URL — no login, no discovery surface, no public
-  profile in v1.
+- **Curate private; publish public.** Editing is private to the Collection's
+  **editing team** (owner + invited editors). Publishing produces an *unlisted*
+  public URL — no login, no discovery surface, no public profile in v1.
 - **Reference, don't copy.** Items reference capture rows; deleting a capture
   shows it as orphaned in the editor and is hidden from the public exhibit.
 
@@ -67,17 +67,28 @@ New tables:
 - **`nodes.published_at`** (timestamptz, nullable) — the *original*
   published/created date of the source. `nodes.created_at` (existing) remains the
   *shared* date.
+- **`collection_members`**: `collection_id`, `user_id`, `role` (`'editor'`),
+  `invited_by`, `created_at`. The Collection's `owner_user_id` is implicit and
+  not duplicated here. **Owner** = full control (delete/transfer/everything an
+  editor does). **Editor** = add/reorder/text/captions/cover/enabled-views/
+  publish/unpublish; cannot delete the Collection, transfer ownership, or
+  manage editor invites.
 - **`workspaces.allow_member_cross_publish`** (bool, default false) — Shared
-  Mind owner toggle, surfaced in that Mind's Settings. When false, members can
-  include only their own captures from this Mind in personal Collections; when
-  true, members may include any capture from this Mind. Enforced on add (the
-  editor blocks it) and re-validated on every public-exhibit render so the
-  setting can be revoked.
+  Mind owner toggle, surfaced in that Mind's Settings. When false, **a user
+  adding an item can only add captures they created themselves** from this
+  Mind to a Collection; when true, any capture from this Mind may be added by
+  any editor. Enforced at add-time and re-validated on every public-exhibit
+  render: items whose source Mind has the toggle off AND whose `node.created_by`
+  is not in the Collection's current editing team are hidden from the public
+  exhibit (so revoking the toggle takes effect).
 
-Cross-Mind reads: when the editor lists items, it joins to `nodes` and only
-returns nodes whose `workspace_id` is one the **owner** belongs to (recheck on
-every read — membership can change). The public exhibit (`/c/<code>`) reads a
-denormalized projection (see "Publish").
+Cross-Mind authorization: items are added by a user who must be a member of
+the source Mind **at add-time** (and must satisfy the Shared-Mind cross-publish
+rule above). The editor lists all items in the Collection regardless of the
+current viewer's membership in each item's source Mind — the items were added
+in good faith by an editing-team member who had access at the time. The public
+exhibit (`/c/<code>`) renders a curated projection independent of Mind
+membership (see "Publish").
 
 ## Building a Collection (the editor)
 
@@ -95,6 +106,9 @@ A new editor surface per Collection — owner-only. Operations:
 - **Cover** image (optional) — **pick from any item capture's `og_image` /
   uploaded image**, OR upload a new image via the existing direct-to-storage
   flow.
+- **Invite editors** (owner-only). Add other users as **editors** by email.
+  Editors gain full edit + publish access on this Collection; only the owner
+  can delete it, transfer ownership, or manage the editor list.
 - **Enabled lenses** — toggle Gallery / Timeline on for this Collection (Editorial
   is always on; the curator can't disable it).
 - **Orphans:** items whose underlying capture was deleted show
@@ -207,12 +221,15 @@ except that capture surfaces gain an "**Add to Collection**" action.
    AI **summary**, **tags**, and/or **user notes** via three booleans on the
    Collection (`show_summary`, `show_tags`, `show_notes`). `raw_text` and
    insights are never exposed.
-2. **Live updates vs published snapshots.** v1 is live-update (edits reflect on
-   the public URL immediately). Confirm; snapshotting versions is a fast-follow.
-3. **Single-owner editing.** Only the Collection's creator can edit (no
-   co-curation in v1, even for captures from Shared Minds). Confirm.
-4. **Image EXIF dates.** Image captures have no `published_at` in v1 (EXIF
-   parsing deferred). Confirm.
+2. **Live updates vs published snapshots.** ✓ Resolved with user. v1 = live
+   updates (edits reflect on the public URL immediately). Versioned snapshots
+   are a fast-follow.
+3. **Co-curation in v1.** ✓ Resolved with user. Two roles: **owner** (creator,
+   full control incl. delete/transfer/editor invites) and **editor** (invited
+   by owner; add/reorder/text/captions/cover/publish; cannot delete/transfer).
+   A `collection_members` table holds editor invites.
+4. **Image EXIF dates.** ✓ Resolved with user. Deferred for v1 (images keep
+   `published_at` null; manual edit available).
 5. **Shared-Mind publishing authority.** ✓ Resolved with user. Default is
    **own-captures-only** (`nodes.created_by = collection.owner_user_id`) for
    captures sourced from a Shared Mind. A new per-Mind owner setting
@@ -241,8 +258,7 @@ except that capture surfaces gain an "**Add to Collection**" action.
 
 - Public profile / discovery surface for Collections (option 3 in the publish
   decision).
-- Co-curation / shared editing of Collections.
-- Versioned publishing / snapshots.
+- Versioned publishing / snapshots (live-update is v1).
 - Embeddable Collection widget / oEmbed for external sites.
 - AI-suggested Collections (the assistant proposing groupings).
 - Image EXIF extraction for `published_at`.

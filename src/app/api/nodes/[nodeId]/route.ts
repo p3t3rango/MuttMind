@@ -19,6 +19,7 @@ type NodeRow = {
   ai_summary: string | null;
   created_by: string | null;
   created_at: string;
+  published_at: string | null;
   users?: { display_name?: string | null; email?: string | null } | null;
   node_tags?: NodeTagRow[] | null;
 };
@@ -40,7 +41,7 @@ export async function GET(req: Request, context: { params: Promise<{ nodeId: str
     const { data, error } = await getSupabaseAdmin()
       .from('nodes')
       .select(
-        'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,created_by,created_at,users(display_name,email),node_tags(tags(shift_name))',
+        'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,created_by,created_at,published_at,users(display_name,email),node_tags(tags(shift_name))',
       )
       .eq('workspace_id', workspaceId)
       .eq('id', nodeId)
@@ -63,6 +64,7 @@ export async function GET(req: Request, context: { params: Promise<{ nodeId: str
         ai_summary: node.ai_summary,
         created_by: node.created_by,
         created_at: node.created_at,
+        published_at: node.published_at,
         created_by_label: node.users?.display_name || node.users?.email || 'teammate',
         tags: Array.isArray(node.node_tags)
           ? node.node_tags
@@ -95,6 +97,8 @@ export async function PATCH(req: Request, context: { params: Promise<{ nodeId: s
         return Response.json({ error: 'publishedAt must be a valid ISO date or null' }, { status: 400 });
       }
       updates.published_at = d.toISOString();
+    } else if (publishedAt !== undefined) {
+      return Response.json({ error: 'publishedAt must be a string, null, or omitted' }, { status: 400 });
     }
 
     if (!Object.keys(updates).length) return Response.json({ ok: true, unchanged: true });

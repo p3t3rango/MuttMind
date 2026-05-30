@@ -811,10 +811,18 @@ export default function BoardPage() {
   }, [loadSelectedNotes, selectedCapture?.id]);
 
   useEffect(() => {
+    if (!selectedCapture?.published_at) {
+      setPublishedAtDraft('');
+      return;
+    }
+    const d = new Date(selectedCapture.published_at);
+    if (Number.isNaN(d.getTime())) {
+      setPublishedAtDraft('');
+      return;
+    }
+    const pad = (n: number) => String(n).padStart(2, '0');
     setPublishedAtDraft(
-      selectedCapture?.published_at
-        ? new Date(selectedCapture.published_at).toISOString().slice(0, 16)
-        : '',
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`,
     );
   }, [selectedCapture?.id, selectedCapture?.published_at]);
 

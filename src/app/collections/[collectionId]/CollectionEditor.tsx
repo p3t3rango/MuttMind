@@ -64,6 +64,36 @@ function EditorBody({ collectionId }: { collectionId: string }) {
   const [textDraft, setTextDraft] = useState('');
   const [addingText, setAddingText] = useState(false);
   const [textBusy, setTextBusy] = useState(false);
+  const [editingCaptionId, setEditingCaptionId] = useState<string | null>(null);
+  const [captionDraft, setCaptionDraft] = useState('');
+  const [captionBusy, setCaptionBusy] = useState(false);
+
+  const startEditCaption = (item: ItemWithNode) => {
+    setEditingCaptionId(item.id);
+    setCaptionDraft(item.caption ?? '');
+  };
+
+  const cancelCaption = () => {
+    setEditingCaptionId(null);
+    setCaptionDraft('');
+  };
+
+  const saveCaption = async (itemId: string) => {
+    setCaptionBusy(true);
+    const r = await authedFetch(`/api/collections/${collectionId}/items/${itemId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ caption: captionDraft || null }),
+    });
+    setCaptionBusy(false);
+    if (!r.ok) {
+      setStatus((await r.json()).error ?? 'Could not save caption.');
+      return;
+    }
+    setItems((prev) => prev.map((it) => it.id === itemId ? { ...it, caption: captionDraft || null } : it));
+    setEditingCaptionId(null);
+    setCaptionDraft('');
+    setStatus('Caption saved.');
+  };
 
   const addTextBlock = async () => {
     if (textDraft.trim().length === 0) return;
@@ -198,7 +228,17 @@ function EditorBody({ collectionId }: { collectionId: string }) {
               {items.map((it) => (
                 <SortableRow key={it.id} id={it.id}>
                   {it.kind === 'capture' ? (
-                    <CaptureItemView item={it} onRemove={() => removeItem(it.id)} />
+                    <CaptureItemView
+                      item={it}
+                      isEditingCaption={editingCaptionId === it.id}
+                      captionDraft={captionDraft}
+                      setCaptionDraft={setCaptionDraft}
+                      startEditCaption={startEditCaption}
+                      saveCaption={saveCaption}
+                      cancelCaption={cancelCaption}
+                      captionBusy={captionBusy}
+                      onRemove={() => removeItem(it.id)}
+                    />
                   ) : (
                     <TextBlockView item={it} onRemove={() => removeItem(it.id)} />
                   )}
@@ -241,8 +281,25 @@ function EditorBody({ collectionId }: { collectionId: string }) {
 
 function CaptureItemView({
   item,
+  isEditingCaption,
+  captionDraft,
+  setCaptionDraft,
+  startEditCaption,
+  saveCaption,
+  cancelCaption,
+  captionBusy,
   onRemove,
-}: { item: ItemWithNode; onRemove: () => void }) {
+}: {
+  item: ItemWithNode;
+  isEditingCaption: boolean;
+  captionDraft: string;
+  setCaptionDraft: (v: string) => void;
+  startEditCaption: (it: ItemWithNode) => void;
+  saveCaption: (id: string) => void;
+  cancelCaption: () => void;
+  captionBusy: boolean;
+  onRemove: () => void;
+}) {
   const node = item.node;
   if (!node) {
     return (
@@ -272,14 +329,39 @@ function CaptureItemView({
             <span>{node.title ?? 'Untitled capture'}</span>
           )}
         </div>
-        {item.caption && (
-          <div style={{ whiteSpace: 'pre-wrap', marginBottom: 4 }}>
-            {item.caption}
+
+        {isEditingCaption ? (
+          <div className="ms-field">
+            <textarea
+              className="ms-input"
+              rows={3}
+              value={captionDraft}
+              onChange={(e) => setCaptionDraft(e.target.value)}
+              placeholder="Why this item belongs here, in this place…"
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              <button className="ms-btn" onClick={() => saveCaption(item.id)} disabled={captionBusy}>
+                {captionBusy ? 'Saving…' : 'Save caption'}
+              </button>
+              <button className="ms-btn ms-btn--ghost" onClick={cancelCaption}>Cancel</button>
+            </div>
           </div>
+        ) : (
+          <>
+            {item.caption ? (
+              <div style={{ whiteSpace: 'pre-wrap', marginBottom: 4 }}>{item.caption}</div>
+            ) : (
+              <div className="meta">No caption yet.</div>
+            )}
+            <div className="meta">
+              <button className="ms-btn ms-btn--ghost" onClick={() => startEditCaption(item)}>
+                Edit caption
+              </button>
+              {' · '}
+              <button className="ms-btn ms-btn--ghost" onClick={onRemove}>Remove</button>
+            </div>
+          </>
         )}
-        <div className="meta">
-          <button className="ms-btn ms-btn--ghost" onClick={onRemove}>Remove</button>
-        </div>
       </div>
     </div>
   );

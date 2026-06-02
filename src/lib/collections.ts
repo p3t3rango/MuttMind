@@ -55,3 +55,15 @@ export function canAddCaptureToCollection(input: CanAddInput): CanAddResult {
   if (input.workspaceAllowMemberCrossPublish) return { ok: true };
   return { ok: false, reason: 'cross_publish_disabled' };
 }
+
+export interface Positioned { id: string; position: number; }
+
+export function compactPositions<T extends Positioned>(items: T[]): T[] {
+  return items
+    .map((item, originalIndex) => ({ item, originalIndex }))
+    .sort((a, b) => {
+      const d = a.item.position - b.item.position;
+      return d !== 0 ? d : a.originalIndex - b.originalIndex;
+    })
+    .map(({ item }, newIndex) => ({ ...item, position: newIndex }));
+}

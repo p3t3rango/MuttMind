@@ -1,7 +1,7 @@
 import { requireUserId } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { assertCollectionEditor } from '@/lib/collection-auth';
-import { canAddCaptureToCollection } from '@/lib/collections';
+import { canAddCaptureToCollection, compactPositions } from '@/lib/collections';
 
 export async function POST(
   req: Request,
@@ -97,6 +97,55 @@ export async function POST(
       .eq('id', collectionId);
 
     return Response.json({ item: data });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unauthorized';
+    return Response.json({ error: msg }, { status: 401 });
+  }
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ collectionId: string }> },
+) {
+  try {
+    const { collectionId } = await params;
+    const userId = await requireUserId(req);
+    await assertCollectionEditor(collectionId, userId);
+
+    const body = (await req.json().catch(() => ({}))) as { itemIds?: unknown };
+    if (!Array.isArray(body.itemIds) || body.itemIds.some((x) => typeof x !== 'string')) {
+      return Response.json({ error: 'itemIds must be an array of strings' }, { status: 400 });
+    }
+    const itemIds = body.itemIds as string[];
+
+    const admin = getSupabaseAdmin();
+    // Verify every id belongs to this collection (prevent cross-collection injection).
+    const { data: existing, error: exErr } = await admin
+      .from('collection_items')
+      .select('id')
+      .eq('collection_id', collectionId);
+    if (exErr) throw new Error(exErr.message);
+    const existingIds = new Set(((existing ?? []) as { id: string }[]).map((r) => r.id));
+    if (itemIds.length !== existingIds.size || !itemIds.every((id) => existingIds.has(id))) {
+      return Response.json(
+        { error: 'itemIds must list every item in this Collection exactly once' },
+        { status: 400 },
+      );
+    }
+
+    const compacted = compactPositions(itemIds.map((id, i) => ({ id, position: i })));
+
+    for (const c of compacted) {
+      const { error } = await admin.from('collection_items')
+        .update({ position: c.position }).eq('id', c.id);
+      if (error) throw new Error(error.message);
+    }
+
+    await admin.from('collections')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', collectionId);
+
+    return Response.json({ ok: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unauthorized';
     return Response.json({ error: msg }, { status: 401 });

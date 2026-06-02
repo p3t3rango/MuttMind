@@ -7,9 +7,10 @@ import { getSupabaseBrowser } from '@/lib/client-auth';
 
 type AppNavProps = {
   // 'home' and 'login' are used in the unauthed branch.
-  // The authed feature values are retained for backward compatibility
-  // with existing call sites; they are no longer rendered in the nav.
-  active?: 'home' | 'login' | 'dashboard' | 'minds' | 'vault' | 'settings';
+  // 'collections' is rendered for authed users.
+  // The remaining authed values are retained for backward compatibility
+  // with existing call sites but are not currently rendered in the nav.
+  active?: 'home' | 'login' | 'dashboard' | 'minds' | 'vault' | 'settings' | 'collections';
 };
 
 /**
@@ -168,7 +169,11 @@ export function AppNav({ active = 'home' }: AppNavProps) {
               <span className="nav-num">02</span> Login
             </Link>
           </>
-        ) : null}
+        ) : (
+          <Link href="/collections" className={active === 'collections' ? 'nav-link active' : 'nav-link'} onClick={() => setMenuOpen(false)}>
+            Collections
+          </Link>
+        )}
       </nav>
 
       <div className="nav-meta" aria-live="polite">

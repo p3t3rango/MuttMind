@@ -5,6 +5,21 @@ import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { authedFetch } from '@/lib/client-auth';
 import type { Collection, CollectionItem } from '@/lib/collections';
+import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface NodeJoin {
   id: string;
@@ -45,6 +60,26 @@ function EditorBody({ collectionId }: { collectionId: string }) {
   const [titleDraft, setTitleDraft] = useState('');
   const [descDraft, setDescDraft] = useState('');
   const [savingMeta, setSavingMeta] = useState(false);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragEnd = async (e: DragEndEvent) => {
+    if (!e.over || e.active.id === e.over.id) return;
+    const oldIndex = items.findIndex((i) => i.id === e.active.id);
+    const newIndex = items.findIndex((i) => i.id === e.over!.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const prev = items;
+    const next = arrayMove(items, oldIndex, newIndex);
+    setItems(next); // optimistic
+    const r = await authedFetch(`/api/collections/${collectionId}/items`, {
+      method: 'PATCH',
+      body: JSON.stringify({ itemIds: next.map((i) => i.id) }),
+    });
+    if (!r.ok) {
+      setStatus((await r.json()).error ?? 'Could not reorder.');
+      setItems(prev); // revert
+    }
+  };
 
   const load = useCallback(async () => {
     const r = await authedFetch(`/api/collections/${collectionId}`);
@@ -136,17 +171,21 @@ function EditorBody({ collectionId }: { collectionId: string }) {
             No items yet. Open a capture in any Mind and choose &ldquo;Add to Collection,&rdquo; or use board multi-select.
           </p>
         )}
-        <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {items.map((it) => (
-            <li key={it.id} style={{ border: '1px solid #2a2a2a', borderRadius: 6, padding: 12 }}>
-              {it.kind === 'capture' ? (
-                <CaptureItemView item={it} onRemove={() => removeItem(it.id)} />
-              ) : (
-                <TextBlockView item={it} onRemove={() => removeItem(it.id)} />
-              )}
-            </li>
-          ))}
-        </ol>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {items.map((it) => (
+                <SortableRow key={it.id} id={it.id}>
+                  {it.kind === 'capture' ? (
+                    <CaptureItemView item={it} onRemove={() => removeItem(it.id)} />
+                  ) : (
+                    <TextBlockView item={it} onRemove={() => removeItem(it.id)} />
+                  )}
+                </SortableRow>
+              ))}
+            </ol>
+          </SortableContext>
+        </DndContext>
       </section>
     </>
   );
@@ -206,5 +245,41 @@ function TextBlockView({
       <div style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{item.textBody}</div>
       <button className="ms-btn ms-btn--ghost" onClick={onRemove}>Remove</button>
     </div>
+  );
+}
+
+function SortableRow({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    border: '1px solid #2a2a2a',
+    borderRadius: 6,
+    padding: 12,
+    display: 'flex',
+    gap: 10,
+    alignItems: 'flex-start',
+  };
+  return (
+    <li ref={setNodeRef} style={style}>
+      <button
+        type="button"
+        aria-label="Drag to reorder"
+        {...attributes}
+        {...listeners}
+        style={{
+          cursor: 'grab',
+          background: 'transparent',
+          border: 'none',
+          padding: '4px 6px',
+          opacity: 0.6,
+          flex: 'none',
+        }}
+      >
+        ⋮⋮
+      </button>
+      <div style={{ flex: 1 }}>{children}</div>
+    </li>
   );
 }

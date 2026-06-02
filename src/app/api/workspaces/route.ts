@@ -25,6 +25,7 @@ type WorkspaceMemberRow = {
     allow_anonymous_contributions: boolean;
     learning_enabled: boolean;
     digest_prompt: string | null;
+    allow_member_cross_publish: boolean;
   };
 };
 
@@ -35,7 +36,7 @@ type MemberCountRow = {
 };
 
 const VOICE_SOURCES = ['system_prompt', 'user_notes', 'mind_notes'] as const;
-const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at,event_mode,event_at,event_end_at,share_code,allow_anonymous_contributions,learning_enabled,digest_prompt';
+const WORKSPACE_SELECT = 'id,name,description,privacy,markdown_content,system_prompt,voice_source,voice_user_ids,provider,model,created_at,event_mode,event_at,event_end_at,share_code,allow_anonymous_contributions,learning_enabled,digest_prompt,allow_member_cross_publish';
 
 function generateShareCode(): string {
   return (
@@ -149,6 +150,7 @@ export async function GET(req: Request) {
         allow_anonymous_contributions: item.workspaces.allow_anonymous_contributions ?? false,
         learning_enabled: item.workspaces.learning_enabled ?? false,
         digest_prompt: item.workspaces.digest_prompt ?? null,
+        allow_member_cross_publish: item.workspaces.allow_member_cross_publish ?? false,
         member_count: memberCounts.get(item.workspaces.id) ?? 1,
         ...(wantsRecent
           ? {

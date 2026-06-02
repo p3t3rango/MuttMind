@@ -1,6 +1,6 @@
 import { requireUserId } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { assertWorkspaceAdmin } from '@/lib/workspace';
+import { assertWorkspaceMember } from '@/lib/workspace';
 
 export async function PATCH(
   req: Request,
@@ -9,7 +9,10 @@ export async function PATCH(
   try {
     const { workspaceId } = await params;
     const userId = await requireUserId(req);
-    await assertWorkspaceAdmin(workspaceId, userId);
+    // Membership confirms the Mind exists and the caller is in it (401 otherwise).
+    // The owner gate is the created_by check below — admins of the Mind are NOT
+    // entitled to flip this setting, only the original creator.
+    await assertWorkspaceMember(workspaceId, userId);
 
     const admin = getSupabaseAdmin();
     const { data: ws } = await admin

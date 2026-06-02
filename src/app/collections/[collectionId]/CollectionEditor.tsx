@@ -81,6 +81,19 @@ function EditorBody({ collectionId }: { collectionId: string }) {
     setStatus('Saved.');
   };
 
+  const removeItem = async (itemId: string) => {
+    if (!confirm('Remove this item from the Collection?')) return;
+    const r = await authedFetch(`/api/collections/${collectionId}/items/${itemId}`, {
+      method: 'DELETE',
+    });
+    if (!r.ok) {
+      setStatus((await r.json()).error ?? 'Could not remove.');
+      return;
+    }
+    setItems((prev) => prev.filter((it) => it.id !== itemId));
+    setStatus('Removed.');
+  };
+
   if (loading) return <p className="meta">Loading…</p>;
   if (!collection) return <p className="meta" style={{ color: 'crimson' }}>{status ?? 'Not found.'}</p>;
 
@@ -117,8 +130,81 @@ function EditorBody({ collectionId }: { collectionId: string }) {
 
       {status && <p className="meta">{status}</p>}
 
-      {/* Items list rendered in CC-15. */}
-      <section data-section="items" />
+      <section style={{ marginTop: 24 }}>
+        {items.length === 0 && (
+          <p className="meta">
+            No items yet. Open a capture in any Mind and choose &ldquo;Add to Collection,&rdquo; or use board multi-select.
+          </p>
+        )}
+        <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {items.map((it) => (
+            <li key={it.id} style={{ border: '1px solid #2a2a2a', borderRadius: 6, padding: 12 }}>
+              {it.kind === 'capture' ? (
+                <CaptureItemView item={it} onRemove={() => removeItem(it.id)} />
+              ) : (
+                <TextBlockView item={it} onRemove={() => removeItem(it.id)} />
+              )}
+            </li>
+          ))}
+        </ol>
+      </section>
     </>
+  );
+}
+
+function CaptureItemView({
+  item,
+  onRemove,
+}: { item: ItemWithNode; onRemove: () => void }) {
+  const node = item.node;
+  if (!node) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="meta" style={{ color: 'crimson' }}>(removed — keep or delete)</div>
+        <button className="ms-btn ms-btn--ghost" onClick={onRemove}>Remove</button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', gap: 12 }}>
+      {node.og_image_url && (
+        <img
+          src={node.og_image_url}
+          alt=""
+          style={{ width: 96, height: 64, objectFit: 'cover', borderRadius: 4, flex: 'none' }}
+        />
+      )}
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>
+          {node.original_url ? (
+            <a href={node.original_url} target="_blank" rel="noreferrer">
+              {node.title ?? 'Untitled capture'}
+            </a>
+          ) : (
+            <span>{node.title ?? 'Untitled capture'}</span>
+          )}
+        </div>
+        {item.caption && (
+          <div style={{ whiteSpace: 'pre-wrap', marginBottom: 4 }}>
+            {item.caption}
+          </div>
+        )}
+        <div className="meta">
+          <button className="ms-btn ms-btn--ghost" onClick={onRemove}>Remove</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TextBlockView({
+  item,
+  onRemove,
+}: { item: ItemWithNode; onRemove: () => void }) {
+  return (
+    <div>
+      <div style={{ whiteSpace: 'pre-wrap', marginBottom: 8 }}>{item.textBody}</div>
+      <button className="ms-btn ms-btn--ghost" onClick={onRemove}>Remove</button>
+    </div>
   );
 }

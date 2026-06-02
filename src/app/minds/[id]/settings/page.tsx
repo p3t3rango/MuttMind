@@ -20,6 +20,7 @@ type Mind = {
   allow_anonymous_contributions?: boolean;
   learning_enabled?: boolean;
   digest_prompt?: string | null;
+  allow_member_cross_publish?: boolean;
 };
 
 type Tag = { id: string; shift_name: string; description: string | null };
@@ -66,6 +67,7 @@ export default function SettingsPage() {
   const [myRole, setMyRole] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [copiedMoment, setCopiedMoment] = useState(false);
+  const [crossPublishBusy, setCrossPublishBusy] = useState(false);
 
   // Tailor state
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -110,6 +112,7 @@ export default function SettingsPage() {
         allow_anonymous_contributions: w.allow_anonymous_contributions ?? false,
         learning_enabled: w.learning_enabled ?? false,
         digest_prompt: w.digest_prompt ?? null,
+        allow_member_cross_publish: w.allow_member_cross_publish ?? false,
       });
       setName(w.name ?? '');
       setDescription(w.description ?? '');
@@ -193,6 +196,21 @@ export default function SettingsPage() {
     } else {
       setStatus(next ? 'Weekly digest on for you.' : 'Weekly digest off.');
     }
+  };
+
+  const toggleCrossPublish = async (next: boolean) => {
+    setCrossPublishBusy(true);
+    const r = await authedFetch(`/api/workspaces/${mindId}/cross-publish`, {
+      method: 'PATCH',
+      body: JSON.stringify({ allow: next }),
+    });
+    setCrossPublishBusy(false);
+    if (!r.ok) {
+      setStatus((await r.json()).error ?? 'Could not save.');
+      return;
+    }
+    setMind((m) => m ? { ...m, allow_member_cross_publish: next } : m);
+    setStatus(next ? 'Cross-publish enabled.' : 'Cross-publish disabled.');
   };
 
   const saveIdentity = async () => {
@@ -374,6 +392,8 @@ export default function SettingsPage() {
   }
 
   const pendingInvites = invites.filter((i) => !i.accepted_at);
+  const isOwner = myRole === 'owner';
+  const isShared = members.length > 1;
 
   return (
     <section className="ms-page">
@@ -536,6 +556,27 @@ export default function SettingsPage() {
             {PRIVACY_OPTIONS.find((o) => o.value === privacy)?.hint}
           </span>
         </div>
+
+        {isOwner && isShared && (
+          <div className="ms-field">
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={mind.allow_member_cross_publish ?? false}
+                onChange={(e) => toggleCrossPublish(e.target.checked)}
+                disabled={crossPublishBusy}
+                style={{ marginTop: 4, width: 'auto' }}
+              />
+              <span>
+                <strong>Allow any member to include any capture from this Mind in their personal Collections.</strong>
+                <br />
+                <span className="meta">
+                  When off (default), members can only add their own captures from this Mind to a Collection.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
       </section>
 
       <section className="ms-section">

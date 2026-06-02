@@ -5,8 +5,50 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
+import { AddToCollection } from '@/components/AddToCollection';
 import { authedFetch } from '@/lib/client-auth';
 import type { SearchGroup } from '@/lib/search';
+
+function ResultRowAddAction({
+  nodeId,
+  setBanner,
+}: {
+  nodeId: string;
+  setBanner: (s: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const onPick = async (collectionId: string, title: string) => {
+    setBusy(true);
+    const r = await authedFetch(`/api/collections/${collectionId}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'capture', nodeId }),
+    });
+    setBusy(false);
+    setOpen(false);
+    if (!r.ok) {
+      setBanner((await r.json()).error ?? 'Could not add to Collection.');
+      return;
+    }
+    setBanner(`Added to "${title}".`);
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        className="ms-btn ms-btn--ghost"
+        onClick={() => setOpen(true)}
+        disabled={busy}
+        style={{ marginTop: 4 }}
+      >
+        Add to Collection
+      </button>
+      <AddToCollection open={open} onClose={() => setOpen(false)} onPick={onPick} />
+    </>
+  );
+}
 
 function SearchResults() {
   const params = useSearchParams();
@@ -14,6 +56,7 @@ function SearchResults() {
   const q = params.get('q') ?? '';
   const [groups, setGroups] = useState<SearchGroup[]>([]);
   const [loading, setLoading] = useState(false);
+  const [banner, setBanner] = useState<string | null>(null);
 
   useEffect(() => {
     const term = q.trim();
@@ -59,6 +102,17 @@ function SearchResults() {
             : 'Type to search across all your Minds.'}
         </p>
 
+        {banner && (
+          <p
+            className="search-page__banner"
+            style={{ marginBottom: 12 }}
+            onClick={() => setBanner(null)}
+            role="status"
+          >
+            {banner}
+          </p>
+        )}
+
         {!loading && q.trim() && total === 0 ? (
           <p className="search-page__empty">Nothing matched. Try a different term.</p>
         ) : null}
@@ -73,21 +127,29 @@ function SearchResults() {
             </div>
             <ul className="search-list" role="list">
               {g.captures.map((c) => (
-                <li key={c.id}>
-                  <button type="button" className="search-hit" onClick={() => openCapture(g.mindId, c.id)}>
+                <li key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <button type="button" className="search-hit" onClick={() => openCapture(g.mindId, c.id)} style={{ flex: 1 }}>
                     <span className="search-hit__kind">capture</span>
                     <span className="search-hit__title">{c.title ?? c.url ?? 'Untitled'}</span>
                     {c.summary ? <span className="search-hit__sub">{c.summary.slice(0, 120)}</span> : null}
                   </button>
+                  <ResultRowAddAction nodeId={c.id} setBanner={setBanner} />
                 </li>
               ))}
               {g.insights.map((i) => (
-                <li key={i.id}>
-                  <Link href={`/minds/${g.mindId}/insights`} className="search-hit">
+                <li key={i.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <Link href={`/minds/${g.mindId}/insights`} className="search-hit" style={{ flex: 1 }}>
                     <span className="search-hit__kind">insight</span>
                     <span className="search-hit__title">{i.title ?? 'Insight'}</span>
                     <span className="search-hit__sub">{i.snippet}</span>
                   </Link>
+                  <span
+                    className="meta"
+                    title="Insight items aren't supported in Collections yet"
+                    style={{ opacity: 0.6, marginTop: 4, whiteSpace: 'nowrap' }}
+                  >
+                    Add to Collection (insights unsupported)
+                  </span>
                 </li>
               ))}
             </ul>

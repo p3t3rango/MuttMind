@@ -67,6 +67,8 @@ function EditorBody({ collectionId }: { collectionId: string }) {
   const [editingCaptionId, setEditingCaptionId] = useState<string | null>(null);
   const [captionDraft, setCaptionDraft] = useState('');
   const [captionBusy, setCaptionBusy] = useState(false);
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false);
 
   const startEditCaption = (item: ItemWithNode) => {
     setEditingCaptionId(item.id);
@@ -93,6 +95,23 @@ function EditorBody({ collectionId }: { collectionId: string }) {
     setEditingCaptionId(null);
     setCaptionDraft('');
     setStatus('Caption saved.');
+  };
+
+  const setCover = async (path: string | null) => {
+    setCoverBusy(true);
+    const r = await authedFetch(`/api/collections/${collectionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ coverPath: path }),
+    });
+    setCoverBusy(false);
+    if (!r.ok) {
+      setStatus((await r.json()).error ?? 'Could not set cover.');
+      return;
+    }
+    const d = await r.json();
+    setCollection(d.collection);
+    setCoverPickerOpen(false);
+    setStatus('Cover updated.');
   };
 
   const addTextBlock = async () => {
@@ -207,6 +226,89 @@ function EditorBody({ collectionId }: { collectionId: string }) {
           onChange={(e) => setDescDraft(e.target.value)}
           placeholder="Short intro that sets up the Collection…"
         />
+      </div>
+
+      <div className="ms-field">
+        <label className="ms-field__label">Cover</label>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {collection.coverPath ? (
+            <>
+              <img
+                src={collection.coverPath}
+                alt=""
+                style={{ width: 96, height: 64, objectFit: 'cover', borderRadius: 4 }}
+              />
+            </>
+          ) : (
+            <div className="meta">No cover.</div>
+          )}
+          <button
+            className="ms-btn ms-btn--ghost"
+            onClick={() => setCoverPickerOpen(true)}
+            disabled={coverBusy}
+          >
+            {collection.coverPath ? 'Change' : 'Set cover'}
+          </button>
+          {collection.coverPath && (
+            <button
+              className="ms-btn ms-btn--ghost"
+              onClick={() => setCover(null)}
+              disabled={coverBusy}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        {coverPickerOpen && (
+          <div style={{ marginTop: 8 }}>
+            <p className="meta">Pick from a capture image:</p>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))',
+                gap: 8,
+              }}
+            >
+              {items.flatMap((it) => {
+                const opts: string[] = [];
+                if (it.node?.og_image_url) opts.push(it.node.og_image_url);
+                return opts.map((path) => (
+                  <button
+                    key={`${it.id}-${path}`}
+                    onClick={() => setCover(path)}
+                    disabled={coverBusy}
+                    style={{
+                      padding: 0,
+                      border: '1px solid #2a2a2a',
+                      borderRadius: 4,
+                      background: 'transparent',
+                      cursor: 'pointer',
+                    }}
+                    aria-label="Use as cover"
+                  >
+                    <img
+                      src={path}
+                      alt=""
+                      style={{ width: '100%', height: 64, objectFit: 'cover', borderRadius: 4, display: 'block' }}
+                    />
+                  </button>
+                ));
+              })}
+              {items.every((it) => !it.node?.og_image_url) && (
+                <p className="meta" style={{ gridColumn: '1 / -1' }}>
+                  No item images available. Add a capture that has an image, then come back.
+                </p>
+              )}
+            </div>
+            <button
+              className="ms-btn ms-btn--ghost"
+              onClick={() => setCoverPickerOpen(false)}
+              style={{ marginTop: 8 }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       <p className="meta">

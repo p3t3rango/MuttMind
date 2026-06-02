@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AudioPlayer } from '@/components/audio-player';
+import { AddToCollection } from '@/components/AddToCollection';
 import { NewMindModal } from '@/components/new-mind-modal';
 import { authedFetch, getAccessToken, getSupabaseBrowser } from '@/lib/client-auth';
 import { detectUrlKind } from '@/lib/detect';
@@ -260,6 +261,8 @@ export default function BoardPage() {
   const [connectBusy, setConnectBusy] = useState<string | null>(null);
   const [publishedAtDraft, setPublishedAtDraft] = useState('');
   const [publishedAtBusy, setPublishedAtBusy] = useState(false);
+  const [addToCollectionOpen, setAddToCollectionOpen] = useState(false);
+  const [addToCollectionBusy, setAddToCollectionBusy] = useState(false);
 
   const filteredCaptures = useMemo(
     () => recentCaptures.filter((captureItem) => matchesQuery(captureItem, searchQuery)),
@@ -790,6 +793,22 @@ export default function BoardPage() {
     setRecentCaptures((current) => current.filter((captureItem) => captureItem.id !== nodeId));
     setSelectedCapture((current) => (current?.id === nodeId ? null : current));
     setStatus('Capture deleted.');
+  };
+
+  const handleAddSelectedToCollection = async (collectionId: string, title: string) => {
+    if (!selectedCapture) return;
+    setAddToCollectionBusy(true);
+    const r = await authedFetch(`/api/collections/${collectionId}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'capture', nodeId: selectedCapture.id }),
+    });
+    setAddToCollectionBusy(false);
+    setAddToCollectionOpen(false);
+    if (!r.ok) {
+      setStatus((await r.json()).error ?? 'Could not add to Collection.');
+      return;
+    }
+    setStatus(`Added to "${title}".`);
   };
 
   useEffect(() => {
@@ -1504,6 +1523,16 @@ export default function BoardPage() {
                     {isImproving ? 'Reprocessing…' : 'Reprocess'}
                   </button>
                 ) : null}
+                {!selectedCapture.id.startsWith('pending-') ? (
+                  <button
+                    type="button"
+                    className="ms-btn"
+                    onClick={() => setAddToCollectionOpen(true)}
+                    disabled={addToCollectionBusy || !selectedCapture}
+                  >
+                    Add to Collection ↗
+                  </button>
+                ) : null}
                 {!selectedCapture.is_processing ? (
                   <button className="button-ghost" onClick={() => deleteCapture(selectedCapture.id)}>
                     Delete
@@ -1519,6 +1548,12 @@ export default function BoardPage() {
         open={newMindModalOpen}
         onClose={() => setNewMindModalOpen(false)}
         onCreated={() => loadWorkspaces()}
+      />
+
+      <AddToCollection
+        open={addToCollectionOpen}
+        onClose={() => setAddToCollectionOpen(false)}
+        onPick={handleAddSelectedToCollection}
       />
 
     </>

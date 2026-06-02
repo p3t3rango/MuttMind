@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { authedFetch } from '@/lib/client-auth';
+import { safeHttpHref } from '@/lib/safe-href';
 import type { Collection, CollectionItem } from '@/lib/collections';
 import {
   DndContext,
@@ -251,6 +252,7 @@ function CaptureItemView({
       </div>
     );
   }
+  const safeUrl = safeHttpHref(node.original_url);
   return (
     <div style={{ display: 'flex', gap: 12 }}>
       {node.og_image_url && (
@@ -262,8 +264,8 @@ function CaptureItemView({
       )}
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 600, marginBottom: 4 }}>
-          {node.original_url ? (
-            <a href={node.original_url} target="_blank" rel="noreferrer">
+          {safeUrl ? (
+            <a href={safeUrl} target="_blank" rel="noreferrer">
               {node.title ?? 'Untitled capture'}
             </a>
           ) : (

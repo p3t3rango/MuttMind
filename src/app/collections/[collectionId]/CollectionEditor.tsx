@@ -60,6 +60,26 @@ function EditorBody({ collectionId }: { collectionId: string }) {
   const [titleDraft, setTitleDraft] = useState('');
   const [descDraft, setDescDraft] = useState('');
   const [savingMeta, setSavingMeta] = useState(false);
+  const [textDraft, setTextDraft] = useState('');
+  const [addingText, setAddingText] = useState(false);
+  const [textBusy, setTextBusy] = useState(false);
+
+  const addTextBlock = async () => {
+    if (textDraft.trim().length === 0) return;
+    setTextBusy(true);
+    const r = await authedFetch(`/api/collections/${collectionId}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'text', textBody: textDraft }),
+    });
+    setTextBusy(false);
+    if (!r.ok) {
+      setStatus((await r.json()).error ?? 'Could not add.');
+      return;
+    }
+    setTextDraft('');
+    setAddingText(false);
+    await load();
+  };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -186,6 +206,33 @@ function EditorBody({ collectionId }: { collectionId: string }) {
             </ol>
           </SortableContext>
         </DndContext>
+
+        <div style={{ marginTop: 24 }}>
+          {!addingText && (
+            <button className="ms-btn" onClick={() => setAddingText(true)}>
+              + Add text block
+            </button>
+          )}
+          {addingText && (
+            <div className="ms-field">
+              <textarea
+                className="ms-input"
+                rows={4}
+                value={textDraft}
+                onChange={(e) => setTextDraft(e.target.value)}
+                placeholder="Heading, intro, or connective prose between items…"
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="ms-btn" onClick={addTextBlock} disabled={textBusy}>
+                  {textBusy ? 'Adding…' : 'Save block'}
+                </button>
+                <button className="ms-btn ms-btn--ghost" onClick={() => { setAddingText(false); setTextDraft(''); }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </section>
     </>
   );

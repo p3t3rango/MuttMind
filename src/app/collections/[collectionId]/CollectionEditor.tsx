@@ -69,6 +69,9 @@ function EditorBody({ collectionId }: { collectionId: string }) {
   const [captionBusy, setCaptionBusy] = useState(false);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false);
+  const [members, setMembers] = useState<{ user_id: string; role: string; created_at: string }[]>([]);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteBusy, setInviteBusy] = useState(false);
 
   const startEditCaption = (item: ItemWithNode) => {
     setEditingCaptionId(item.id);
@@ -168,6 +171,46 @@ function EditorBody({ collectionId }: { collectionId: string }) {
   }, [collectionId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadMembers = useCallback(async () => {
+    if (!isOwner) return;
+    const r = await authedFetch(`/api/collections/${collectionId}/members`);
+    if (!r.ok) return;
+    const d = await r.json();
+    setMembers(d.members ?? []);
+  }, [collectionId, isOwner]);
+
+  useEffect(() => { loadMembers(); }, [loadMembers]);
+
+  const invite = async () => {
+    setInviteBusy(true);
+    const r = await authedFetch(`/api/collections/${collectionId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ email: inviteEmail }),
+    });
+    setInviteBusy(false);
+    if (!r.ok) {
+      setStatus((await r.json()).error ?? 'Could not invite.');
+      return;
+    }
+    setInviteEmail('');
+    setStatus('Editor invited.');
+    await loadMembers();
+  };
+
+  const revoke = async (userId: string) => {
+    if (!confirm('Remove this editor?')) return;
+    const r = await authedFetch(`/api/collections/${collectionId}/members`, {
+      method: 'DELETE',
+      body: JSON.stringify({ userId }),
+    });
+    if (!r.ok) {
+      setStatus((await r.json()).error ?? 'Could not revoke.');
+      return;
+    }
+    setMembers((prev) => prev.filter((m) => m.user_id !== userId));
+    setStatus('Editor removed.');
+  };
 
   const saveMeta = async () => {
     if (!collection) return;
@@ -310,6 +353,37 @@ function EditorBody({ collectionId }: { collectionId: string }) {
           </div>
         )}
       </div>
+
+      {isOwner && (
+        <div className="ms-field">
+          <label className="ms-field__label">Editors</label>
+          {members.length === 0 ? (
+            <p className="meta">No co-editors yet.</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {members.map((m) => (
+                <li key={m.user_id} className="meta" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                  <span style={{ fontFamily: 'monospace', opacity: 0.8 }}>{m.user_id}</span>
+                  <button className="ms-btn ms-btn--ghost" onClick={() => revoke(m.user_id)}>Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <input
+              className="ms-input"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="invite editor by email"
+              style={{ flex: 1 }}
+            />
+            <button className="ms-btn" onClick={invite} disabled={inviteBusy || !inviteEmail}>
+              {inviteBusy ? 'Inviting…' : 'Invite'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <p className="meta">
         Status: {collection.status === 'published' ? 'Published' : 'Draft'}

@@ -64,6 +64,40 @@ const FETCH_TIMEOUT_MS = 20_000;
 // bounding a pathological 500-page PDF from blowing up the row / LLM cost.
 const MAX_TEXT_CHARS = 400_000;
 const UA = 'MuttMindBot/1.0';
+// Retry identity for hosts that challenge unknown bots (Cloudflare et al.).
+// We announce ourselves honestly first; this is the fallback, not the default.
+const BROWSER_HEADERS: Record<string, string> = {
+  'user-agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'accept-language': 'en-US,en;q=0.9',
+};
+
+const CHALLENGE_TITLE = /^\s*(just a moment|attention required|access denied|verify(ing)? you are|are you a robot|one more step|please wait)/i;
+
+/**
+ * Bot-mitigation interstitials (Cloudflare "Just a moment...", etc.) parse as
+ * tiny "articles" — without this check we'd persist the challenge page's
+ * title as the capture title.
+ */
+function looksLikeBotChallenge(res: Response, result: ScrapeResult): boolean {
+  if (res.headers.get('cf-mitigated') === 'challenge') return true;
+  const thin = result.text.length < 500;
+  if (thin && CHALLENGE_TITLE.test(result.title)) return true;
+  if ((res.status === 403 || res.status === 503) && thin) return true;
+  return false;
+}
+
+/** "the-situationist-international-art-67f66766cb90" → "The situationist international art" */
+function humanizedFallbackTitle(url: URL): string {
+  const slug = url.pathname.split('/').filter(Boolean).pop() ?? '';
+  if (!slug) return hostnameOf(url);
+  const parts = decodeURIComponent(slug).replace(/\.(html?|php|aspx?)$/i, '').split('-');
+  if (parts.length > 1 && /^[0-9a-f]{8,}$/i.test(parts[parts.length - 1])) parts.pop();
+  const text = parts.join(' ').trim();
+  if (!text) return hostnameOf(url);
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 /**
  * Collapse intra-line whitespace but PRESERVE paragraph breaks. Stage 2
@@ -500,7 +534,38 @@ export async function scrapeUrl(url: string): Promise<ScrapeResult> {
 
   if (contentType.includes('text/html')) {
     try {
-      return await extractArticle(await res.text(), url);
+      const first = await extractArticle(await res.text(), url);
+      if (!looksLikeBotChallenge(res, first)) return first;
+
+      // Challenged (e.g. Cloudflare "Just a moment..."): one retry with
+      // browser-like headers, which most non-JS challenge tiers accept.
+      try {
+        const retry = await fetch(url, {
+          headers: BROWSER_HEADERS,
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
+        if ((retry.headers.get('content-type') ?? '').includes('text/html')) {
+          const second = await extractArticle(await retry.text(), url);
+          if (!looksLikeBotChallenge(retry, second)) return second;
+        }
+      } catch {
+        // fall through to the graceful fallback below
+      }
+
+      // Still blocked: save the link with a slug-derived title rather than
+      // persisting the challenge page's "Just a moment..." metadata.
+      return {
+        title: humanizedFallbackTitle(parsed),
+        description: '',
+        image: '',
+        author: '',
+        text: '',
+        kind: 'article',
+        truncated: false,
+        extractionWarnings: [
+          `${host} blocked automated access (bot challenge) — saved the link without article text. Try re-processing later.`,
+        ],
+      };
     } catch (e) {
       return {
         title: fallbackTitleFrom(parsed),

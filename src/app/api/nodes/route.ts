@@ -24,6 +24,7 @@ type NodeListRow = {
   created_by: string | null;
   created_at: string;
   published_at: string | null;
+  extraction_warnings?: string[] | null;
   users?: {
     display_name?: string | null;
     email?: string | null;
@@ -39,7 +40,7 @@ export async function GET(req: Request) {
     await assertWorkspaceMember(workspaceId, userId);
 
     const select =
-      'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,scrape_kind,media_path,created_by,created_at,published_at,users(display_name,email),node_tags(tags(shift_name))';
+      'id,workspace_id,title,original_url,og_image_url,source_description,source_author,raw_text,user_notes,ai_summary,scrape_kind,media_path,created_by,created_at,published_at,extraction_warnings,users(display_name,email),node_tags(tags(shift_name))';
 
     // Captures connected to this Mind from elsewhere (Feature 1.5).
     const { data: connections } = await getSupabaseAdmin()
@@ -50,14 +51,20 @@ export async function GET(req: Request) {
       .map((c) => (c as { node_id: string }).node_id)
       .filter((id): id is string => typeof id === 'string');
 
-    let queryBuilder = getSupabaseAdmin().from('nodes').select(select);
-    queryBuilder = connectedIds.length
-      ? queryBuilder.or(`workspace_id.eq.${workspaceId},id.in.(${connectedIds.join(',')})`)
-      : queryBuilder.eq('workspace_id', workspaceId);
+    const runQuery = (columns: string) => {
+      let queryBuilder = getSupabaseAdmin().from('nodes').select(columns);
+      queryBuilder = connectedIds.length
+        ? queryBuilder.or(`workspace_id.eq.${workspaceId},id.in.(${connectedIds.join(',')})`)
+        : queryBuilder.eq('workspace_id', workspaceId);
+      return queryBuilder.order('created_at', { ascending: false }).limit(50);
+    };
 
-    const { data, error } = await queryBuilder
-      .order('created_at', { ascending: false })
-      .limit(50);
+    let { data, error } = await runQuery(select);
+    if (error && error.message.includes('extraction_warnings')) {
+      // extraction_warnings_patch.sql not applied yet — serve the list without
+      // capture health rather than failing the whole board.
+      ({ data, error } = await runQuery(select.replace('extraction_warnings,', '')));
+    }
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
     const rows = (data ?? []) as unknown as NodeListRow[];
@@ -83,6 +90,7 @@ export async function GET(req: Request) {
         media_url: null as string | null,
         created_by: node.created_by,
         published_at: node.published_at,
+        extraction_warnings: node.extraction_warnings ?? [],
         created_by_label: node.users?.display_name || node.users?.email || 'teammate',
         // True when the capture's home is a different Mind — it's here via a
         // connection rather than originally saved here.

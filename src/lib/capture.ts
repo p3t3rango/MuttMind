@@ -4,6 +4,7 @@ import { env } from './env';
 import { aiProcess, embeddingProcess } from './llm';
 import { scrapeUrl } from './scrape';
 import { getSupabaseAdmin } from './supabase';
+import { foldTags } from './tags';
 import { assertWorkspaceMember } from './workspace';
 
 type Prefetched = {
@@ -91,6 +92,16 @@ export async function captureSignal({
 
   if (nodeError) throw new Error(nodeError.message);
 
+  // Separate, non-fatal update: capture health must never fail the capture
+  // (also tolerates the extraction_warnings column patch not being applied yet).
+  if (scrape.extractionWarnings.length) {
+    const { error: warnError } = await getSupabaseAdmin()
+      .from('nodes')
+      .update({ extraction_warnings: scrape.extractionWarnings })
+      .eq('id', node.id);
+    if (warnError) console.error('extraction_warnings update failed:', warnError.message);
+  }
+
   const { data: tagsData } = await getSupabaseAdmin()
     .from('tags')
     .select('shift_name')
@@ -112,9 +123,10 @@ export async function captureSignal({
     .join('\n')
     .trim();
 
+  const existingTagNames = (tagsData ?? []).map((tag) => tag.shift_name);
   const ai = await aiProcess({
     text: sourceText,
-    tags: (tagsData ?? []).map((tag) => tag.shift_name),
+    tags: existingTagNames,
   }).catch((error) => {
     warnings.push(error instanceof Error ? error.message : 'AI processing failed.');
     return {
@@ -123,6 +135,9 @@ export async function captureSignal({
       embedding: [] as number[],
     };
   });
+  // Fold plural/hyphen near-duplicates onto the Mind's established vocabulary
+  // so `zines` doesn't take root beside `zine`.
+  ai.tags = foldTags(ai.tags, existingTagNames);
 
   const { error: summaryError } = await getSupabaseAdmin().from('nodes').update({ ai_summary: ai.summary }).eq('id', node.id);
   if (summaryError) warnings.push(summaryError.message);

@@ -38,6 +38,7 @@ type CaptureItem = {
   scrape_kind?: string | null;
   media_url?: string | null;
   published_at?: string | null;
+  extraction_warnings?: string[] | null;
 };
 
 type NodeNote = {
@@ -1316,6 +1317,17 @@ export default function BoardPage() {
                   <p>{selectedCapture.is_processing ? 'MuttMind is reading the source, writing the summary, and assigning tags.' : selectedCapture.ai_summary || selectedCapture.source_description || 'No summary yet.'}</p>
                 </div>
               )}
+              {selectedCapture.extraction_warnings?.length ? (
+                <div className="capture-warnings">
+                  <p className="kicker">Extraction issues</p>
+                  {selectedCapture.extraction_warnings.map((warning) => (
+                    <p key={warning} className="capture-warnings__item">{warning}</p>
+                  ))}
+                  <p className="capture-warnings__hint">
+                    Reprocess (below) re-fetches the source and rebuilds the summary, tags, and connections.
+                  </p>
+                </div>
+              ) : null}
               <div>
                 <p className="kicker">MuttMind tags</p>
                 {selectedCapture.is_processing ? (

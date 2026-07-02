@@ -23,7 +23,7 @@ type Mind = {
   allow_member_cross_publish?: boolean;
 };
 
-type Tag = { id: string; shift_name: string; description: string | null };
+type Tag = { id: string; shift_name: string; description: string | null; usage_count?: number };
 type Member = { role: string; user: { id: string; email: string | null; displayName: string | null } };
 type Invite = { id: string; email: string | null; token: string; role: string; accepted_at: string | null };
 
@@ -62,12 +62,15 @@ export default function SettingsPage() {
   const [shareLink, setShareLink] = useState('');
   const [tagName, setTagName] = useState('');
   const [tagDescription, setTagDescription] = useState('');
+  const [mergeSelection, setMergeSelection] = useState<string[]>([]);
+  const [mergeTarget, setMergeTarget] = useState('');
   const [digestOptIn, setDigestOptIn] = useState(false);
   const [myUserId, setMyUserId] = useState('');
   const [myRole, setMyRole] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [copiedMoment, setCopiedMoment] = useState(false);
   const [crossPublishBusy, setCrossPublishBusy] = useState(false);
+  const [backfillBusy, setBackfillBusy] = useState(false);
 
   // Tailor state
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -340,6 +343,57 @@ export default function SettingsPage() {
     if (!confirm('Delete this tag?')) return;
     const r = await authedFetch(`/api/tags?workspaceId=${mindId}&tagId=${tagId}`, { method: 'DELETE' });
     if (r.ok) loadTags();
+  };
+
+  const toggleMergeTag = (tagId: string) => {
+    setMergeSelection((prev) => {
+      const next = prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId];
+      setMergeTarget((target) => (next.includes(target) ? target : (next[0] ?? '')));
+      return next;
+    });
+  };
+
+  const mergeTags = async () => {
+    const target = tags.find((tag) => tag.id === mergeTarget);
+    const sources = mergeSelection.filter((id) => id !== mergeTarget);
+    if (!target || !sources.length) return;
+    const label = sources.length === 1 ? '1 tag' : `${sources.length} tags`;
+    if (!confirm(`Merge ${label} into "${target.shift_name}"? Captures keep their tagging under the merged tag.`)) return;
+    const r = await authedFetch('/api/tags/merge', {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId: mindId, fromTagIds: sources, toTagId: mergeTarget }),
+    });
+    if (r.ok) {
+      setMergeSelection([]);
+      setMergeTarget('');
+      setStatus('Tags merged.');
+      loadTags();
+    } else {
+      const d = await r.json();
+      setStatus(d.error ?? 'Could not merge tags.');
+    }
+  };
+
+  const backfillEmbeddings = async () => {
+    setBackfillBusy(true);
+    setStatus('Checking for captures without embeddings…');
+    try {
+      const r = await authedFetch(`/api/workspaces/${mindId}/backfill-embeddings`, { method: 'POST' });
+      const d = await r.json();
+      if (!r.ok) {
+        setStatus(d.error ?? 'Backfill failed.');
+        return;
+      }
+      setStatus(
+        d.missing === 0
+          ? 'All captures already have embeddings.'
+          : `Embedded ${d.embedded} of ${d.missing} captures${d.failures?.length ? ` (${d.failures.length} failed)` : ''}.`,
+      );
+    } catch {
+      setStatus('Backfill failed (network?).');
+    } finally {
+      setBackfillBusy(false);
+    }
   };
 
   const exportArchive = async () => {
@@ -889,7 +943,17 @@ export default function SettingsPage() {
           {tags.length === 0 ? <p className="tag-table__empty">No tags yet.</p> : null}
           {tags.map((tag) => (
             <div key={tag.id} className="tag-row" role="listitem">
-              <span className="tag-row__name">{tag.shift_name}</span>
+              <span className="tag-row__name">
+                <input
+                  type="checkbox"
+                  className="tag-row__check"
+                  checked={mergeSelection.includes(tag.id)}
+                  onChange={() => toggleMergeTag(tag.id)}
+                  aria-label={`Select ${tag.shift_name} to merge`}
+                />
+                {tag.shift_name}
+                <span className="tag-row__count">×{tag.usage_count ?? 0}</span>
+              </span>
               <span className={`tag-row__desc${tag.description ? '' : ' tag-row__desc--empty'}`}>
                 {tag.description || 'No description'}
               </span>
@@ -905,15 +969,38 @@ export default function SettingsPage() {
             </div>
           ))}
         </div>
+        {mergeSelection.length >= 2 ? (
+          <div className="ms-tag-merge">
+            <span className="ms-tag-merge__label">Merge {mergeSelection.length} tags into</span>
+            <Dropdown
+              value={mergeTarget}
+              options={tags
+                .filter((tag) => mergeSelection.includes(tag.id))
+                .map((tag) => ({ value: tag.id, name: tag.shift_name }))}
+              onChange={setMergeTarget}
+              ariaLabel="Tag to keep"
+              size="inline"
+            />
+            <button type="button" className="ms-btn ms-btn--ghost" onClick={mergeTags}>
+              Merge
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="ms-section">
-        <h2 className="ms-section__title">Export & capture</h2>
+        <h2 className="ms-section__title">Export & maintenance</h2>
         <div className="ms-invite__actions">
           <button type="button" className="ms-btn ms-btn--ghost" onClick={exportArchive}>
             Download Obsidian archive
           </button>
+          <button type="button" className="ms-btn ms-btn--ghost" onClick={backfillEmbeddings} disabled={backfillBusy}>
+            {backfillBusy ? 'Re-embedding…' : 'Backfill map embeddings'}
+          </button>
         </div>
+        <p className="ms-section__hint">
+          Captures without embeddings can&apos;t form semantic connections on the map. Backfill re-embeds them from their saved content.
+        </p>
       </section>
     </section>
   );

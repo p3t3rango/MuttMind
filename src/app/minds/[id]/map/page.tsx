@@ -70,6 +70,8 @@ export default function MapPage() {
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
   const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Semantic-edge cosine cutoff; mirrors the API default. Lower = denser map.
+  const [threshold, setThreshold] = useState(0.62);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<NodeDetail | null>(null);
@@ -94,19 +96,22 @@ export default function MapPage() {
   const panRef = useRef<{ active: boolean; startX: number; startY: number } | null>(null);
   const [stageSize, setStageSize] = useState({ width: 1200, height: 800 });
 
-  const loadGraph = useCallback(async (id: string) => {
+  const loadGraph = useCallback(async (id: string, cutoff: number) => {
     if (!id) return;
     setIsLoading(true);
-    const r = await authedFetch(`/api/nodes/graph?workspaceId=${id}`);
+    const r = await authedFetch(`/api/nodes/graph?workspaceId=${id}&threshold=${cutoff}`);
     const d = await r.json();
     setGraphNodes((d.nodes ?? []) as GraphNode[]);
     setGraphEdges((d.edges ?? []) as GraphEdge[]);
     setIsLoading(false);
   }, []);
 
+  // Debounced so slider scrubbing doesn't fire a request per pixel.
   useEffect(() => {
-    if (workspaceId) loadGraph(workspaceId);
-  }, [workspaceId, loadGraph]);
+    if (!workspaceId) return;
+    const timer = setTimeout(() => loadGraph(workspaceId, threshold), 250);
+    return () => clearTimeout(timer);
+  }, [workspaceId, threshold, loadGraph]);
 
   // Track stage size so the simulation centers correctly.
   useEffect(() => {
@@ -502,6 +507,23 @@ export default function MapPage() {
             )}
           </aside>
         ) : null}
+
+        <div className="vault-stage__density">
+          <span>dense</span>
+          <input
+            type="range"
+            min={0.5}
+            max={0.8}
+            step={0.01}
+            value={threshold}
+            onChange={(e) => setThreshold(Number(e.target.value))}
+            aria-label="Connection threshold — left for more connections, right for fewer"
+          />
+          <span>sparse</span>
+          <span className="vault-stage__density-count">
+            {graphEdges.length} {graphEdges.length === 1 ? 'link' : 'links'}
+          </span>
+        </div>
 
         <div className="vault-stage__legend" aria-hidden="true">
           <span>drag to pan · scroll to zoom · drag a node to rearrange</span>

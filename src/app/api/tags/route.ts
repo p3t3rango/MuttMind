@@ -10,11 +10,15 @@ export async function GET(req: Request) {
     await assertWorkspaceMember(workspaceId, userId);
     const { data, error } = await getSupabaseAdmin()
       .from('tags')
-      .select('id,shift_name,description,created_at')
+      .select('id,shift_name,description,created_at,node_tags(count)')
       .eq('workspace_id', workspaceId)
       .order('shift_name');
     if (error) return Response.json({ error: error.message }, { status: 500 });
-    return Response.json({ tags: data });
+    const tags = (data ?? []).map(({ node_tags, ...tag }) => ({
+      ...tag,
+      usage_count: node_tags?.[0]?.count ?? 0,
+    }));
+    return Response.json({ tags });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : 'unknown' }, { status: 401 });
   }

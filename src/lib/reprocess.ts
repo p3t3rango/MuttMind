@@ -3,6 +3,7 @@ import { buildEmbeddingInput } from './embedding-input';
 import { aiProcess, embeddingProcess } from './llm';
 import { scrapeUrl } from './scrape';
 import { getSupabaseAdmin } from './supabase';
+import { foldTags } from './tags';
 
 type Row = {
   id: string;
@@ -72,6 +73,14 @@ export async function reprocessNode(nodeId: string, workspaceId: string) {
     if (ogImage) update.og_image_url = ogImage;
     const { error: upErr } = await supabase.from('nodes').update(update).eq('id', nodeId);
     if (upErr) warnings.push(upErr.message);
+
+    // Separate, non-fatal: refresh capture health — clears old warnings when a
+    // re-scrape heals the capture, records new ones when it doesn't.
+    const { error: warnErr } = await supabase
+      .from('nodes')
+      .update({ extraction_warnings: scrape.extractionWarnings.length ? scrape.extractionWarnings : null })
+      .eq('id', nodeId);
+    if (warnErr) console.error('extraction_warnings update failed:', warnErr.message);
   }
 
   const { data: tagsData } = await supabase
@@ -90,13 +99,16 @@ export async function reprocessNode(nodeId: string, workspaceId: string) {
     .join('\n')
     .trim();
 
+  const existingTagNames = (tagsData ?? []).map((t) => t.shift_name);
   const ai = await aiProcess({
     text: sourceText,
-    tags: (tagsData ?? []).map((t) => t.shift_name),
+    tags: existingTagNames,
   }).catch((e) => {
     warnings.push(e instanceof Error ? e.message : 'AI processing failed.');
     return { summary: sourceDescription || rawText || title || 'Saved.', tags: [] as string[], embedding: [] as number[] };
   });
+  // Fold plural/hyphen near-duplicates onto the Mind's established vocabulary.
+  ai.tags = foldTags(ai.tags, existingTagNames);
 
   const { error: sErr } = await supabase.from('nodes').update({ ai_summary: ai.summary }).eq('id', nodeId);
   if (sErr) warnings.push(sErr.message);

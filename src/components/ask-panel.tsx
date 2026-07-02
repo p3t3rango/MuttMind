@@ -196,7 +196,12 @@ export function AskPanel({
           rows={2}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); send(input); }
+            // Enter submits, Shift+Enter inserts a newline (Claude/ChatGPT convention).
+            // isComposing guards against firing mid-character during IME input.
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              send(input);
+            }
           }}
         />
         <button type="submit" className="ms-btn" disabled={busy || !input.trim()}>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/client-auth';
+import { COLLECTIONS_ENABLED } from '@/lib/features';
 
 type AppNavProps = {
   // 'home' and 'login' are used in the unauthed branch.
@@ -169,11 +170,11 @@ export function AppNav({ active = 'home' }: AppNavProps) {
               <span className="nav-num">02</span> Login
             </Link>
           </>
-        ) : (
+        ) : COLLECTIONS_ENABLED ? (
           <Link href="/collections" className={active === 'collections' ? 'nav-link active' : 'nav-link'} onClick={() => setMenuOpen(false)}>
             Collections
           </Link>
-        )}
+        ) : null}
       </nav>
 
       <div className="nav-meta" aria-live="polite">

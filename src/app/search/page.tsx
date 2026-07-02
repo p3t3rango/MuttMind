@@ -7,6 +7,7 @@ import { AppNav } from '@/components/app-nav';
 import { AuthGate } from '@/components/auth-gate';
 import { AddToCollection } from '@/components/AddToCollection';
 import { authedFetch } from '@/lib/client-auth';
+import { COLLECTIONS_ENABLED } from '@/lib/features';
 import type { SearchGroup } from '@/lib/search';
 
 function ResultRowAddAction({
@@ -133,7 +134,7 @@ function SearchResults() {
                     <span className="search-hit__title">{c.title ?? c.url ?? 'Untitled'}</span>
                     {c.summary ? <span className="search-hit__sub">{c.summary.slice(0, 120)}</span> : null}
                   </button>
-                  <ResultRowAddAction nodeId={c.id} setBanner={setBanner} />
+                  {COLLECTIONS_ENABLED ? <ResultRowAddAction nodeId={c.id} setBanner={setBanner} /> : null}
                 </li>
               ))}
               {g.insights.map((i) => (
@@ -143,13 +144,15 @@ function SearchResults() {
                     <span className="search-hit__title">{i.title ?? 'Insight'}</span>
                     <span className="search-hit__sub">{i.snippet}</span>
                   </Link>
-                  <span
-                    className="meta"
-                    title="Insight items aren't supported in Collections yet"
-                    style={{ opacity: 0.6, marginTop: 4, whiteSpace: 'nowrap' }}
-                  >
-                    Add to Collection (insights unsupported)
-                  </span>
+                  {COLLECTIONS_ENABLED ? (
+                    <span
+                      className="meta"
+                      title="Insight items aren't supported in Collections yet"
+                      style={{ opacity: 0.6, marginTop: 4, whiteSpace: 'nowrap' }}
+                    >
+                      Add to Collection (insights unsupported)
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>

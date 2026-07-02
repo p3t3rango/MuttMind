@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AudioPlayer } from '@/components/audio-player';
 import { AddToCollection } from '@/components/AddToCollection';
+import { COLLECTIONS_ENABLED } from '@/lib/features';
 import { NewMindModal } from '@/components/new-mind-modal';
 import { authedFetch, getAccessToken, getSupabaseBrowser } from '@/lib/client-auth';
 import { detectUrlKind } from '@/lib/detect';
@@ -1544,7 +1545,7 @@ export default function BoardPage() {
                     {isImproving ? 'Reprocessing…' : 'Reprocess'}
                   </button>
                 ) : null}
-                {!selectedCapture.id.startsWith('pending-') ? (
+                {COLLECTIONS_ENABLED && !selectedCapture.id.startsWith('pending-') ? (
                   <button
                     type="button"
                     className="ms-btn"

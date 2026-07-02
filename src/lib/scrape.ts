@@ -425,13 +425,17 @@ async function extractArticle(html: string, url: string): Promise<ScrapeResult> 
 
   // Primary: Readability (real article extraction). Fallback: the old
   // <article>|<main>|<body> sweep — minus the 5k slice.
+  // linkedom, not jsdom: jsdom's CSS chain (cssstyle → css-color) requires the
+  // ESM-only @csstools/css-calc, which throws ERR_REQUIRE_ESM on runtimes
+  // without require(esm) — exactly what happened on Vercel. linkedom is
+  // dual-published, dependency-light, and we only need textContent + byline.
   let body = '';
   let byline = '';
   try {
-    const { JSDOM } = await import('jsdom');
+    const { parseHTML } = await import('linkedom');
     const { Readability } = await import('@mozilla/readability');
-    const dom = new JSDOM(html, { url });
-    const article = new Readability(dom.window.document).parse();
+    const { document } = parseHTML(html);
+    const article = new Readability(document as unknown as Document).parse();
     if (article?.textContent && article.textContent.trim().length >= 200) {
       body = article.textContent;
       byline = article.byline ?? '';

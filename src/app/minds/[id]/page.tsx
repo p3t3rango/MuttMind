@@ -155,8 +155,12 @@ function getCaptureType(captureItem: CaptureItem) {
 
 function getCardVariant(captureItem: CaptureItem, index: number) {
   const type = getCaptureType(captureItem);
+  // Image check before the no-URL note check: uploaded images have no
+  // original_url but should still lay out as images.
+  if (captureItem.og_image_url || (type === 'image' && captureItem.media_url)) {
+    return index % 3 === 0 ? 'tall' : index % 4 === 0 ? 'wide' : 'image';
+  }
   if (!captureItem.original_url) return 'note';
-  if (captureItem.og_image_url) return index % 3 === 0 ? 'tall' : index % 4 === 0 ? 'wide' : 'image';
   if (type === 'pdf') return 'document';
   if (type === 'video') return 'video';
   return 'link';
@@ -1167,6 +1171,11 @@ export default function BoardPage() {
           <div className="masonry-grid">
             {filteredCaptures.map((captureItem, index) => {
               const variant = getCardVariant(captureItem, index);
+              // Uploaded images have no og_image_url — their signed bucket URL
+              // arrives as media_url.
+              const previewImage =
+                captureItem.og_image_url ||
+                (getCaptureType(captureItem) === 'image' ? captureItem.media_url : null);
 
               return (
                 <article key={captureItem.id} className={`mind-card mind-card--${variant}`}>
@@ -1178,9 +1187,9 @@ export default function BoardPage() {
                   >
                   {captureItem.is_processing ? (
                     <span className="mind-card__processing">Reading source...</span>
-                  ) : captureItem.og_image_url ? (
+                  ) : previewImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={captureItem.og_image_url} alt={captureItem.title ?? 'Saved preview'} />
+                      <img src={previewImage} alt={captureItem.title ?? 'Saved preview'} />
                     ) : variant === 'note' ? (
                       <span className="mind-card__note">
                         {captureItem.raw_text || captureItem.ai_summary || captureItem.title || 'Untitled note'}

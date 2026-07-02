@@ -57,6 +57,8 @@ type RecentNodeRow = {
   title: string | null;
   original_url: string | null;
   og_image_url: string | null;
+  media_path: string | null;
+  scrape_kind: string | null;
   created_at: string;
 };
 
@@ -98,7 +100,7 @@ export async function GET(req: Request) {
         // its 4 most recent even if they're skewed in distribution.
         const { data: nodes } = await getSupabaseAdmin()
           .from('nodes')
-          .select('id,workspace_id,title,original_url,og_image_url,created_at')
+          .select('id,workspace_id,title,original_url,og_image_url,media_path,scrape_kind,created_at')
           .in('workspace_id', workspaceIds)
           .order('created_at', { ascending: false })
           .limit(workspaceIds.length * 12);
@@ -111,6 +113,23 @@ export async function GET(req: Request) {
           }
           captureCounts.set(node.workspace_id, (captureCounts.get(node.workspace_id) ?? 0) + 1);
         });
+
+        // Uploaded images live in the private captures bucket (media_path,
+        // no og_image_url). Mint short-lived signed URLs so the recent strip
+        // can render them — same pattern as the nodes list endpoint.
+        const needsSigned = Array.from(recentByWorkspace.values())
+          .flat()
+          .filter((n) => !n.og_image_url && n.media_path && n.scrape_kind === 'image');
+        if (needsSigned.length) {
+          const { data: signed } = await getSupabaseAdmin()
+            .storage.from('captures')
+            .createSignedUrls(needsSigned.map((n) => n.media_path as string), 3600);
+          const byPath = new Map((signed ?? []).map((s) => [s.path ?? '', s.signedUrl] as const));
+          for (const n of needsSigned) {
+            const signedUrl = byPath.get(n.media_path as string);
+            if (signedUrl) n.og_image_url = signedUrl;
+          }
+        }
 
         // For accurate total counts (since the limit may have truncated some
         // workspaces' contributions), do a separate count query per workspace

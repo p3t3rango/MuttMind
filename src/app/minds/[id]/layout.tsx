@@ -68,6 +68,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="mind-bar__actions">
+            <Link href={`/minds/${id}/settings`} className="mind-bar__gear" aria-label="Mind settings">⚙</Link>
             <button type="button" className="ms-btn" onClick={() => setAskOpen(true)}>Ask ✦</button>
           </div>
         </div>
